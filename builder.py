@@ -37,7 +37,7 @@ def download(url, dest):
     log(f"Saved to {dest}")
 
 def load_token():
-    return os.getenv("github_token") or os.getenv("GITHUB_TOKEN")
+    return os.getenv("GITHUB_TOKEN") or os.getenv("GITHUB_TOKEN")
 
 # ------------------------- INIT -------------------------
 def init_project():
