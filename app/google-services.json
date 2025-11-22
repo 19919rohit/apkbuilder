@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "502338517467",
+    "project_id": "flapchat-44",
+    "storage_bucket": "flapchat-44.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:502338517467:android:c8f5dc40b72766a1790ffe",
+        "android_client_info": {
+          "package_name": "com.flapchat.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDc18_u1L8_gHXeb4yNVjpM7jqupzDiMw4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:502338517467:android:382d38ed51b25d19790ffe",
+        "android_client_info": {
+          "package_name": "com.pushlab.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDc18_u1L8_gHXeb4yNVjpM7jqupzDiMw4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

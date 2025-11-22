@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.flapchat.app">
+
+    <!-- Permissions -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    
+    <!-- Minimum SDK -->
+    <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="34"/>
+
+    <application
+        android:name=".MainApplication"
+        android:allowBackup="true"
+        android:icon="@drawable/ic_launcher"
+        android:label="@string/app_name"
+        android:theme="@style/Theme.FlapChat">
+
+        <!-- Main Activity -->
+        <activity android:name=".ui.activities.MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+
+        <!-- Other Activities -->
+        <activity android:name=".ui.activities.ChatActivity"/>
+        <activity android:name=".ui.activities.ProfileActivity"/>
+        <activity android:name=".ui.activities.PreviewMediaActivity"/>
+        <activity android:name=".ui.activities.ViewImageActivity"/>
+        <activity android:name=".ui.activities.SettingsActivity"/>
+
+        <!-- Firebase Messaging Service -->
+        <service
+            android:name=".notifications.FCMService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT"/>
+            </intent-filter>
+        </service>
+
+        <!-- Optional: Notification channels initializer -->
+        <receiver android:name=".notifications.MessageNotificationManager"
+            android:exported="true"/>
+
+        <!-- Network & Storage -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_launcher"/>
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/purple_500"/>
+    </application>
+</manifest>
