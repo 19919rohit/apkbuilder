@@ -1,6 +1,6 @@
 plugins {
     id 'com.android.application'
-    id 'kotlin-android' // Required even if mostly Java, for Jetpack coroutines/Flow
+    
 }
 
 android {
