@@ -1,5 +1,4 @@
 apply plugin: 'com.android.application'
-apply plugin: 'org.jetbrains.kotlin.android'
 
 android {
     namespace 'com.neunix.appstore'
@@ -12,17 +11,13 @@ android {
         versionCode 1
         versionName "1.0"
 
-        vectorDrawables {
-            useSupportLibrary true
-        }
+        vectorDrawables.useSupportLibrary = true
     }
 
     buildTypes {
         release {
             minifyEnabled false
-            proguardFiles
-                    getDefaultProguardFile('proguard-android-optimize.txt'),
-                    'proguard-rules.pro'
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
         debug {
             debuggable true
@@ -30,15 +25,8 @@ android {
     }
 
     buildFeatures {
-        compose true
-    }
-
-    composeOptions {
-        kotlinCompilerExtensionVersion '1.5.4'
-    }
-
-    kotlinOptions {
-        jvmTarget = '17'
+        // Disable Compose if using pure Java
+        compose = false
     }
 
     packagingOptions {
@@ -49,32 +37,12 @@ android {
 }
 
 dependencies {
-
     /* ---------------- CORE ---------------- */
-    implementation 'androidx.core:core-ktx:1.12.0'
-    implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.7.0'
-    implementation 'androidx.activity:activity-compose:1.8.2'
+    implementation 'androidx.core:core:1.12.0'
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'androidx.recyclerview:recyclerview:1.3.1'
+    implementation 'androidx.constraintlayout:constraintlayout:2.3.3'
 
-    /* ---------------- COMPOSE BOM ---------------- */
-    implementation platform('androidx.compose:compose-bom:2024.02.00')
-
-    implementation 'androidx.compose.ui:ui'
-    implementation 'androidx.compose.ui:ui-graphics'
-    implementation 'androidx.compose.ui:ui-tooling-preview'
-    implementation 'androidx.compose.material3:material3'
-
-    debugImplementation 'androidx.compose.ui:ui-tooling'
-    debugImplementation 'androidx.compose.ui:ui-test-manifest'
-
-    /* ---------------- VIEWMODEL ---------------- */
-    implementation 'androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0'
-
-    /* ---------------- COROUTINES ---------------- */
-    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
-
-    /* ---------------- IMAGE LOADING (LOGOS / SCREENSHOTS) ---------------- */
-    implementation 'io.coil-kt:coil-compose:2.5.0'
-
-    /* ---------------- OPTIONAL (NETWORK CHECKS) ---------------- */
-    implementation 'androidx.core:core-splashscreen:1.0.1'
+    /* ---------------- OPTIONAL IMAGE LOADING ---------------- */
+    implementation 'com.squareup.picasso:picasso:2.8'
 }
