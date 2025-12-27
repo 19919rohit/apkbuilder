@@ -3,9 +3,11 @@ package com.neunix.appstore;
 import android.app.DownloadManager;
 import android.content.*;
 import android.content.pm.PackageManager;
+import android.database.Cursor;
 import android.net.Uri;
 import android.os.*;
 import android.provider.Settings;
+import android.view.View;
 import android.widget.*;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -29,7 +31,7 @@ public class AppDetailActivity extends AppCompatActivity {
         setContentView(R.layout.activity_app_detail);
 
         try {
-            app = AppModel.fromJson(getIntent().getStringExtra("app"));
+            app = (AppModel) getIntent().getSerializableExtra("app");
         } catch (Exception e) {
             finish();
             return;
@@ -42,7 +44,7 @@ public class AppDetailActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        updateButtonState(); // refresh button state when returning
+        updateButtonState();
     }
 
     private void bindUI() {
@@ -56,8 +58,7 @@ public class AppDetailActivity extends AppCompatActivity {
         progressText = findViewById(R.id.downloadProgressText);
 
         RecyclerView screenshots = findViewById(R.id.screenshotList);
-        screenshots.setLayoutManager(
-                new LinearLayoutManager(this, RecyclerView.HORIZONTAL, false));
+        screenshots.setLayoutManager(new LinearLayoutManager(this, RecyclerView.HORIZONTAL, false));
         screenshots.setAdapter(new ScreenshotAdapter(app.screenshots));
 
         name.setText(app.name);
@@ -68,6 +69,7 @@ public class AppDetailActivity extends AppCompatActivity {
         Picasso.get().load(app.icon).into(icon);
     }
 
+    /* ================= INSTALL / UPDATE LOGIC ================= */
     private void updateButtonState() {
         if (!isInstalled()) {
             actionBtn.setText("Install");
@@ -97,28 +99,17 @@ public class AppDetailActivity extends AppCompatActivity {
     private int getInstalledVersionCode() {
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                return (int) getPackageManager()
-                        .getPackageInfo(app.packageName, 0)
-                        .getLongVersionCode();
+                return (int) getPackageManager().getPackageInfo(app.packageName, 0).getLongVersionCode();
             } else {
-                return getPackageManager()
-                        .getPackageInfo(app.packageName, 0)
-                        .versionCode;
+                return getPackageManager().getPackageInfo(app.packageName, 0).versionCode;
             }
         } catch (Exception e) {
             return -1;
         }
     }
 
+    /* ================= DOWNLOAD ================= */
     private void startDownload() {
-        // disable button
-        actionBtn.setEnabled(false);
-        actionBtn.setText("Downloading…");
-
-        downloadProgress.setVisibility(View.VISIBLE);
-        progressText.setVisibility(View.VISIBLE);
-        progressText.setText("0%");
-
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
                 !getPackageManager().canRequestPackageInstalls()) {
 
@@ -129,71 +120,56 @@ public class AppDetailActivity extends AppCompatActivity {
             return;
         }
 
-        DownloadManager.Request req =
-                new DownloadManager.Request(Uri.parse(app.apk));
-
+        DownloadManager.Request req = new DownloadManager.Request(Uri.parse(app.apk));
         req.setTitle(app.name);
         req.setDescription("Downloading " + app.name);
-        req.setNotificationVisibility(
-                DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+        req.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+        req.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS,
+                "NeunixStore/" + app.packageName + "-" + app.version + ".apk");
 
-        req.setDestinationInExternalPublicDir(
-                Environment.DIRECTORY_DOWNLOADS,
-                "NeunixStore/" + app.packageName + "-" + app.version + ".apk"
-        );
-
-        DownloadManager dm =
-                (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
-
+        DownloadManager dm = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
         long downloadId = dm.enqueue(req);
 
-        // Optional: track progress in another thread
+        downloadProgress.setVisibility(View.VISIBLE);
+        progressText.setVisibility(View.VISIBLE);
+        progressText.setText("Download started...");
+
+        // Optional: Track download progress in a thread
         new Thread(() -> {
             boolean downloading = true;
-            DownloadManager.Query q = new DownloadManager.Query();
-            q.setFilterById(downloadId);
-
             while (downloading) {
+                DownloadManager.Query q = new DownloadManager.Query();
+                q.setFilterById(downloadId);
                 Cursor cursor = dm.query(q);
                 if (cursor != null && cursor.moveToFirst()) {
-                    int bytesDownloaded =
-                            cursor.getInt(cursor.getColumnIndexOrThrow(
-                                    DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR));
-                    int bytesTotal =
-                            cursor.getInt(cursor.getColumnIndexOrThrow(
-                                    DownloadManager.COLUMN_TOTAL_SIZE_BYTES));
+                    int bytesDownloaded = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR));
+                    int bytesTotal = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES));
+                    final int progress = (int) ((bytesDownloaded * 100L) / bytesTotal);
 
-                    final int progress = bytesTotal > 0
-                            ? (int) ((bytesDownloaded * 100L) / bytesTotal)
-                            : 0;
+                    runOnUiThread(() -> progressText.setText("Downloading: " + progress + "%"));
 
-                    runOnUiThread(() -> progressText.setText(progress + "%"));
-
-                    int status = cursor.getInt(cursor.getColumnIndexOrThrow(
-                            DownloadManager.COLUMN_STATUS));
-                    if (status == DownloadManager.STATUS_SUCCESSFUL
-                            || status == DownloadManager.STATUS_FAILED) {
+                    int status = cursor.getInt(cursor.getColumnIndex(DownloadManager.COLUMN_STATUS));
+                    if (status == DownloadManager.STATUS_SUCCESSFUL || status == DownloadManager.STATUS_FAILED) {
                         downloading = false;
+                        runOnUiThread(() -> {
+                            downloadProgress.setVisibility(View.GONE);
+                            progressText.setVisibility(View.GONE);
+                        });
                     }
                     cursor.close();
                 }
             }
-            runOnUiThread(() -> {
-                downloadProgress.setVisibility(View.GONE);
-                progressText.setVisibility(View.GONE);
-                updateButtonState();
-            });
         }).start();
     }
 
+    /* ================= OPEN APP ================= */
     private void openApp() {
-        Intent intent =
-                getPackageManager().getLaunchIntentForPackage(app.packageName);
-
+        Intent intent = getPackageManager().getLaunchIntentForPackage(app.packageName);
         if (intent != null) startActivity(intent);
         else Toast.makeText(this, "App not launchable", Toast.LENGTH_SHORT).show();
     }
 
+    /* ================= PERMISSION CALLBACK ================= */
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -203,9 +179,7 @@ public class AppDetailActivity extends AppCompatActivity {
                     getPackageManager().canRequestPackageInstalls()) {
                 startDownload();
             } else {
-                Toast.makeText(this,
-                        "Install permission denied",
-                        Toast.LENGTH_LONG).show();
+                Toast.makeText(this, "Install permission denied", Toast.LENGTH_LONG).show();
             }
         }
     }
