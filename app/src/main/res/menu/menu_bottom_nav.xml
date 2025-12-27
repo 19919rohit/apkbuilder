@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item
+        android:id="@+id/nav_all"
+        android:title="All Apps"
+        android:icon="@drawable/ic_apps" />
+
+    <item
+        android:id="@+id/nav_categories"
+        android:title="Categories"
+        android:icon="@drawable/ic_category" />
+
+    <item
+        android:id="@+id/nav_downloads"
+        android:title="Downloads"
+        android:icon="@drawable/ic_download_nav" />
+
+</menu>

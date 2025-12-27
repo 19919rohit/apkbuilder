@@ -3,49 +3,59 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.neunix.appstore">
 
-    <!-- ================= REQUIRED PERMISSIONS ================= -->
+    <!-- Permissions -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
 
-    <!-- Internet: needed for GitHub releases, images, APK download -->
-    <uses-permission android:name="android.permission.INTERNET" />
-
-    <!-- Network state: optional but recommended -->
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-
-    <!-- Required to install APKs from inside the app -->
-    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
-
-    <!-- Optional: for showing installed apps info (PackageManager) -->
-    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
-
-    <!-- ========================================================= -->
-
-    <!-- Required for Android 11+ package visibility -->
+    <!-- APK visibility (Android 11+) -->
     <queries>
         <intent>
-            <action android:name="android.intent.action.VIEW" />
-            <data android:mimeType="application/vnd.android.package-archive" />
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:mimeType="application/vnd.android.package-archive"/>
         </intent>
     </queries>
 
     <application
         android:label="Neunix Store"
         android:icon="@drawable/ic_launcher"
+        android:theme="@style/Theme.Material3.DayNight.NoActionBar"
         android:allowBackup="true"
-        android:supportsRtl="true"
-        android:usesCleartextTraffic="false"
-        android:theme="@style/Theme.Material3.DayNight.NoActionBar">
+        android:supportsRtl="true">
 
         <activity
             android:name=".MainActivity"
-            android:exported="true"
-            android:screenOrientation="portrait">
-
+            android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-
         </activity>
+
+        <activity
+            android:name=".AppDetailActivity"
+            android:exported="false"/>
+
+        <!-- Download Complete Receiver -->
+        <receiver
+            android:name=".InstallReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.DOWNLOAD_COMPLETE"/>
+            </intent-filter>
+        </receiver>
+
+        <!-- File Provider -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.provider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths"/>
+        </provider>
 
     </application>
 
