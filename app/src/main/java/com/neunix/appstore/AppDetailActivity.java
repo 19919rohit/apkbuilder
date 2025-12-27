@@ -2,7 +2,7 @@ package com.neunix.appstore;
 
 import android.app.DownloadManager;
 import android.content.*;
-import android.database.Cursor;
+import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.*;
 import android.provider.Settings;
@@ -14,35 +14,14 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.squareup.picasso.Picasso;
 
-import java.io.File;
-
 public class AppDetailActivity extends AppCompatActivity {
 
     private static final int REQ_INSTALL_PERMISSION = 1001;
 
     private AppModel app;
     private Button actionBtn;
-    private ProgressBar progressBar;
+    private ProgressBar downloadProgress;
     private TextView progressText;
-
-    private long downloadId = -1;
-    private DownloadManager dm;
-
-    private BroadcastReceiver downloadReceiver;
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        updateButtonState();
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        if (downloadReceiver != null) {
-            unregisterReceiver(downloadReceiver);
-        }
-    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -60,17 +39,21 @@ public class AppDetailActivity extends AppCompatActivity {
         updateButtonState();
     }
 
-    private void bindUI() {
+    @Override
+    protected void onResume() {
+        super.onResume();
+        updateButtonState(); // refresh button state when returning
+    }
 
+    private void bindUI() {
         ImageView icon = findViewById(R.id.appIcon);
         TextView name = findViewById(R.id.appName);
         TextView version = findViewById(R.id.appVersion);
         TextView category = findViewById(R.id.appCategory);
         TextView desc = findViewById(R.id.appDesc);
-        TextView sizeText = findViewById(R.id.appSize);
-        progressBar = findViewById(R.id.downloadProgress);
-        progressText = findViewById(R.id.downloadProgressText);
         actionBtn = findViewById(R.id.actionBtn);
+        downloadProgress = findViewById(R.id.downloadProgress);
+        progressText = findViewById(R.id.downloadProgressText);
 
         RecyclerView screenshots = findViewById(R.id.screenshotList);
         screenshots.setLayoutManager(
@@ -81,16 +64,11 @@ public class AppDetailActivity extends AppCompatActivity {
         version.setText("Version " + app.version);
         category.setText(app.category);
         desc.setText(app.description);
-        sizeText.setText("Size: " + app.size);
 
         Picasso.get().load(app.icon).into(icon);
     }
 
-    /* ================= INSTALL / UPDATE LOGIC ================= */
-
     private void updateButtonState() {
-        actionBtn.setEnabled(true);
-
         if (!isInstalled()) {
             actionBtn.setText("Install");
             actionBtn.setOnClickListener(v -> startDownload());
@@ -132,14 +110,14 @@ public class AppDetailActivity extends AppCompatActivity {
         }
     }
 
-    /* ================= DOWNLOAD ================= */
-
     private void startDownload() {
-
+        // disable button
         actionBtn.setEnabled(false);
         actionBtn.setText("Downloading…");
-        progressBar.setVisibility(ProgressBar.VISIBLE);
-        progressText.setVisibility(TextView.VISIBLE);
+
+        downloadProgress.setVisibility(View.VISIBLE);
+        progressText.setVisibility(View.VISIBLE);
+        progressText.setText("0%");
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
                 !getPackageManager().canRequestPackageInstalls()) {
@@ -151,80 +129,70 @@ public class AppDetailActivity extends AppCompatActivity {
             return;
         }
 
-        if (app.apk == null || !app.apk.startsWith("http")) {
-            Toast.makeText(this, "Invalid download link", Toast.LENGTH_LONG).show();
-            updateButtonState();
-            return;
-        }
+        DownloadManager.Request req =
+                new DownloadManager.Request(Uri.parse(app.apk));
 
-        // Ensure directory exists
-        File dir = new File(Environment.getExternalStoragePublicDirectory(
-                Environment.DIRECTORY_DOWNLOADS), "NeunixStore");
-        if (!dir.exists()) dir.mkdirs();
-
-        dm = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
-
-        DownloadManager.Request req = new DownloadManager.Request(Uri.parse(app.apk));
         req.setTitle(app.name);
         req.setDescription("Downloading " + app.name);
-        req.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
-        req.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS,
-                "NeunixStore/" + app.packageName + "-" + app.version + ".apk");
+        req.setNotificationVisibility(
+                DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
 
-        downloadId = dm.enqueue(req);
+        req.setDestinationInExternalPublicDir(
+                Environment.DIRECTORY_DOWNLOADS,
+                "NeunixStore/" + app.packageName + "-" + app.version + ".apk"
+        );
 
-        Toast.makeText(this, "Download started", Toast.LENGTH_SHORT).show();
+        DownloadManager dm =
+                (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
 
-        trackDownloadProgress();
-    }
+        long downloadId = dm.enqueue(req);
 
-    private void trackDownloadProgress() {
-        downloadReceiver = new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
+        // Optional: track progress in another thread
+        new Thread(() -> {
+            boolean downloading = true;
+            DownloadManager.Query q = new DownloadManager.Query();
+            q.setFilterById(downloadId);
 
-                DownloadManager.Query query = new DownloadManager.Query();
-                query.setFilterById(downloadId);
-                Cursor cursor = dm.query(query);
-
+            while (downloading) {
+                Cursor cursor = dm.query(q);
                 if (cursor != null && cursor.moveToFirst()) {
+                    int bytesDownloaded =
+                            cursor.getInt(cursor.getColumnIndexOrThrow(
+                                    DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR));
+                    int bytesTotal =
+                            cursor.getInt(cursor.getColumnIndexOrThrow(
+                                    DownloadManager.COLUMN_TOTAL_SIZE_BYTES));
+
+                    final int progress = bytesTotal > 0
+                            ? (int) ((bytesDownloaded * 100L) / bytesTotal)
+                            : 0;
+
+                    runOnUiThread(() -> progressText.setText(progress + "%"));
+
                     int status = cursor.getInt(cursor.getColumnIndexOrThrow(
                             DownloadManager.COLUMN_STATUS));
-
-                    int bytesDownloaded = cursor.getInt(
-                            cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR));
-                    int bytesTotal = cursor.getInt(
-                            cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES));
-
-                    if (bytesTotal > 0) {
-                        int progress = (int) ((bytesDownloaded * 100L) / bytesTotal);
-                        progressBar.setProgress(progress);
-                        progressText.setText(progress + "%");
+                    if (status == DownloadManager.STATUS_SUCCESSFUL
+                            || status == DownloadManager.STATUS_FAILED) {
+                        downloading = false;
                     }
-
-                    if (status == DownloadManager.STATUS_SUCCESSFUL ||
-                        status == DownloadManager.STATUS_FAILED) {
-                        progressBar.setVisibility(ProgressBar.GONE);
-                        progressText.setVisibility(TextView.GONE);
-                        updateButtonState();
-                    }
+                    cursor.close();
                 }
-                if (cursor != null) cursor.close();
             }
-        };
-
-        registerReceiver(downloadReceiver, new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE));
+            runOnUiThread(() -> {
+                downloadProgress.setVisibility(View.GONE);
+                progressText.setVisibility(View.GONE);
+                updateButtonState();
+            });
+        }).start();
     }
 
-    /* ================= OPEN APP ================= */
-
     private void openApp() {
-        Intent intent = getPackageManager().getLaunchIntentForPackage(app.packageName);
+        Intent intent =
+                getPackageManager().getLaunchIntentForPackage(app.packageName);
+
         if (intent != null) startActivity(intent);
         else Toast.makeText(this, "App not launchable", Toast.LENGTH_SHORT).show();
     }
-
-    /* ================= PERMISSION CALLBACK ================= */
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
@@ -238,7 +206,6 @@ public class AppDetailActivity extends AppCompatActivity {
                 Toast.makeText(this,
                         "Install permission denied",
                         Toast.LENGTH_LONG).show();
-                updateButtonState();
             }
         }
     }
