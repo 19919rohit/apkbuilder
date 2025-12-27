@@ -67,7 +67,8 @@ public class MainActivity extends AppCompatActivity {
 
     private void setupSearch() {
         searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
-            @Override public boolean onQueryTextSubmit(String query) { return false; }
+            @Override
+            public boolean onQueryTextSubmit(String query) { return false; }
 
             @Override
             public boolean onQueryTextChange(String text) {
@@ -91,9 +92,7 @@ public class MainActivity extends AppCompatActivity {
                 conn.setConnectTimeout(15000);
                 conn.setReadTimeout(15000);
 
-                BufferedReader reader =
-                        new BufferedReader(new InputStreamReader(conn.getInputStream()));
-
+                BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
                 StringBuilder json = new StringBuilder();
                 String line;
                 while ((line = reader.readLine()) != null) {
@@ -111,9 +110,7 @@ public class MainActivity extends AppCompatActivity {
 
             } catch (Exception e) {
                 runOnUiThread(() ->
-                        Toast.makeText(this,
-                                "Failed to load apps. Check internet.",
-                                Toast.LENGTH_LONG).show());
+                        Toast.makeText(this, "Failed to load apps. Check internet.", Toast.LENGTH_LONG).show());
             }
         }).start();
     }
@@ -125,15 +122,16 @@ public class MainActivity extends AppCompatActivity {
         for (int i = 0; i < array.length(); i++) {
             JSONObject o = array.getJSONObject(i);
 
-            AppModel app = new AppModel(
-                    o.getString("name"),
-                    o.getString("package"),
-                    o.getString("version"),
-                    o.getString("category"),
-                    o.getString("description"),
-                    o.getString("icon"),
-                    o.getString("apk")
-            );
+            // Using default constructor and setting fields manually
+            AppModel app = new AppModel();
+            app.name = o.getString("name");
+            app.packageName = o.getString("package");
+            app.version = o.getString("version");
+            app.category = o.getString("category");
+            app.description = o.getString("description");
+            app.icon = o.getString("icon");
+            app.apk = o.getString("apk");
+
             allApps.add(app);
         }
     }
@@ -148,8 +146,7 @@ public class MainActivity extends AppCompatActivity {
         } else {
             String q = query.toLowerCase();
             for (AppModel app : allApps) {
-                if (app.name.toLowerCase().contains(q)
-                        || app.category.toLowerCase().contains(q)) {
+                if (app.name.toLowerCase().contains(q) || app.category.toLowerCase().contains(q)) {
                     visibleApps.add(app);
                 }
             }
@@ -165,21 +162,20 @@ public class MainActivity extends AppCompatActivity {
 
         if (id == R.id.nav_all) {
             visibleApps.addAll(allApps);
-        }
-
-        else if (id == R.id.nav_categories) {
-            // Default category example (AI)
+        } else if (id == R.id.nav_categories) {
             for (AppModel app : allApps) {
                 if ("AI".equalsIgnoreCase(app.category)) {
                     visibleApps.add(app);
                 }
             }
-        }
-
-        else if (id == R.id.nav_downloads) {
+        } else if (id == R.id.nav_downloads) {
             Set<String> history = DownloadManagerHelper.getHistory(this);
             for (String json : history) {
-                visibleApps.add(AppModel.fromJson(json));
+                try {
+                    visibleApps.add(AppModel.fromJson(json));
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
             }
         }
 
@@ -191,7 +187,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void openAppDetails(AppModel app) {
         Intent intent = new Intent(this, AppDetailActivity.class);
-        intent.putExtra("app", app);
+        intent.putExtra("app", app); // AppModel must implement Serializable
         startActivity(intent);
     }
 }
