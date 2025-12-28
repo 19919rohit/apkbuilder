@@ -2,7 +2,6 @@ package com.neunix.appstore;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
-
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
@@ -68,6 +67,10 @@ public class AppModel implements Serializable {
             o.put("icon", icon);
             o.put("category", category);
             o.put("description", description);
+            // Optional: add screenshots as JSONArray
+            JSONArray shots = new JSONArray();
+            for (String s : screenshots) shots.put(s);
+            o.put("screenshots", shots);
         } catch (Exception ignored) {}
         return o;
     }
