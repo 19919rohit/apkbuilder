@@ -3,6 +3,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
+    <!-- Round display -->
     <TextView
         android:id="@+id/roundText"
         android:layout_width="wrap_content"
@@ -13,6 +14,7 @@
         android:layout_marginTop="16dp"
         android:layout_marginStart="16dp"/>
 
+    <!-- Score display -->
     <TextView
         android:id="@+id/totalScoreText"
         android:layout_width="wrap_content"
@@ -24,6 +26,7 @@
         android:layout_marginTop="16dp"
         android:layout_marginEnd="16dp"/>
 
+    <!-- Target shape -->
     <TextView
         android:id="@+id/tvShape"
         android:layout_width="wrap_content"
@@ -34,12 +37,13 @@
         android:layout_centerHorizontal="true"
         android:layout_marginTop="16dp"/>
 
+    <!-- Drawing area -->
     <com.draw.perfect.DrawView
         android:id="@+id/drawView"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_below="@id/tvShape"
-        android:layout_above="@+id/totalScoreText"
+        android:layout_above="@id/totalScoreText"
         android:layout_margin="16dp"/>
 
 </RelativeLayout>
