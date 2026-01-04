@@ -5,73 +5,108 @@ import android.graphics.*;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.View;
+
 import java.util.ArrayList;
 import java.util.Random;
 
 public class DrawView extends View {
 
-    private Paint paint, textPaint, particlePaint;
-    private Path path;
-    private int drawColor = Color.BLACK;
+    private Paint drawPaint;
+    private Paint textPaint;
+    private Paint particlePaint;
+
+    private Path drawPath;
+    private ArrayList<PointF> points;
+
     private String targetShape = "Circle";
-    private ArrayList<PointF> points = new ArrayList<>();
+    private int drawColor = Color.BLACK;
+
     private OnDrawCompleteListener listener;
-    private Random random = new Random();
+    private final Random random = new Random();
 
     public DrawView(Context context, AttributeSet attrs) {
         super(context, attrs);
+        init();
+    }
 
-        paint = new Paint();
-        paint.setColor(drawColor);
-        paint.setStyle(Paint.Style.STROKE);
-        paint.setStrokeWidth(8f);
-        paint.setAntiAlias(true);
+    private void init() {
+        points = new ArrayList<>();
 
-        textPaint = new Paint();
-        textPaint.setColor(Color.RED);
-        textPaint.setTextSize(60f);
+        drawPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        drawPaint.setStyle(Paint.Style.STROKE);
+        drawPaint.setStrokeWidth(8f);
+        drawPaint.setStrokeCap(Paint.Cap.ROUND);
+        drawPaint.setStrokeJoin(Paint.Join.ROUND);
+        drawPaint.setColor(drawColor);
+
+        textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        textPaint.setTextSize(42f);
+        textPaint.setColor(Color.DKGRAY);
         textPaint.setTypeface(Typeface.DEFAULT_BOLD);
 
-        particlePaint = new Paint();
-        particlePaint.setColor(Color.MAGENTA);
+        particlePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         particlePaint.setStyle(Paint.Style.FILL);
+        particlePaint.setColor(Color.LTGRAY);
 
-        path = new Path();
+        drawPath = new Path();
+    }
+
+    /* =======================
+       PUBLIC API
+       ======================= */
+
+    public void setTargetShape(String shape) {
+        this.targetShape = shape;
+        reset();
     }
 
     public void setDrawColor(int color) {
-        drawColor = color;
-        paint.setColor(drawColor);
-        invalidate();
-    }
-
-    public void setTargetShape(String shape) {
-        targetShape = shape;
-        points.clear();
-        path.reset();
+        this.drawColor = color;
+        drawPaint.setColor(color);
         invalidate();
     }
 
     public void setOnDrawCompleteListener(OnDrawCompleteListener l) {
-        listener = l;
+        this.listener = l;
     }
+
+    public void reset() {
+        drawPath.reset();
+        points.clear();
+        invalidate();
+    }
+
+    /* =======================
+       DRAW
+       ======================= */
 
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
-        canvas.drawPath(path, paint);
 
-        // live accuracy
-        if (!points.isEmpty()) {
+        // Draw user path
+        canvas.drawPath(drawPath, drawPaint);
+
+        // Live accuracy preview
+        if (points.size() > 10) {
             int accuracy = calculateAccuracy();
-            canvas.drawText("Accuracy: " + accuracy + "%", 50, 100, textPaint);
+            canvas.drawText("Accuracy: " + accuracy + "%", 30, 60, textPaint);
         }
 
-        // simple particle effect
+        // Subtle particle effect
         for (PointF p : points) {
-            canvas.drawCircle(p.x, p.y, random.nextInt(5) + 3, particlePaint);
+            canvas.drawCircle(
+                    p.x,
+                    p.y,
+                    random.nextInt(4) + 2,
+                    particlePaint
+            );
         }
     }
+
+    /* =======================
+       TOUCH HANDLING
+       ======================= */
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
@@ -79,28 +114,37 @@ public class DrawView extends View {
         float y = event.getY();
 
         switch (event.getAction()) {
+
             case MotionEvent.ACTION_DOWN:
-                path.moveTo(x, y);
-                points.clear();
+                reset();
+                drawPath.moveTo(x, y);
                 points.add(new PointF(x, y));
-                break;
+                return true;
+
             case MotionEvent.ACTION_MOVE:
-                path.lineTo(x, y);
+                drawPath.lineTo(x, y);
                 points.add(new PointF(x, y));
                 break;
+
             case MotionEvent.ACTION_UP:
-                int accuracy = calculateAccuracy();
-                if (listener != null) listener.onDrawComplete(accuracy);
+                if (listener != null) {
+                    listener.onDrawComplete(calculateAccuracy());
+                }
                 break;
         }
+
         invalidate();
         return true;
     }
 
-    private int calculateAccuracy() {
-        if (points.size() < 10) return 0;
+    /* =======================
+       ACCURACY LOGIC
+       ======================= */
 
-        float centerX = 0, centerY = 0;
+    private int calculateAccuracy() {
+        if (points.size() < 15) return 0;
+
+        float centerX = 0f, centerY = 0f;
         for (PointF p : points) {
             centerX += p.x;
             centerY += p.y;
@@ -109,52 +153,93 @@ public class DrawView extends View {
         centerY /= points.size();
 
         switch (targetShape) {
+
             case "Circle":
-                float sumDist = 0;
-                for (PointF p : points)
-                    sumDist += distance(centerX, centerY, p.x, p.y);
-                float avgDist = sumDist / points.size();
-                float variance = 0;
-                for (PointF p : points)
-                    variance += Math.pow(distance(centerX, centerY, p.x, p.y) - avgDist, 2);
-                variance /= points.size();
-                return Math.max(0, 100 - (int) (variance / 10));
+                return circleAccuracy(centerX, centerY);
 
             case "Square":
-                float minX = Float.MAX_VALUE, minY = Float.MAX_VALUE, maxX = Float.MIN_VALUE, maxY = Float.MIN_VALUE;
-                for (PointF p : points) {
-                    if (p.x < minX) minX = p.x;
-                    if (p.y < minY) minY = p.y;
-                    if (p.x > maxX) maxX = p.x;
-                    if (p.y > maxY) maxY = p.y;
-                }
-                float w = maxX - minX, h = maxY - minY;
-                return (int) (100 - Math.abs(w - h) / Math.max(w, h) * 50);
+                return squareAccuracy();
 
             case "Triangle":
-                minX = Float.MAX_VALUE; minY = Float.MAX_VALUE; maxX = Float.MIN_VALUE; maxY = Float.MIN_VALUE;
-                for (PointF p : points) {
-                    if (p.x < minX) minX = p.x;
-                    if (p.y < minY) minY = p.y;
-                    if (p.x > maxX) maxX = p.x;
-                    if (p.y > maxY) maxY = p.y;
-                }
-                float dx = maxX - minX, dy = maxY - minY;
-                return (int) (100 - Math.abs(dx - dy) / Math.max(dx, dy) * 40);
+                return triangleAccuracy();
 
             case "Star":
-                float pathLength = 0;
-                for (int i = 1; i < points.size(); i++)
-                    pathLength += distance(points.get(i - 1).x, points.get(i - 1).y, points.get(i).x, points.get(i).y);
-                float bbox = distance(centerX, centerY, points.get(0).x, points.get(0).y) * 2;
-                return (int) Math.max(0, 100 - Math.abs(pathLength - bbox * 5));
+                return starAccuracy();
+
+            default:
+                return 0;
         }
-        return 0;
+    }
+
+    private int circleAccuracy(float cx, float cy) {
+        float sum = 0f;
+        for (PointF p : points)
+            sum += distance(cx, cy, p.x, p.y);
+
+        float avg = sum / points.size();
+
+        float variance = 0f;
+        for (PointF p : points)
+            variance += Math.pow(distance(cx, cy, p.x, p.y) - avg, 2);
+
+        variance /= points.size();
+
+        return clamp(100 - (int) (variance / 12));
+    }
+
+    private int squareAccuracy() {
+        RectF box = getBoundingBox();
+        float diff = Math.abs(box.width() - box.height());
+        return clamp(100 - (int) (diff / Math.max(box.width(), box.height()) * 60));
+    }
+
+    private int triangleAccuracy() {
+        RectF box = getBoundingBox();
+        float ratio = box.width() / box.height();
+        return clamp(100 - (int) (Math.abs(ratio - 1f) * 80));
+    }
+
+    private int starAccuracy() {
+        float length = 0f;
+        for (int i = 1; i < points.size(); i++)
+            length += distance(
+                    points.get(i - 1).x,
+                    points.get(i - 1).y,
+                    points.get(i).x,
+                    points.get(i).y
+            );
+
+        return clamp(100 - (int) Math.abs(length / 20));
+    }
+
+    /* =======================
+       HELPERS
+       ======================= */
+
+    private RectF getBoundingBox() {
+        float minX = Float.MAX_VALUE, minY = Float.MAX_VALUE;
+        float maxX = Float.MIN_VALUE, maxY = Float.MIN_VALUE;
+
+        for (PointF p : points) {
+            minX = Math.min(minX, p.x);
+            minY = Math.min(minY, p.y);
+            maxX = Math.max(maxX, p.x);
+            maxY = Math.max(maxY, p.y);
+        }
+        return new RectF(minX, minY, maxX, maxY);
     }
 
     private float distance(float x1, float y1, float x2, float y2) {
         return (float) Math.hypot(x2 - x1, y2 - y1);
     }
+
+    private int clamp(int v) {
+        return Math.max(0, Math.min(100, v));
+    }
+
+    /* =======================
+       CALLBACK
+       ======================= */
 
     public interface OnDrawCompleteListener {
         void onDrawComplete(int accuracy);

@@ -10,12 +10,14 @@ import java.util.Random;
 public class GameActivity extends AppCompatActivity {
 
     private DrawView drawView;
-    private TextView roundText, totalScoreText;
-    private String[] shapes = {"Circle", "Square", "Triangle", "Star"};
+    private TextView roundText, totalScoreText, tvShape;
+
+    private final String[] shapes = {"Circle", "Square", "Triangle", "Star"};
     private int currentRound = 1;
-    private int totalRounds = 5;
+    private final int totalRounds = 5;
     private int totalScore = 0;
-    private Random random = new Random();
+
+    private final Random random = new Random();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -25,27 +27,43 @@ public class GameActivity extends AppCompatActivity {
         drawView = findViewById(R.id.drawView);
         roundText = findViewById(R.id.roundText);
         totalScoreText = findViewById(R.id.totalScoreText);
+        tvShape = findViewById(R.id.tvShape);
 
         startRound();
 
         drawView.setOnDrawCompleteListener(accuracy -> {
             totalScore += accuracy;
-            Toast.makeText(this, "Round " + currentRound + " Accuracy: " + accuracy + "%", Toast.LENGTH_SHORT).show();
+
+            Toast.makeText(
+                this,
+                "Accuracy: " + accuracy + "%",
+                Toast.LENGTH_SHORT
+            ).show();
+
             if (currentRound < totalRounds) {
                 currentRound++;
                 startRound();
             } else {
-                Toast.makeText(this, "Game Over! Total Score: " + totalScore, Toast.LENGTH_LONG).show();
+                Toast.makeText(
+                    this,
+                    "Game Over!\nTotal Score: " + totalScore,
+                    Toast.LENGTH_LONG
+                ).show();
+                finish();
             }
         });
     }
 
     private void startRound() {
-        roundText.setText("Round: " + currentRound + "/" + totalRounds);
+        roundText.setText("Round " + currentRound + "/" + totalRounds);
         totalScoreText.setText("Score: " + totalScore);
 
-        String nextShape = shapes[random.nextInt(shapes.length)];
-        drawView.setTargetShape(nextShape);
-        drawView.setDrawColor(Color.rgb(random.nextInt(256), random.nextInt(256), random.nextInt(256)));
+        String shape = shapes[random.nextInt(shapes.length)];
+        tvShape.setText("Draw: " + shape);
+
+        drawView.setTargetShape(shape);
+        drawView.setDrawColor(
+            Color.rgb(random.nextInt(256), random.nextInt(256), random.nextInt(256))
+        );
     }
 }

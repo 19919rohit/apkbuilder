@@ -1,49 +1,44 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="#FFFFFF">
 
-    <!-- Round display -->
     <TextView
         android:id="@+id/roundText"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Round: 1/5"
-        android:textSize="20sp"
-        android:layout_alignParentTop="true"
-        android:layout_marginTop="16dp"
-        android:layout_marginStart="16dp"/>
+        android:text="Round 1/5"
+        android:textSize="16sp"
+        android:layout_margin="16dp"
+        android:textColor="#000"/>
 
-    <!-- Score display -->
     <TextView
         android:id="@+id/totalScoreText"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Score: 0"
-        android:textSize="20sp"
-        android:layout_alignParentTop="true"
+        android:textSize="16sp"
+        android:textColor="#000"
         android:layout_alignParentEnd="true"
-        android:layout_marginTop="16dp"
-        android:layout_marginEnd="16dp"/>
+        android:layout_margin="16dp"/>
 
-    <!-- Target shape -->
     <TextView
         android:id="@+id/tvShape"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Draw: Circle"
-        android:textSize="24sp"
+        android:text="Draw:"
+        android:textSize="22sp"
+        android:textStyle="bold"
         android:layout_below="@id/roundText"
         android:layout_centerHorizontal="true"
-        android:layout_marginTop="16dp"/>
+        android:layout_marginTop="8dp"/>
 
-    <!-- Drawing area -->
     <com.draw.perfect.DrawView
         android:id="@+id/drawView"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
+        android:layout_height="match_parent"
         android:layout_below="@id/tvShape"
-        android:layout_above="@id/totalScoreText"
-        android:layout_margin="16dp"/>
+        android:layout_margin="12dp"/>
 
 </RelativeLayout>
