@@ -11,20 +11,20 @@
         android:pathData="M54,0
                           A54,54 0 1,1 53.9,0 Z"/>
 
-    <!-- Inner guide circle -->
+    <!-- Inner guide circle (NO fillColor) -->
     <path
-        android:fillColor="none"
         android:strokeColor="#FFFFFF"
         android:strokeWidth="4"
+        android:fillColor="@android:color/transparent"
         android:pathData="M54,20
                           A34,34 0 1,1 53.9,20 Z"/>
 
-    <!-- Drawing stroke -->
+    <!-- Drawing stroke (NO fillColor) -->
     <path
         android:strokeColor="#00E5FF"
         android:strokeWidth="6"
         android:strokeLineCap="round"
-        android:fillColor="none"
+        android:fillColor="@android:color/transparent"
         android:pathData="M30,60
                           Q54,20 78,60"/>
 </vector>
