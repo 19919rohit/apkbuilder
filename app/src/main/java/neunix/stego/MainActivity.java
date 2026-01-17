@@ -1,12 +1,11 @@
 package neunix.stego;
 
-import android.app.Activity;
 import android.content.Intent;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
-import android.os.*;
+import android.os.Bundle;
 import android.provider.OpenableColumns;
 import android.view.View;
 import android.widget.*;
@@ -41,7 +40,7 @@ public class MainActivity extends AppCompatActivity {
 
         ActivityResultLauncher<Intent> carrierPicker =
                 registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), r -> {
-                    if (r.getResultCode() == Activity.RESULT_OK) {
+                    if (r.getResultCode() == RESULT_OK && r.getData() != null) {
                         carrierUri = r.getData().getData();
                         analyzeCarrier();
                     }
@@ -49,16 +48,16 @@ public class MainActivity extends AppCompatActivity {
 
         ActivityResultLauncher<Intent> payloadPicker =
                 registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), r -> {
-                    if (r.getResultCode() == Activity.RESULT_OK) {
+                    if (r.getResultCode() == RESULT_OK && r.getData() != null) {
                         payloadUri = r.getData().getData();
                         tvPayloadInfo.setText("Payload: " + fileName(payloadUri));
                     }
                 });
 
-        findViewById(R.id.btnSelectCarrier).setOnClickListener(v ->
+        findViewById(R.id.pickCarrierBtn).setOnClickListener(v ->
                 pick(carrierPicker, "image/*"));
 
-        findViewById(R.id.btnSelectPayload).setOnClickListener(v ->
+        findViewById(R.id.pickPayloadBtn).setOnClickListener(v ->
                 pick(payloadPicker, "*/*"));
 
         btnEmbed.setOnClickListener(v -> embed());
@@ -72,35 +71,59 @@ public class MainActivity extends AppCompatActivity {
             tvCarrierInfo.setText("Carrier: " + fileName(carrierUri) +
                     "\nMax payload: " + max + " bytes");
         } catch (Exception e) {
-            toast(e.getMessage());
+            toast("Error analyzing carrier: " + e.getMessage());
         }
     }
 
     private void embed() {
         runAsync(() -> {
-            Bitmap bmp = loadBitmap(carrierUri);
-            byte[] payload = readBytes(payloadUri);
-            String name = etOutput.getText().toString();
-            if (name.isEmpty()) name = "stego.png";
+            try {
+                if (carrierUri == null || payloadUri == null) {
+                    toast("Select both carrier and payload files first!");
+                    return;
+                }
 
-            OutputStream out = openFileOutput(name, MODE_PRIVATE);
-            StegEngineCore.embed(bmp, payload, etPassword.getText().toString(), out);
-            out.close();
-            toast("Embedded → " + name);
+                Bitmap bmp = loadBitmap(carrierUri);
+                byte[] payload = readBytes(payloadUri);
+
+                String name = etOutput.getText().toString();
+                if (name.isEmpty()) name = "stego.png";
+
+                try (OutputStream out = openFileOutput(name, MODE_PRIVATE)) {
+                    StegEngineCore.embed(bmp, payload, etPassword.getText().toString(), out);
+                }
+
+                toast("Payload embedded → " + name);
+
+            } catch (Exception e) {
+                toast("Embed failed: " + e.getMessage());
+            }
         });
     }
 
     private void extract() {
         runAsync(() -> {
-            Bitmap bmp = loadBitmap(carrierUri);
-            byte[] data = StegEngineCore.extract(bmp, etPassword.getText().toString());
-            String name = etOutput.getText().toString();
-            if (name.isEmpty()) name = "extracted.bin";
+            try {
+                if (carrierUri == null) {
+                    toast("Select a carrier image first!");
+                    return;
+                }
 
-            FileOutputStream fos = openFileOutput(name, MODE_PRIVATE);
-            fos.write(data);
-            fos.close();
-            toast("Extracted → " + name);
+                Bitmap bmp = loadBitmap(carrierUri);
+                byte[] data = StegEngineCore.extract(bmp, etPassword.getText().toString());
+
+                String name = etOutput.getText().toString();
+                if (name.isEmpty()) name = "extracted.bin";
+
+                try (FileOutputStream fos = openFileOutput(name, MODE_PRIVATE)) {
+                    fos.write(data);
+                }
+
+                toast("Payload extracted → " + name);
+
+            } catch (Exception e) {
+                toast("Extract failed: " + e.getMessage());
+            }
         });
     }
 
@@ -111,7 +134,7 @@ public class MainActivity extends AppCompatActivity {
 
         new Thread(() -> {
             try { r.run(); }
-            catch (Exception e) { toast(e.getMessage()); }
+            catch (Exception e) { toast("Unexpected error: " + e.getMessage()); }
             runOnUiThread(() -> {
                 progress.setVisibility(View.GONE);
                 btnEmbed.setEnabled(true);
@@ -121,24 +144,28 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private Bitmap loadBitmap(Uri uri) throws IOException {
-        return BitmapFactory.decodeStream(getContentResolver().openInputStream(uri));
+        try (InputStream in = getContentResolver().openInputStream(uri)) {
+            return BitmapFactory.decodeStream(in);
+        }
     }
 
     private byte[] readBytes(Uri uri) throws IOException {
-        InputStream in = getContentResolver().openInputStream(uri);
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        byte[] buf = new byte[8192];
-        int n;
-        while ((n = in.read(buf)) != -1) out.write(buf, 0, n);
-        return out.toByteArray();
+        try (InputStream in = getContentResolver().openInputStream(uri);
+             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            byte[] buf = new byte[8192];
+            int n;
+            while ((n = in.read(buf)) != -1) out.write(buf, 0, n);
+            return out.toByteArray();
+        }
     }
 
     private String fileName(Uri uri) {
-        Cursor c = getContentResolver().query(uri, null, null, null, null);
-        if (c != null && c.moveToFirst()) {
-            String n = c.getString(c.getColumnIndex(OpenableColumns.DISPLAY_NAME));
-            c.close();
-            return n;
+        try (Cursor c = getContentResolver().query(uri, null, null, null, null)) {
+            if (c != null && c.moveToFirst()) {
+                return c.getString(c.getColumnIndex(OpenableColumns.DISPLAY_NAME));
+            }
+        } catch (Exception e) {
+            // fallback
         }
         return "file";
     }
