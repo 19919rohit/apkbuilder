@@ -56,7 +56,7 @@
 -dontwarn androidx.**
 
 # ----------------------------------------
-# ✅ (Optional) Keep your package entry if dynamic
-# (auto replaced by builder.py when changing package)
+# ✅ Optional: Keep your package entry if dynamic
+# Replace {PACKAGE_NAME} with your actual package (e.g., neunix.stego)
 # ----------------------------------------
--keep class {PACKAGE_NAME}.** { *; }
+-keep class neunix.stego.** { *; }
