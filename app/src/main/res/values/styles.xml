@@ -1,0 +1,14 @@
+<resources>
+    <!-- App Theme -->
+    <style name="Theme.App" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/purple_500</item>
+        <item name="colorPrimaryVariant">@color/purple_700</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="android:statusBarColor">@color/purple_700</item>
+    </style>
+
+    <!-- Splash Theme -->
+    <style name="Theme.App.Splash" parent="Theme.App">
+        <item name="android:windowBackground">@drawable/splash_background</item>
+    </style>
+</resources>
