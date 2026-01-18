@@ -1,16 +1,18 @@
 package neunix.stego;
 
+import android.content.ContentValues;
 import android.content.Intent;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
+import android.provider.MediaStore;
 import android.provider.OpenableColumns;
 import android.view.View;
 import android.widget.*;
 
-import androidx.activity.result.*;
+import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -19,6 +21,8 @@ import java.io.*;
 public class MainActivity extends AppCompatActivity {
 
     private Uri carrierUri, payloadUri;
+
+    private ImageView carrierPreview;
     private TextView tvCarrierInfo, tvPayloadInfo, statusText;
     private EditText etPassword, etOutput;
     private ProgressBar progress;
@@ -29,6 +33,7 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(b);
         setContentView(R.layout.activity_main);
 
+        carrierPreview = findViewById(R.id.carrierPreview);
         tvCarrierInfo = findViewById(R.id.tvCarrierInfo);
         tvPayloadInfo = findViewById(R.id.tvPayloadInfo);
         statusText = findViewById(R.id.statusText);
@@ -39,61 +44,89 @@ public class MainActivity extends AppCompatActivity {
         btnExtract = findViewById(R.id.btnExtract);
 
         ActivityResultLauncher<Intent> carrierPicker =
-                registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), r -> {
-                    if (r.getResultCode() == RESULT_OK && r.getData() != null) {
-                        carrierUri = r.getData().getData();
-                        analyzeCarrier();
-                    }
-                });
+                registerForActivityResult(
+                        new ActivityResultContracts.StartActivityForResult(),
+                        r -> {
+                            if (r.getResultCode() == RESULT_OK && r.getData() != null) {
+                                carrierUri = r.getData().getData();
+                                showCarrierPreview();
+                                analyzeCarrier();
+                            }
+                        });
 
         ActivityResultLauncher<Intent> payloadPicker =
-                registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), r -> {
-                    if (r.getResultCode() == RESULT_OK && r.getData() != null) {
-                        payloadUri = r.getData().getData();
-                        tvPayloadInfo.setText("Payload: " + fileName(payloadUri));
-                    }
-                });
+                registerForActivityResult(
+                        new ActivityResultContracts.StartActivityForResult(),
+                        r -> {
+                            if (r.getResultCode() == RESULT_OK && r.getData() != null) {
+                                payloadUri = r.getData().getData();
+                                tvPayloadInfo.setText("Payload: " + fileName(payloadUri));
+                            }
+                        });
 
-        findViewById(R.id.pickCarrierBtn).setOnClickListener(v ->
-                pick(carrierPicker, "image/*"));
+        findViewById(R.id.btnSelectCarrier)
+                .setOnClickListener(v -> pick(carrierPicker, "image/*"));
 
-        findViewById(R.id.pickPayloadBtn).setOnClickListener(v ->
-                pick(payloadPicker, "*/*"));
+        findViewById(R.id.btnSelectPayload)
+                .setOnClickListener(v -> pick(payloadPicker, "*/*"));
 
         btnEmbed.setOnClickListener(v -> embed());
         btnExtract.setOnClickListener(v -> extract());
+    }
+
+    /* ---------------- UI helpers ---------------- */
+
+    private void showCarrierPreview() {
+        try (InputStream in = getContentResolver().openInputStream(carrierUri)) {
+            Bitmap bmp = BitmapFactory.decodeStream(in);
+            carrierPreview.setImageBitmap(bmp);
+        } catch (Exception e) {
+            toast("Preview failed: " + e.getMessage());
+        }
     }
 
     private void analyzeCarrier() {
         try {
             Bitmap bmp = loadBitmap(carrierUri);
             int max = StegEngineCore.getMaxPayloadSize(bmp);
-            tvCarrierInfo.setText("Carrier: " + fileName(carrierUri) +
-                    "\nMax payload: " + max + " bytes");
+            tvCarrierInfo.setText(
+                    "Carrier: " + fileName(carrierUri) +
+                    "\nMax payload: " + max + " bytes"
+            );
         } catch (Exception e) {
-            toast("Error analyzing carrier: " + e.getMessage());
+            toast("Analyze error: " + e.getMessage());
         }
     }
 
+    /* ---------------- Embed ---------------- */
+
     private void embed() {
         runAsync(() -> {
-            try {
-                if (carrierUri == null || payloadUri == null) {
-                    toast("Select both carrier and payload files first!");
-                    return;
-                }
+            if (carrierUri == null || payloadUri == null) {
+                toast("Select carrier and payload first");
+                return;
+            }
 
+            try {
                 Bitmap bmp = loadBitmap(carrierUri);
                 byte[] payload = readBytes(payloadUri);
 
-                String name = etOutput.getText().toString();
+                String name = etOutput.getText().toString().trim();
                 if (name.isEmpty()) name = "stego.png";
 
-                try (OutputStream out = openFileOutput(name, MODE_PRIVATE)) {
-                    StegEngineCore.embed(bmp, payload, etPassword.getText().toString(), out);
+                Uri outUri = createImageOutput(name);
+                try (OutputStream out =
+                             getContentResolver().openOutputStream(outUri)) {
+
+                    StegEngineCore.embed(
+                            bmp,
+                            payload,
+                            etPassword.getText().toString(),
+                            out
+                    );
                 }
 
-                toast("Payload embedded → " + name);
+                toast("Saved to Pictures/StegoBox/" + name);
 
             } catch (Exception e) {
                 toast("Embed failed: " + e.getMessage());
@@ -101,25 +134,30 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    /* ---------------- Extract ---------------- */
+
     private void extract() {
         runAsync(() -> {
+            if (carrierUri == null) {
+                toast("Select a stego image first");
+                return;
+            }
+
             try {
-                if (carrierUri == null) {
-                    toast("Select a carrier image first!");
-                    return;
-                }
-
                 Bitmap bmp = loadBitmap(carrierUri);
-                byte[] data = StegEngineCore.extract(bmp, etPassword.getText().toString());
+                byte[] data =
+                        StegEngineCore.extract(bmp, etPassword.getText().toString());
 
-                String name = etOutput.getText().toString();
+                String name = etOutput.getText().toString().trim();
                 if (name.isEmpty()) name = "extracted.bin";
 
-                try (FileOutputStream fos = openFileOutput(name, MODE_PRIVATE)) {
-                    fos.write(data);
+                Uri outUri = createBinaryOutput(name);
+                try (OutputStream out =
+                             getContentResolver().openOutputStream(outUri)) {
+                    out.write(data);
                 }
 
-                toast("Payload extracted → " + name);
+                toast("Extracted to Downloads/StegoBox/" + name);
 
             } catch (Exception e) {
                 toast("Extract failed: " + e.getMessage());
@@ -127,21 +165,31 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    private void runAsync(Runnable r) {
-        progress.setVisibility(View.VISIBLE);
-        btnEmbed.setEnabled(false);
-        btnExtract.setEnabled(false);
+    /* ---------------- Storage ---------------- */
 
-        new Thread(() -> {
-            try { r.run(); }
-            catch (Exception e) { toast("Unexpected error: " + e.getMessage()); }
-            runOnUiThread(() -> {
-                progress.setVisibility(View.GONE);
-                btnEmbed.setEnabled(true);
-                btnExtract.setEnabled(true);
-            });
-        }).start();
+    private Uri createImageOutput(String name) {
+        ContentValues v = new ContentValues();
+        v.put(MediaStore.Images.Media.DISPLAY_NAME, name);
+        v.put(MediaStore.Images.Media.MIME_TYPE, "image/png");
+        v.put(MediaStore.Images.Media.RELATIVE_PATH,
+                "Pictures/StegoBox");
+
+        return getContentResolver()
+                .insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, v);
     }
+
+    private Uri createBinaryOutput(String name) {
+        ContentValues v = new ContentValues();
+        v.put(MediaStore.Downloads.DISPLAY_NAME, name);
+        v.put(MediaStore.Downloads.MIME_TYPE, "application/octet-stream");
+        v.put(MediaStore.Downloads.RELATIVE_PATH,
+                "Download/StegoBox");
+
+        return getContentResolver()
+                .insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, v);
+    }
+
+    /* ---------------- Utils ---------------- */
 
     private Bitmap loadBitmap(Uri uri) throws IOException {
         try (InputStream in = getContentResolver().openInputStream(uri)) {
@@ -152,6 +200,7 @@ public class MainActivity extends AppCompatActivity {
     private byte[] readBytes(Uri uri) throws IOException {
         try (InputStream in = getContentResolver().openInputStream(uri);
              ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+
             byte[] buf = new byte[8192];
             int n;
             while ((n = in.read(buf)) != -1) out.write(buf, 0, n);
@@ -162,10 +211,10 @@ public class MainActivity extends AppCompatActivity {
     private String fileName(Uri uri) {
         try (Cursor c = getContentResolver().query(uri, null, null, null, null)) {
             if (c != null && c.moveToFirst()) {
-                return c.getString(c.getColumnIndex(OpenableColumns.DISPLAY_NAME));
+                return c.getString(
+                        c.getColumnIndexOrThrow(OpenableColumns.DISPLAY_NAME)
+                );
             }
-        } catch (Exception e) {
-            // fallback
         }
         return "file";
     }
@@ -177,7 +226,25 @@ public class MainActivity extends AppCompatActivity {
         l.launch(i);
     }
 
+    private void runAsync(Runnable r) {
+        runOnUiThread(() -> {
+            progress.setVisibility(View.VISIBLE);
+            btnEmbed.setEnabled(false);
+            btnExtract.setEnabled(false);
+        });
+
+        new Thread(() -> {
+            r.run();
+            runOnUiThread(() -> {
+                progress.setVisibility(View.GONE);
+                btnEmbed.setEnabled(true);
+                btnExtract.setEnabled(true);
+            });
+        }).start();
+    }
+
     private void toast(String m) {
-        runOnUiThread(() -> Toast.makeText(this, m, Toast.LENGTH_LONG).show());
+        runOnUiThread(() ->
+                Toast.makeText(this, m, Toast.LENGTH_LONG).show());
     }
 }
