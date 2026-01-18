@@ -6,7 +6,6 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
-import android.provider.OpenableColumns;
 import android.view.View;
 import android.widget.*;
 
@@ -21,9 +20,9 @@ public class EmbedActivity extends AppCompatActivity {
     private Uri carrierUri, payloadUri;
     private ImageView carrierPreview;
     private TextView tvCarrierInfo, tvPayloadInfo;
-    private EditText etPassword;
+    private EditText etPassword, etTextMessage;
     private ProgressBar progress;
-    private Button btnEmbed;
+    private Button btnEmbed, btnUseText;
 
     @Override
     protected void onCreate(Bundle b) {
@@ -34,34 +33,40 @@ public class EmbedActivity extends AppCompatActivity {
         tvCarrierInfo = findViewById(R.id.tvCarrierInfo);
         tvPayloadInfo = findViewById(R.id.tvPayloadInfo);
         etPassword = findViewById(R.id.etPassword);
+        etTextMessage = findViewById(R.id.etTextMessage);
         progress = findViewById(R.id.progressBar);
         btnEmbed = findViewById(R.id.btnEmbed);
+        btnUseText = findViewById(R.id.btnUseText);
 
         ActivityResultLauncher<Intent> carrierPicker =
-                registerForActivityResult(
-                        new ActivityResultContracts.StartActivityForResult(),
-                        r -> {
-                            if (r.getResultCode() == RESULT_OK && r.getData() != null) {
-                                carrierUri = r.getData().getData();
-                                loadCarrier();
-                            }
-                        });
+                registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), r -> {
+                    if (r.getResultCode() == RESULT_OK && r.getData() != null) {
+                        carrierUri = r.getData().getData();
+                        loadCarrier();
+                    }
+                });
 
         ActivityResultLauncher<Intent> payloadPicker =
-                registerForActivityResult(
-                        new ActivityResultContracts.StartActivityForResult(),
-                        r -> {
-                            if (r.getResultCode() == RESULT_OK && r.getData() != null) {
-                                payloadUri = r.getData().getData();
-                                tvPayloadInfo.setText("Payload: " + fileName(payloadUri));
-                            }
-                        });
+                registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), r -> {
+                    if (r.getResultCode() == RESULT_OK && r.getData() != null) {
+                        payloadUri = r.getData().getData();
+                        tvPayloadInfo.setText("Payload: " + fileName(payloadUri));
+                    }
+                });
 
-        findViewById(R.id.pickCarrierBtn)
-                .setOnClickListener(v -> pick(carrierPicker, "image/*"));
+        findViewById(R.id.pickCarrierBtn).setOnClickListener(v -> pick(carrierPicker, "image/*"));
+        findViewById(R.id.pickPayloadBtn).setOnClickListener(v -> pick(payloadPicker, "*/*"));
 
-        findViewById(R.id.pickPayloadBtn)
-                .setOnClickListener(v -> pick(payloadPicker, "*/*"));
+        // Use entered text instead of file
+        btnUseText.setOnClickListener(v -> {
+            String text = etTextMessage.getText().toString().trim();
+            if (!text.isEmpty()) {
+                payloadUri = null; // ignore file
+                tvPayloadInfo.setText("Text payload: " + (text.length() > 30 ? text.substring(0, 30) + "..." : text));
+            } else {
+                toast("Enter text to embed!");
+            }
+        });
 
         btnEmbed.setOnClickListener(v -> embed());
     }
@@ -72,18 +77,15 @@ public class EmbedActivity extends AppCompatActivity {
             carrierPreview.setImageBitmap(bmp);
 
             int max = StegEngineCore.getMaxPayloadSize(bmp);
-            tvCarrierInfo.setText(
-                    "Carrier: " + fileName(carrierUri)
-                            + "\nMax payload: " + Utils.formatSize(max)
-            );
+            tvCarrierInfo.setText("Carrier: " + fileName(carrierUri) + "\nMax payload: " + Utils.formatSize(max));
         } catch (Exception e) {
-            toast(e.getMessage());
+            toast("Error loading carrier: " + e.getMessage());
         }
     }
 
     private void embed() {
-        if (carrierUri == null || payloadUri == null) {
-            toast("Select carrier and payload");
+        if (carrierUri == null) {
+            toast("Select carrier image first!");
             return;
         }
 
@@ -97,38 +99,37 @@ public class EmbedActivity extends AppCompatActivity {
                     bmp = BitmapFactory.decodeStream(in);
                 }
 
-                String originalName = fileName(payloadUri);
+                byte[] payloadBytes;
+                String originalName;
 
-                byte[] payload;
-                try (InputStream in = getContentResolver().openInputStream(payloadUri);
-                     ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+                if (payloadUri != null) {
+                    // File payload
+                    originalName = fileName(payloadUri);
+                    try (InputStream in = getContentResolver().openInputStream(payloadUri);
+                         ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
 
-                    byte[] buf = new byte[8192];
-                    int n;
-                    while ((n = in.read(buf)) != -1)
-                        baos.write(buf, 0, n);
-
-                    payload = baos.toByteArray();
+                        byte[] buf = new byte[8192];
+                        int n;
+                        while ((n = in.read(buf)) != -1) baos.write(buf, 0, n);
+                        payloadBytes = baos.toByteArray();
+                    }
+                } else {
+                    // Text payload
+                    String text = etTextMessage.getText().toString();
+                    payloadBytes = text.getBytes("UTF-8");
+                    originalName = "message.txt";
                 }
 
-                File out = Utils.getTimestampedFile("stego.png", "Embedded");
-
-                try (FileOutputStream fos = new FileOutputStream(out)) {
-                    StegEngineCore.embed(
-                            bmp,
-                            payload,
-                            originalName,
-                            etPassword.getText().toString(),
-                            fos
-                    );
+                // Output stego image
+                File outFile = Utils.getTimestampedFile("stego.png", "Embedded");
+                try (FileOutputStream out = new FileOutputStream(outFile)) {
+                    StegEngineCore.embed(bmp, payloadBytes, originalName, etPassword.getText().toString(), out);
                 }
 
-                runOnUiThread(() ->
-                        toast("Saved → " + out.getAbsolutePath()));
+                runOnUiThread(() -> toast("Payload embedded → " + outFile.getAbsolutePath()));
 
             } catch (Exception e) {
-                runOnUiThread(() ->
-                        toast("Embed failed: " + e.getMessage()));
+                runOnUiThread(() -> toast("Embed failed: " + e.getMessage()));
             } finally {
                 runOnUiThread(() -> {
                     progress.setVisibility(View.GONE);
@@ -139,13 +140,11 @@ public class EmbedActivity extends AppCompatActivity {
     }
 
     private String fileName(Uri uri) {
-        try (Cursor c = getContentResolver()
-                .query(uri, null, null, null, null)) {
+        try (Cursor c = getContentResolver().query(uri, null, null, null, null)) {
             if (c != null && c.moveToFirst())
-                return c.getString(
-                        c.getColumnIndex(OpenableColumns.DISPLAY_NAME));
+                return c.getString(c.getColumnIndex(OpenableColumns.DISPLAY_NAME));
         }
-        return "file.bin";
+        return "file";
     }
 
     private void pick(ActivityResultLauncher<Intent> l, String type) {
@@ -156,7 +155,6 @@ public class EmbedActivity extends AppCompatActivity {
     }
 
     private void toast(String s) {
-        runOnUiThread(() ->
-                Toast.makeText(this, s, Toast.LENGTH_LONG).show());
+        runOnUiThread(() -> Toast.makeText(this, s, Toast.LENGTH_LONG).show());
     }
 }
