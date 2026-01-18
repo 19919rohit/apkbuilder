@@ -27,7 +27,12 @@ public class StegEngineCore {
 
     public static int getMaxPayloadSize(Bitmap carrier) {
         int totalBits = carrier.getWidth() * carrier.getHeight() * 3;
-        int header = MAGIC.length + 2 + 4 + SALT_LEN + IV_LEN + 32;
+        int header =
+                MAGIC.length +     // magic
+                1 +                // enc flag
+                2 +                // name length
+                4 +                // payload length
+                SALT_LEN + IV_LEN; // worst case crypto
         return Math.max(0, (totalBits / 8) - header);
     }
 
@@ -41,8 +46,10 @@ public class StegEngineCore {
             OutputStream out
     ) throws Exception {
 
-        byte[] encrypted = encrypt(payload, password);
-        byte[] packed = pack(originalName, encrypted);
+        boolean encrypted = password != null && !password.isEmpty();
+        byte[] finalPayload = encrypted ? encrypt(payload, password) : payload;
+
+        byte[] packed = pack(originalName, finalPayload, encrypted);
 
         if (packed.length > getMaxPayloadSize(carrier))
             throw new IllegalArgumentException("Payload too large");
@@ -56,7 +63,25 @@ public class StegEngineCore {
     public static ExtractedData extract(Bitmap stego, String password) throws Exception {
         byte[] raw = reveal(stego);
         PackedData p = unpack(raw);
-        byte[] data = decrypt(p.payload, password);
+
+        byte[] data;
+
+        if (p.encrypted) {
+            if (password == null || password.isEmpty())
+                throw new SecurityException("This image is password protected");
+
+            try {
+                data = decrypt(p.payload, password);
+            } catch (GeneralSecurityException e) {
+                throw new SecurityException("Wrong password");
+            }
+        } else {
+            if (password != null && !password.isEmpty())
+                throw new SecurityException("Image is not password protected");
+
+            data = p.payload;
+        }
+
         return new ExtractedData(p.fileName, data);
     }
 
@@ -88,7 +113,8 @@ public class StegEngineCore {
                     }
                 }
 
-                bmp.setPixel(x, y, Color.argb(Color.alpha(px), rgb[0], rgb[1], rgb[2]));
+                bmp.setPixel(x, y,
+                        Color.argb(Color.alpha(px), rgb[0], rgb[1], rgb[2]));
             }
         }
         return bmp;
@@ -119,11 +145,14 @@ public class StegEngineCore {
 
     /* ================= PACK ================= */
 
-    private static byte[] pack(String fileName, byte[] payload) throws IOException {
+    private static byte[] pack(String fileName, byte[] payload, boolean encrypted)
+            throws IOException {
+
         byte[] nameBytes = fileName.getBytes(StandardCharsets.UTF_8);
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         out.write(MAGIC);
+        out.write(encrypted ? 1 : 0); // encryption flag
         out.write(ByteBuffer.allocate(2).putShort((short) nameBytes.length).array());
         out.write(nameBytes);
         out.write(ByteBuffer.allocate(4).putInt(payload.length).array());
@@ -137,7 +166,9 @@ public class StegEngineCore {
 
         byte[] magic = in.readNBytes(MAGIC.length);
         if (!Arrays.equals(magic, MAGIC))
-            throw new SecurityException("Invalid stego image");
+            throw new SecurityException("Not a StegoBox image");
+
+        boolean encrypted = in.read() == 1;
 
         int nameLen = ByteBuffer.wrap(in.readNBytes(2)).getShort() & 0xFFFF;
         String name = new String(in.readNBytes(nameLen), StandardCharsets.UTF_8);
@@ -145,14 +176,12 @@ public class StegEngineCore {
         int payloadLen = ByteBuffer.wrap(in.readNBytes(4)).getInt();
         byte[] payload = in.readNBytes(payloadLen);
 
-        return new PackedData(name, payload);
+        return new PackedData(name, payload, encrypted);
     }
 
     /* ================= CRYPTO ================= */
 
     private static byte[] encrypt(byte[] data, String password) throws Exception {
-        if (password == null || password.isEmpty()) return data;
-
         byte[] salt = random(SALT_LEN);
         byte[] iv = random(IV_LEN);
 
@@ -163,8 +192,6 @@ public class StegEngineCore {
     }
 
     private static byte[] decrypt(byte[] data, String password) throws Exception {
-        if (password == null || password.isEmpty()) return data;
-
         byte[] salt = Arrays.copyOfRange(data, 0, SALT_LEN);
         byte[] iv = Arrays.copyOfRange(data, SALT_LEN, SALT_LEN + IV_LEN);
         byte[] enc = Arrays.copyOfRange(data, SALT_LEN + IV_LEN, data.length);
@@ -176,8 +203,10 @@ public class StegEngineCore {
 
     private static SecretKey key(String pw, byte[] salt) throws Exception {
         KeySpec spec = new PBEKeySpec(pw.toCharArray(), salt, PBKDF2_ITER, AES_KEY_SIZE);
-        byte[] k = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
-                .generateSecret(spec).getEncoded();
+        byte[] k = SecretKeyFactory
+                .getInstance("PBKDF2WithHmacSHA256")
+                .generateSecret(spec)
+                .getEncoded();
         return new SecretKeySpec(k, "AES");
     }
 
@@ -207,9 +236,11 @@ public class StegEngineCore {
     private static class PackedData {
         final String fileName;
         final byte[] payload;
-        PackedData(String n, byte[] p) {
+        final boolean encrypted;
+        PackedData(String n, byte[] p, boolean e) {
             fileName = n;
             payload = p;
+            encrypted = e;
         }
     }
 }

@@ -5,7 +5,6 @@ import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
-import android.provider.OpenableColumns;
 import android.os.Bundle;
 import android.provider.OpenableColumns;
 import android.view.View;
@@ -38,20 +37,27 @@ public class ExtractActivity extends AppCompatActivity {
         btnExtract = findViewById(R.id.btnExtract);
 
         ActivityResultLauncher<Intent> picker =
-                registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), r -> {
-                    if (r.getResultCode() == RESULT_OK && r.getData() != null) {
-                        carrierUri = r.getData().getData();
-                        loadCarrier();
-                    }
-                });
+                registerForActivityResult(
+                        new ActivityResultContracts.StartActivityForResult(),
+                        r -> {
+                            if (r.getResultCode() == RESULT_OK && r.getData() != null) {
+                                carrierUri = r.getData().getData();
+                                loadCarrier();
+                            }
+                        }
+                );
 
-        findViewById(R.id.pickCarrierBtn).setOnClickListener(v -> pick(picker, "image/*"));
+        findViewById(R.id.pickCarrierBtn)
+                .setOnClickListener(v -> pick(picker, "image/*"));
+
         btnExtract.setOnClickListener(v -> extract());
     }
 
     private void loadCarrier() {
         try (InputStream in = getContentResolver().openInputStream(carrierUri)) {
             Bitmap bmp = BitmapFactory.decodeStream(in);
+            if (bmp == null) throw new IOException("Invalid image");
+
             carrierPreview.setImageBitmap(bmp);
             tvCarrierInfo.setText("Carrier: " + fileName(carrierUri));
         } catch (Exception e) {
@@ -75,18 +81,32 @@ public class ExtractActivity extends AppCompatActivity {
                     bmp = BitmapFactory.decodeStream(in);
                 }
 
-                StegEngineCore.ExtractedData ex =
-                        StegEngineCore.extract(bmp, etPassword.getText().toString());
+                if (bmp == null)
+                    throw new IOException("Invalid stego image");
 
-                File outFile = Utils.getTimestampedFile(ex.fileName, "Extracted");
+                StegEngineCore.ExtractedData ex =
+                        StegEngineCore.extract(
+                                bmp,
+                                etPassword.getText().toString().trim()
+                        );
+
+                File outFile = Utils.getTimestampedFile(
+                        ex.fileName,
+                        "Extracted"
+                );
+
                 try (FileOutputStream fos = new FileOutputStream(outFile)) {
                     fos.write(ex.data);
                 }
 
-                runOnUiThread(() -> toast("Extracted → " + outFile.getAbsolutePath()));
+                runOnUiThread(() ->
+                        toast("Extracted → " + outFile.getAbsolutePath())
+                );
 
             } catch (Exception e) {
-                runOnUiThread(() -> toast("Extract failed: " + e.getMessage()));
+                runOnUiThread(() ->
+                        toast("Extract failed: " + e.getMessage())
+                );
             } finally {
                 runOnUiThread(() -> {
                     progress.setVisibility(View.GONE);
@@ -97,9 +117,14 @@ public class ExtractActivity extends AppCompatActivity {
     }
 
     private String fileName(Uri uri) {
-        try (Cursor c = getContentResolver().query(uri, null, null, null, null)) {
+        try (Cursor c =
+                     getContentResolver().query(uri, null, null, null, null)) {
             if (c != null && c.moveToFirst())
-                return c.getString(c.getColumnIndex(OpenableColumns.DISPLAY_NAME));
+                return c.getString(
+                        c.getColumnIndexOrThrow(
+                                OpenableColumns.DISPLAY_NAME
+                        )
+                );
         }
         return "file";
     }
@@ -112,6 +137,8 @@ public class ExtractActivity extends AppCompatActivity {
     }
 
     private void toast(String s) {
-        runOnUiThread(() -> Toast.makeText(this, s, Toast.LENGTH_LONG).show());
+        runOnUiThread(() ->
+                Toast.makeText(this, s, Toast.LENGTH_LONG).show()
+        );
     }
 }

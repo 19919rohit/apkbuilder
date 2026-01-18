@@ -35,73 +35,96 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Select Carrier Image"
-            android:layout_marginTop="8dp"/>
+            android:layout_marginTop="8dp" />
 
-        <!-- Payload info -->
-        <TextView
-            android:id="@+id/tvPayloadInfo"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Payload info"
-            android:paddingTop="16dp"
-            android:textColor="#000000"
-            android:textSize="14sp" />
-
-        <Button
-            android:id="@+id/pickPayloadBtn"
+        <!-- Payload Type -->
+        <RadioGroup
+            android:id="@+id/radioPayloadType"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Select Payload File"
-            android:layout_marginTop="4dp"/>
+            android:orientation="horizontal"
+            android:layout_marginTop="16dp">
 
-        <!-- OR direct text -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Or enter text to hide:"
-            android:textSize="14sp"
-            android:textColor="#000000"
-            android:paddingTop="16dp" />
+            <RadioButton
+                android:id="@+id/radioFile"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="File"
+                android:checked="true" />
 
-        <EditText
-            android:id="@+id/etTextMessage"
-            android:layout_width="match_parent"
-            android:layout_height="120dp"
-            android:hint="Type your message here"
-            android:gravity="top|start"
-            android:background="@android:drawable/edit_text"
-            android:padding="8dp"
-            android:inputType="textMultiLine"
-            android:layout_marginTop="4dp"/>
+            <RadioButton
+                android:id="@+id/radioText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Text"
+                android:layout_marginStart="24dp" />
+        </RadioGroup>
 
-        <Button
-            android:id="@+id/btnUseText"
+        <!-- FILE PAYLOAD -->
+        <LinearLayout
+            android:id="@+id/layoutFile"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Use Text as Payload"
-            android:layout_marginTop="8dp"/>
+            android:orientation="vertical"
+            android:layout_marginTop="8dp">
 
+            <TextView
+                android:id="@+id/tvPayloadInfo"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="No file selected"
+                android:textColor="#000000"
+                android:textSize="14sp" />
+
+            <Button
+                android:id="@+id/pickPayloadBtn"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Select Payload File"
+                android:layout_marginTop="4dp" />
+        </LinearLayout>
+
+        <!-- TEXT PAYLOAD -->
+        <LinearLayout
+            android:id="@+id/layoutText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone"
+            android:layout_marginTop="8dp">
+
+            <EditText
+                android:id="@+id/etTextMessage"
+                android:layout_width="match_parent"
+                android:layout_height="120dp"
+                android:hint="Type your secret message"
+                android:gravity="top|start"
+                android:padding="8dp"
+                android:inputType="textMultiLine" />
+        </LinearLayout>
+
+        <!-- Password -->
         <EditText
             android:id="@+id/etPassword"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:hint="Password (optional)"
             android:inputType="textPassword"
-            android:layout_marginTop="16dp"/>
+            android:layout_marginTop="16dp" />
 
         <ProgressBar
             android:id="@+id/progressBar"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:visibility="gone"
-            android:layout_marginTop="16dp"/>
+            android:layout_marginTop="16dp" />
 
         <Button
             android:id="@+id/btnEmbed"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Embed Payload"
-            android:layout_marginTop="16dp"/>
+            android:layout_marginTop="16dp" />
 
     </LinearLayout>
 </ScrollView>

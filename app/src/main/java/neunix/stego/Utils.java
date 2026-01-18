@@ -1,6 +1,5 @@
 package neunix.stego;
 
-import android.content.Context;
 import android.os.Environment;
 
 import java.io.File;
@@ -18,12 +17,14 @@ public class Utils {
                 Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS),
                 "StegoBox"
         );
+
         if (!base.exists() && !base.mkdirs())
             throw new IOException("Failed to create StegoBox directory");
 
         File dir = new File(base, subFolder);
         if (!dir.exists() && !dir.mkdirs())
             throw new IOException("Failed to create subfolder: " + subFolder);
+
         return dir;
     }
 
@@ -39,21 +40,25 @@ public class Utils {
             ext = baseName.substring(dot);
         }
 
-        String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
-                .format(new Date());
-        File f = new File(dir, name + "_" + timestamp + ext);
-        return f;
+        String timestamp = new SimpleDateFormat(
+                "yyyyMMdd_HHmmss", Locale.getDefault()
+        ).format(new Date());
+
+        return new File(dir, name + "_" + timestamp + ext);
     }
 
-    public static FileOutputStream getTimestampedOutputStream(String baseName, String subFolder) throws IOException {
+    public static FileOutputStream getTimestampedOutputStream(
+            String baseName,
+            String subFolder
+    ) throws IOException {
         return new FileOutputStream(getTimestampedFile(baseName, subFolder));
     }
 
-    // Format bytes to KB/MB
+    // Format bytes → KB / MB
     public static String formatSize(long bytes) {
         if (bytes < 1024) return bytes + " B";
         double kb = bytes / 1024.0;
-        if (kb < 1024) return String.format("%.2f KB", kb);
-        return String.format("%.2f MB", kb / 1024.0);
+        if (kb < 1024) return String.format(Locale.getDefault(), "%.2f KB", kb);
+        return String.format(Locale.getDefault(), "%.2f MB", kb / 1024.0);
     }
 }

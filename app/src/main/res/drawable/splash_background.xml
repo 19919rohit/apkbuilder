@@ -1,30 +1,32 @@
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Base visible layer -->
+    <!-- Base white background -->
     <item>
         <shape android:shape="rectangle">
-            <solid android:color="#020617"/> <!-- deep slate -->
+            <solid android:color="#FFFFFF"/>
             <corners android:radius="14dp"/>
         </shape>
     </item>
 
-    <!-- Slight offset shadow (container depth) -->
+    <!-- Very soft depth shadow -->
     <item
-        android:left="2dp"
-        android:top="2dp">
+        android:left="1dp"
+        android:top="1dp">
         <shape android:shape="rectangle">
-            <solid android:color="#020617"/>
+            <solid android:color="#F3F4F6"/> <!-- ultra light gray -->
             <corners android:radius="14dp"/>
         </shape>
     </item>
 
-    <!-- Hidden layer hint -->
+    <!-- Faded stego hint layer (background only) -->
     <item
         android:left="6dp"
-        android:top="6dp">
+        android:top="6dp"
+        android:right="6dp"
+        android:bottom="6dp">
         <shape android:shape="rectangle">
-            <solid android:color="#0EA5E9"/> <!-- neon hint -->
-            <corners android:radius="14dp"/>
+            <solid android:color="#EEF2FF"/> <!-- very soft indigo tint -->
+            <corners android:radius="12dp"/>
         </shape>
     </item>
 

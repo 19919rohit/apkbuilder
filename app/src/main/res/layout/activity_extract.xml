@@ -12,20 +12,19 @@
         android:orientation="vertical"
         android:gravity="center_horizontal">
 
-        <!-- Carrier Image -->
         <ImageView
             android:id="@+id/carrierPreview"
             android:layout_width="200dp"
             android:layout_height="200dp"
             android:scaleType="centerCrop"
             android:background="#DDDDDD"
-            android:contentDescription="Carrier Image" />
+            android:contentDescription="Stego Image" />
 
         <TextView
             android:id="@+id/tvCarrierInfo"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Carrier info"
+            android:text="Stego image info"
             android:paddingTop="8dp"
             android:textColor="#000000"
             android:textSize="14sp" />
@@ -35,28 +34,29 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Select Stego Image"
-            android:layout_marginTop="8dp"/>
+            android:layout_marginTop="8dp" />
 
         <EditText
             android:id="@+id/etPassword"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Password (optional)"
+            android:hint="Password (if any)"
             android:inputType="textPassword"
-            android:layout_marginTop="16dp"/>
+            android:layout_marginTop="16dp" />
 
         <ProgressBar
             android:id="@+id/progressBar"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:visibility="gone"
-            android:layout_marginTop="16dp"/>
+            android:layout_marginTop="16dp" />
 
         <Button
             android:id="@+id/btnExtract"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Extract Payload"
-            android:layout_marginTop="16dp"/>
+            android:layout_marginTop="16dp" />
+
     </LinearLayout>
 </ScrollView>
