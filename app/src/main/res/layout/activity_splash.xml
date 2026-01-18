@@ -10,7 +10,7 @@
         android:layout_width="120dp"
         android:layout_height="120dp"
         android:layout_centerInParent="true"
-        android:src="@drawable/ic_launcher"
+        android:src="@mipmap/ic_launcher"
         android:contentDescription="App Logo" />
 
     <!-- Footer -->
@@ -24,6 +24,6 @@
         android:text="NEUNIX STUDIOS"
         android:textStyle="bold"
         android:textSize="14sp"
-        android:textColor="#CBD5F5" />
+        android:textColor="#000" />
 
 </RelativeLayout>
