@@ -37,24 +37,29 @@ public class ExtractActivity extends AppCompatActivity {
         btnExtract = findViewById(R.id.btnExtract);
 
         ActivityResultLauncher<Intent> picker =
-                registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), r -> {
-                    if (r.getResultCode() == RESULT_OK && r.getData() != null) {
-                        carrierUri = r.getData().getData();
-                        loadCarrier();
-                    }
-                });
+                registerForActivityResult(
+                        new ActivityResultContracts.StartActivityForResult(),
+                        r -> {
+                            if (r.getResultCode() == RESULT_OK && r.getData() != null) {
+                                carrierUri = r.getData().getData();
+                                loadCarrier();
+                            }
+                        });
 
-        findViewById(R.id.pickCarrierBtn).setOnClickListener(v ->
-                pick(picker, "image/*"));
+        findViewById(R.id.pickCarrierBtn)
+                .setOnClickListener(v -> pick(picker, "image/*"));
 
         btnExtract.setOnClickListener(v -> extract());
     }
 
     private void loadCarrier() {
-        try (InputStream in = getContentResolver().openInputStream(carrierUri)) {
+        try (InputStream in =
+                     getContentResolver().openInputStream(carrierUri)) {
+
             Bitmap bmp = BitmapFactory.decodeStream(in);
             carrierPreview.setImageBitmap(bmp);
-            tvCarrierInfo.setText("Carrier: " + fileName(carrierUri));
+            tvCarrierInfo.setText("Stego: " + fileName(carrierUri));
+
         } catch (Exception e) {
             toast(e.getMessage());
         }
@@ -72,15 +77,21 @@ public class ExtractActivity extends AppCompatActivity {
         new Thread(() -> {
             try {
                 Bitmap bmp;
-                try (InputStream in = getContentResolver().openInputStream(carrierUri)) {
+                try (InputStream in =
+                             getContentResolver().openInputStream(carrierUri)) {
                     bmp = BitmapFactory.decodeStream(in);
                 }
 
                 StegEngineCore.ExtractedData ex =
-                        StegEngineCore.extract(bmp, etPassword.getText().toString());
+                        StegEngineCore.extract(
+                                bmp,
+                                etPassword.getText().toString()
+                        );
 
-                File out =
-                        Utils.getUniqueFile(ex.fileName, "StegoBox");
+                File out = Utils.getTimestampedFile(
+                        ex.fileName,
+                        "Extracted"
+                );
 
                 try (FileOutputStream fos = new FileOutputStream(out)) {
                     fos.write(ex.data);
@@ -90,7 +101,8 @@ public class ExtractActivity extends AppCompatActivity {
                         toast("Extracted → " + out.getAbsolutePath()));
 
             } catch (Exception e) {
-                runOnUiThread(() -> toast("Extract failed: " + e.getMessage()));
+                runOnUiThread(() ->
+                        toast("Extract failed: " + e.getMessage()));
             } finally {
                 runOnUiThread(() -> {
                     progress.setVisibility(View.GONE);
@@ -101,9 +113,11 @@ public class ExtractActivity extends AppCompatActivity {
     }
 
     private String fileName(Uri uri) {
-        try (Cursor c = getContentResolver().query(uri, null, null, null, null)) {
+        try (Cursor c = getContentResolver()
+                .query(uri, null, null, null, null)) {
             if (c != null && c.moveToFirst())
-                return c.getString(c.getColumnIndex(OpenableColumns.DISPLAY_NAME));
+                return c.getString(
+                        c.getColumnIndex(OpenableColumns.DISPLAY_NAME));
         }
         return "image.png";
     }

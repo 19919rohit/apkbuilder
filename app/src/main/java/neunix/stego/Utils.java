@@ -5,51 +5,55 @@ import android.os.Environment;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
 
 public class Utils {
 
-    // Creates Pictures/StegoBox/
-    public static File getBaseDir(String folder) throws IOException {
+    private static final String ROOT = "StegoBox";
+    private static final SimpleDateFormat TS =
+            new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US);
+
+    // /storage/emulated/0/StegoBox/Embedded or Extracted
+    public static File getDir(String sub) throws IOException {
         File dir = new File(
-                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES),
-                folder
+                Environment.getExternalStorageDirectory(),
+                ROOT + "/" + sub
         );
         if (!dir.exists() && !dir.mkdirs())
-            throw new IOException("Failed to create directory");
+            throw new IOException("Failed to create " + dir.getAbsolutePath());
         return dir;
     }
 
-    // stego.png → stego(1).png → stego(2).png
-    public static File getUniqueFile(String baseName, String folder) throws IOException {
-        File dir = getBaseDir(folder);
-
-        String name = baseName;
-        String ext = "";
-        int dot = baseName.lastIndexOf('.');
-        if (dot != -1) {
-            name = baseName.substring(0, dot);
-            ext = baseName.substring(dot);
-        }
-
-        File f = new File(dir, baseName);
-        int i = 1;
-        while (f.exists()) {
-            f = new File(dir, name + "(" + i + ")" + ext);
-            i++;
-        }
-        return f;
-    }
-
-    public static FileOutputStream getUniqueOutputStream(String baseName, String folder)
+    // horn.wav → horn_2026-01-18_14-32-10.wav
+    public static File getTimestampedFile(String name, String sub)
             throws IOException {
-        return new FileOutputStream(getUniqueFile(baseName, folder));
+
+        File dir = getDir(sub);
+
+        String base = name;
+        String ext = "";
+        int dot = name.lastIndexOf('.');
+        if (dot != -1) {
+            base = name.substring(0, dot);
+            ext = name.substring(dot);
+        }
+
+        String ts = TS.format(new Date());
+        return new File(dir, base + "_" + ts + ext);
     }
 
-    // Human-readable size
+    public static FileOutputStream getTimestampedStream(String name, String sub)
+            throws IOException {
+        return new FileOutputStream(getTimestampedFile(name, sub));
+    }
+
+    // Bytes → KB → MB
     public static String formatSize(long bytes) {
         if (bytes < 1024) return bytes + " B";
         double kb = bytes / 1024.0;
-        if (kb < 1024) return String.format("%.2f KB", kb);
-        return String.format("%.2f MB", kb / 1024.0);
+        if (kb < 1024) return String.format(Locale.US, "%.2f KB", kb);
+        return String.format(Locale.US, "%.2f MB", kb / 1024.0);
     }
 }

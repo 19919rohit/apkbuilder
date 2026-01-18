@@ -37,27 +37,31 @@ public class EmbedActivity extends AppCompatActivity {
         progress = findViewById(R.id.progressBar);
         btnEmbed = findViewById(R.id.btnEmbed);
 
-        ActivityResultLauncher<Intent> pickCarrier =
-                registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), r -> {
-                    if (r.getResultCode() == RESULT_OK && r.getData() != null) {
-                        carrierUri = r.getData().getData();
-                        loadCarrier();
-                    }
-                });
+        ActivityResultLauncher<Intent> carrierPicker =
+                registerForActivityResult(
+                        new ActivityResultContracts.StartActivityForResult(),
+                        r -> {
+                            if (r.getResultCode() == RESULT_OK && r.getData() != null) {
+                                carrierUri = r.getData().getData();
+                                loadCarrier();
+                            }
+                        });
 
-        ActivityResultLauncher<Intent> pickPayload =
-                registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), r -> {
-                    if (r.getResultCode() == RESULT_OK && r.getData() != null) {
-                        payloadUri = r.getData().getData();
-                        tvPayloadInfo.setText("Payload: " + fileName(payloadUri));
-                    }
-                });
+        ActivityResultLauncher<Intent> payloadPicker =
+                registerForActivityResult(
+                        new ActivityResultContracts.StartActivityForResult(),
+                        r -> {
+                            if (r.getResultCode() == RESULT_OK && r.getData() != null) {
+                                payloadUri = r.getData().getData();
+                                tvPayloadInfo.setText("Payload: " + fileName(payloadUri));
+                            }
+                        });
 
-        findViewById(R.id.pickCarrierBtn).setOnClickListener(v ->
-                pick(pickCarrier, "image/*"));
+        findViewById(R.id.pickCarrierBtn)
+                .setOnClickListener(v -> pick(carrierPicker, "image/*"));
 
-        findViewById(R.id.pickPayloadBtn).setOnClickListener(v ->
-                pick(pickPayload, "*/*"));
+        findViewById(R.id.pickPayloadBtn)
+                .setOnClickListener(v -> pick(payloadPicker, "*/*"));
 
         btnEmbed.setOnClickListener(v -> embed());
     }
@@ -69,8 +73,8 @@ public class EmbedActivity extends AppCompatActivity {
 
             int max = StegEngineCore.getMaxPayloadSize(bmp);
             tvCarrierInfo.setText(
-                    "Carrier: " + fileName(carrierUri) +
-                    "\nMax payload: " + Utils.formatSize(max)
+                    "Carrier: " + fileName(carrierUri)
+                            + "\nMax payload: " + Utils.formatSize(max)
             );
         } catch (Exception e) {
             toast(e.getMessage());
@@ -93,35 +97,38 @@ public class EmbedActivity extends AppCompatActivity {
                     bmp = BitmapFactory.decodeStream(in);
                 }
 
-                byte[] payload;
                 String originalName = fileName(payloadUri);
 
+                byte[] payload;
                 try (InputStream in = getContentResolver().openInputStream(payloadUri);
-                     ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+                     ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+
                     byte[] buf = new byte[8192];
                     int n;
-                    while ((n = in.read(buf)) != -1) out.write(buf, 0, n);
-                    payload = out.toByteArray();
+                    while ((n = in.read(buf)) != -1)
+                        baos.write(buf, 0, n);
+
+                    payload = baos.toByteArray();
                 }
 
-                FileOutputStream fos =
-                        Utils.getUniqueOutputStream("stego.png", "StegoBox");
+                File out = Utils.getTimestampedFile("stego.png", "Embedded");
 
-                StegEngineCore.embed(
-                        bmp,
-                        payload,
-                        originalName,
-                        etPassword.getText().toString(),
-                        fos
-                );
-
-                fos.close();
+                try (FileOutputStream fos = new FileOutputStream(out)) {
+                    StegEngineCore.embed(
+                            bmp,
+                            payload,
+                            originalName,
+                            etPassword.getText().toString(),
+                            fos
+                    );
+                }
 
                 runOnUiThread(() ->
-                        toast("Saved in Pictures/StegoBox"));
+                        toast("Saved → " + out.getAbsolutePath()));
 
             } catch (Exception e) {
-                runOnUiThread(() -> toast("Embed failed: " + e.getMessage()));
+                runOnUiThread(() ->
+                        toast("Embed failed: " + e.getMessage()));
             } finally {
                 runOnUiThread(() -> {
                     progress.setVisibility(View.GONE);
@@ -132,11 +139,13 @@ public class EmbedActivity extends AppCompatActivity {
     }
 
     private String fileName(Uri uri) {
-        try (Cursor c = getContentResolver().query(uri, null, null, null, null)) {
+        try (Cursor c = getContentResolver()
+                .query(uri, null, null, null, null)) {
             if (c != null && c.moveToFirst())
-                return c.getString(c.getColumnIndex(OpenableColumns.DISPLAY_NAME));
+                return c.getString(
+                        c.getColumnIndex(OpenableColumns.DISPLAY_NAME));
         }
-        return "file";
+        return "file.bin";
     }
 
     private void pick(ActivityResultLauncher<Intent> l, String type) {
