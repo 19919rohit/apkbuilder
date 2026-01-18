@@ -1,11 +1,11 @@
 package neunix.stego;
 
 import android.content.Intent;
-import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Environment;
 import android.provider.OpenableColumns;
 import android.view.View;
 import android.widget.*;
@@ -19,22 +19,21 @@ import java.io.*;
 public class EmbedActivity extends AppCompatActivity {
 
     private Uri carrierUri, payloadUri;
+    private ImageView carrierPreview;
     private TextView tvCarrierInfo, tvPayloadInfo;
-    private EditText etPassword, etOutput;
+    private EditText etPassword;
     private ProgressBar progress;
     private Button btnEmbed;
-    private ImageView carrierPreview;
 
     @Override
-    protected void onCreate(Bundle b) {
-        super.onCreate(b);
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_embed);
 
+        carrierPreview = findViewById(R.id.carrierPreview);
         tvCarrierInfo = findViewById(R.id.tvCarrierInfo);
         tvPayloadInfo = findViewById(R.id.tvPayloadInfo);
-        carrierPreview = findViewById(R.id.carrierPreview);
         etPassword = findViewById(R.id.etPassword);
-        etOutput = findViewById(R.id.etOutputFileName);
         progress = findViewById(R.id.progressBar);
         btnEmbed = findViewById(R.id.btnEmbed);
 
@@ -42,8 +41,7 @@ public class EmbedActivity extends AppCompatActivity {
                 registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), r -> {
                     if (r.getResultCode() == RESULT_OK && r.getData() != null) {
                         carrierUri = r.getData().getData();
-                        showCarrierPreview();
-                        analyzeCarrier();
+                        loadCarrierPreview();
                     }
                 });
 
@@ -64,81 +62,72 @@ public class EmbedActivity extends AppCompatActivity {
         btnEmbed.setOnClickListener(v -> embed());
     }
 
-    private void showCarrierPreview() {
-        try {
-            Bitmap bmp = loadBitmap(carrierUri);
+    private void loadCarrierPreview() {
+        try (InputStream in = getContentResolver().openInputStream(carrierUri)) {
+            Bitmap bmp = BitmapFactory.decodeStream(in);
             carrierPreview.setImageBitmap(bmp);
-        } catch (Exception e) {
-            toast("Cannot show preview: " + e.getMessage());
-        }
-    }
 
-    private void analyzeCarrier() {
-        try {
-            Bitmap bmp = loadBitmap(carrierUri);
             int max = StegEngineCore.getMaxPayloadSize(bmp);
-            tvCarrierInfo.setText("Carrier: " + fileName(carrierUri) +
-                    "\nMax payload: " + max + " bytes");
+            tvCarrierInfo.setText("Carrier: " + fileName(carrierUri) + "\nMax payload: " + max + " bytes");
         } catch (Exception e) {
-            toast("Error analyzing carrier: " + e.getMessage());
+            toast("Error loading carrier: " + e.getMessage());
         }
     }
 
     private void embed() {
-        runAsync(() -> {
-            try {
-                if (carrierUri == null || payloadUri == null) {
-                    toast("Select both carrier and payload first!");
-                    return;
-                }
+        if (carrierUri == null || payloadUri == null) {
+            toast("Select both carrier and payload files first!");
+            return;
+        }
 
-                Bitmap bmp = loadBitmap(carrierUri);
-                byte[] payload = readBytes(payloadUri);
-
-                String name = etOutput.getText().toString();
-                if (name.isEmpty()) name = "stego.png";
-
-                File outFile = Utils.getOutputFile(this, name, "StegoBox"); // Custom save to Pictures/StegoBox
-                try (OutputStream out = new FileOutputStream(outFile)) {
-                    StegEngineCore.embed(bmp, payload, etPassword.getText().toString(), out);
-                }
-
-                toast("Embedded → " + outFile.getAbsolutePath());
-
-            } catch (Exception e) {
-                toast("Embed failed: " + e.getMessage());
-            }
-        });
-    }
-
-    private void runAsync(Runnable r) {
         progress.setVisibility(View.VISIBLE);
         btnEmbed.setEnabled(false);
 
         new Thread(() -> {
-            try { r.run(); }
-            catch (Exception e) { toast("Error: " + e.getMessage()); }
-            runOnUiThread(() -> {
-                progress.setVisibility(View.GONE);
-                btnEmbed.setEnabled(true);
-            });
+            try {
+                Bitmap bmp;
+                try (InputStream in = getContentResolver().openInputStream(carrierUri)) {
+                    bmp = BitmapFactory.decodeStream(in);
+                }
+
+                byte[] payloadBytes;
+                String originalName = fileName(payloadUri);
+
+                try (InputStream in = getContentResolver().openInputStream(payloadUri);
+                     ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+
+                    byte[] nameBytes = originalName.getBytes("UTF-8");
+                    baos.write(nameBytes.length);
+                    baos.write(nameBytes);
+
+                    byte[] buf = new byte[8192];
+                    int n;
+                    while ((n = in.read(buf)) != -1) baos.write(buf, 0, n);
+
+                    payloadBytes = baos.toByteArray();
+                }
+
+                // Save stego image in Pictures/StegoBox/
+                File dir = new File(Environment.getExternalStoragePublicDirectory(
+                        Environment.DIRECTORY_PICTURES), "StegoBox");
+                if (!dir.exists()) dir.mkdirs();
+
+                File outFile = new File(dir, "stego.png");
+                try (FileOutputStream out = new FileOutputStream(outFile)) {
+                    StegEngineCore.embed(bmp, payloadBytes, etPassword.getText().toString(), out);
+                }
+
+                runOnUiThread(() -> toast("Payload embedded → " + outFile.getAbsolutePath()));
+
+            } catch (Exception e) {
+                runOnUiThread(() -> toast("Embed failed: " + e.getMessage()));
+            } finally {
+                runOnUiThread(() -> {
+                    progress.setVisibility(View.GONE);
+                    btnEmbed.setEnabled(true);
+                });
+            }
         }).start();
-    }
-
-    private Bitmap loadBitmap(Uri uri) throws IOException {
-        try (InputStream in = getContentResolver().openInputStream(uri)) {
-            return BitmapFactory.decodeStream(in);
-        }
-    }
-
-    private byte[] readBytes(Uri uri) throws IOException {
-        try (InputStream in = getContentResolver().openInputStream(uri);
-             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            byte[] buf = new byte[8192];
-            int n;
-            while ((n = in.read(buf)) != -1) out.write(buf, 0, n);
-            return out.toByteArray();
-        }
     }
 
     private String fileName(Uri uri) {
@@ -150,14 +139,14 @@ public class EmbedActivity extends AppCompatActivity {
         return "file";
     }
 
-    private void pick(ActivityResultLauncher<Intent> l, String t) {
+    private void pick(ActivityResultLauncher<Intent> l, String type) {
         Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-        i.setType(t);
+        i.setType(type);
         i.addCategory(Intent.CATEGORY_OPENABLE);
         l.launch(i);
     }
 
-    private void toast(String m) {
-        runOnUiThread(() -> Toast.makeText(this, m, Toast.LENGTH_LONG).show());
+    private void toast(String msg) {
+        runOnUiThread(() -> Toast.makeText(this, msg, Toast.LENGTH_LONG).show());
     }
 }

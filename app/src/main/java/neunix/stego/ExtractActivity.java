@@ -1,10 +1,11 @@
 package neunix.stego;
 
-import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Environment;
+import android.provider.OpenableColumns;
 import android.view.View;
 import android.widget.*;
 
@@ -12,33 +13,34 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 
-import java.io.FileOutputStream;
-import java.io.InputStream;
+import java.io.*;
+import java.util.Arrays;
 
 public class ExtractActivity extends AppCompatActivity {
 
     private Uri carrierUri;
-    private EditText etPassword, etOutput;
+    private ImageView carrierPreview;
+    private TextView tvCarrierInfo;
+    private EditText etPassword;
     private ProgressBar progress;
     private Button btnExtract;
-    private ImageView carrierPreview;
 
     @Override
-    protected void onCreate(Bundle b) {
-        super.onCreate(b);
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_extract);
 
+        carrierPreview = findViewById(R.id.carrierPreview);
+        tvCarrierInfo = findViewById(R.id.tvCarrierInfo);
         etPassword = findViewById(R.id.etPassword);
-        etOutput = findViewById(R.id.etOutputFileName);
         progress = findViewById(R.id.progressBar);
         btnExtract = findViewById(R.id.btnExtract);
-        carrierPreview = findViewById(R.id.carrierPreview);
 
         ActivityResultLauncher<Intent> carrierPicker =
                 registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), r -> {
                     if (r.getResultCode() == RESULT_OK && r.getData() != null) {
                         carrierUri = r.getData().getData();
-                        showCarrierPreview();
+                        loadCarrierPreview();
                     }
                 });
 
@@ -48,69 +50,77 @@ public class ExtractActivity extends AppCompatActivity {
         btnExtract.setOnClickListener(v -> extract());
     }
 
-    private void showCarrierPreview() {
-        try {
-            Bitmap bmp = loadBitmap(carrierUri);
+    private void loadCarrierPreview() {
+        try (InputStream in = getContentResolver().openInputStream(carrierUri)) {
+            Bitmap bmp = BitmapFactory.decodeStream(in);
             carrierPreview.setImageBitmap(bmp);
+            tvCarrierInfo.setText("Carrier: " + fileName(carrierUri));
         } catch (Exception e) {
-            toast("Cannot show preview: " + e.getMessage());
+            toast("Error loading carrier: " + e.getMessage());
         }
     }
 
     private void extract() {
-        runAsync(() -> {
-            try {
-                if (carrierUri == null) {
-                    toast("Select a stego image first!");
-                    return;
-                }
+        if (carrierUri == null) {
+            toast("Select a carrier image first!");
+            return;
+        }
 
-                Bitmap bmp = loadBitmap(carrierUri);
-                byte[] data = StegEngineCore.extract(bmp, etPassword.getText().toString());
-
-                String name = etOutput.getText().toString();
-                if (name.isEmpty()) name = "extracted.bin";
-
-                FileOutputStream fos = Utils.getOutputFileStream(this, name, "StegoBox");
-                fos.write(data);
-                fos.close();
-
-                toast("Extracted → " + name);
-
-            } catch (Exception e) {
-                toast("Extract failed: " + e.getMessage());
-            }
-        });
-    }
-
-    private void runAsync(Runnable r) {
         progress.setVisibility(View.VISIBLE);
         btnExtract.setEnabled(false);
 
         new Thread(() -> {
-            try { r.run(); }
-            catch (Exception e) { toast("Error: " + e.getMessage()); }
-            runOnUiThread(() -> {
-                progress.setVisibility(View.GONE);
-                btnExtract.setEnabled(true);
-            });
+            try {
+                Bitmap bmp;
+                try (InputStream in = getContentResolver().openInputStream(carrierUri)) {
+                    bmp = BitmapFactory.decodeStream(in);
+                }
+
+                byte[] data = StegEngineCore.extract(bmp, etPassword.getText().toString());
+
+                int nameLen = data[0] & 0xFF;
+                String originalName = new String(data, 1, nameLen, "UTF-8");
+                byte[] payload = Arrays.copyOfRange(data, 1 + nameLen, data.length);
+
+                File dir = new File(Environment.getExternalStoragePublicDirectory(
+                        Environment.DIRECTORY_PICTURES), "StegoBox");
+                if (!dir.exists()) dir.mkdirs();
+
+                File outFile = new File(dir, originalName);
+                try (FileOutputStream fos = new FileOutputStream(outFile)) {
+                    fos.write(payload);
+                }
+
+                runOnUiThread(() -> toast("Extracted → " + outFile.getAbsolutePath()));
+
+            } catch (Exception e) {
+                runOnUiThread(() -> toast("Extract failed: " + e.getMessage()));
+            } finally {
+                runOnUiThread(() -> {
+                    progress.setVisibility(View.GONE);
+                    btnExtract.setEnabled(true);
+                });
+            }
         }).start();
     }
 
-    private Bitmap loadBitmap(Uri uri) throws Exception {
-        try (InputStream in = getContentResolver().openInputStream(uri)) {
-            return BitmapFactory.decodeStream(in);
-        }
+    private String fileName(Uri uri) {
+        try (Cursor c = getContentResolver().query(uri, null, null, null, null)) {
+            if (c != null && c.moveToFirst()) {
+                return c.getString(c.getColumnIndex(OpenableColumns.DISPLAY_NAME));
+            }
+        } catch (Exception ignored) {}
+        return "file";
     }
 
-    private void pick(ActivityResultLauncher<Intent> l, String t) {
+    private void pick(ActivityResultLauncher<Intent> l, String type) {
         Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-        i.setType(t);
+        i.setType(type);
         i.addCategory(Intent.CATEGORY_OPENABLE);
         l.launch(i);
     }
 
-    private void toast(String m) {
-        runOnUiThread(() -> Toast.makeText(this, m, Toast.LENGTH_LONG).show());
+    private void toast(String msg) {
+        runOnUiThread(() -> Toast.makeText(this, msg, Toast.LENGTH_LONG).show());
     }
 }

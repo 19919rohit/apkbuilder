@@ -2,35 +2,42 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fillViewport="true"
-    android:background="#0F172A">
+    android:background="#0F172A"
+    android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="20dp"
-        android:animateLayoutChanges="true">
+        android:padding="20dp">
+
+        <!-- Title -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Embed Payload"
+            android:textSize="28sp"
+            android:textStyle="bold"
+            android:textColor="#FFFFFF"
+            android:layout_marginBottom="12dp"/>
 
         <!-- Carrier Image Preview -->
         <ImageView
             android:id="@+id/carrierPreview"
             android:layout_width="match_parent"
             android:layout_height="200dp"
-            android:background="#020617"
             android:scaleType="centerCrop"
-            android:layout_marginBottom="12dp"/>
+            android:background="#020617"
+            android:layout_marginBottom="8dp"/>
 
-        <!-- Carrier Info -->
+        <!-- Carrier & Payload Info -->
         <TextView
             android:id="@+id/tvCarrierInfo"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="No carrier image selected"
+            android:text="No carrier selected"
             android:textColor="#CBD5F5"
-            android:layout_marginBottom="6dp"/>
-
-        <!-- Payload Info -->
+            android:layout_marginBottom="4dp"/>
         <TextView
             android:id="@+id/tvPayloadInfo"
             android:layout_width="match_parent"
@@ -39,7 +46,7 @@
             android:textColor="#CBD5F5"
             android:layout_marginBottom="16dp"/>
 
-        <!-- Buttons Row -->
+        <!-- Pick Buttons -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -79,28 +86,9 @@
             android:inputType="textPassword"
             android:textColor="#FFFFFF"
             android:textColorHint="#64748B"
-            android:layout_marginBottom="12dp"/>
-
-        <!-- Output filename -->
-        <EditText
-            android:id="@+id/etOutputFileName"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Output file name (e.g. stego.png)"
-            android:textColor="#FFFFFF"
-            android:textColorHint="#64748B"
-            android:layout_marginBottom="20dp"/>
-
-        <!-- Progress -->
-        <ProgressBar
-            android:id="@+id/progressBar"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:visibility="gone"
             android:layout_marginBottom="16dp"/>
 
-        <!-- Action Button -->
+        <!-- Embed Button -->
         <Button
             android:id="@+id/btnEmbed"
             android:layout_width="match_parent"
@@ -108,7 +96,15 @@
             android:text="Embed Payload"
             android:backgroundTint="#16A34A"
             android:textColor="#FFFFFF"
-            android:layout_marginBottom="12dp"/>
+            android:layout_marginBottom="16dp"/>
+
+        <!-- Progress Bar -->
+        <ProgressBar
+            android:id="@+id/progressBar"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:visibility="gone"/>
 
     </LinearLayout>
 </ScrollView>
