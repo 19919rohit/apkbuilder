@@ -1,149 +1,45 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fillViewport="true"
-    android:background="#0F172A">
+    android:background="#0F172A"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:padding="24dp">
 
-    <LinearLayout
+    <!-- App Title -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="StegoBox"
+        android:textSize="32sp"
+        android:textStyle="bold"
+        android:textColor="#FFFFFF"
+        android:layout_marginBottom="16dp"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Secure Image Steganography"
+        android:textColor="#94A3B8"
+        android:layout_marginBottom="40dp"/>
+
+    <!-- Buttons -->
+    <Button
+        android:id="@+id/btnGoEmbed"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="20dp"
-        android:animateLayoutChanges="true">
+        android:text="EMBED"
+        android:backgroundTint="#16A34A"
+        android:textColor="#FFFFFF"
+        android:layout_marginBottom="20dp"/>
 
-        <!-- App Title -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="StegoBox"
-            android:textSize="28sp"
-            android:textStyle="bold"
-            android:textColor="#FFFFFF"
-            android:layout_marginBottom="6dp"/>
+    <Button
+        android:id="@+id/btnGoExtract"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="EXTRACT"
+        android:backgroundTint="#DC2626"
+        android:textColor="#FFFFFF"/>
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Secure image steganography"
-            android:textColor="#94A3B8"
-            android:layout_marginBottom="20dp"/>
-
-        <!-- Carrier Image Preview -->
-        <ImageView
-            android:id="@+id/carrierPreview"
-            android:layout_width="match_parent"
-            android:layout_height="180dp"
-            android:scaleType="centerCrop"
-            android:background="#020617"
-            android:layout_marginBottom="12dp"/>
-
-        <!-- Carrier Info -->
-        <TextView
-            android:id="@+id/tvCarrierInfo"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="No carrier image selected"
-            android:textColor="#CBD5F5"
-            android:layout_marginBottom="6dp"/>
-
-        <!-- Payload Info -->
-        <TextView
-            android:id="@+id/tvPayloadInfo"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="No payload selected"
-            android:textColor="#CBD5F5"
-            android:layout_marginBottom="16dp"/>
-
-        <!-- Buttons Row -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:weightSum="2"
-            android:layout_marginBottom="16dp">
-
-            <Button
-                android:id="@+id/pickCarrierBtn"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Select Image"
-                android:backgroundTint="#2563EB"
-                android:textColor="#FFFFFF"/>
-
-            <Space
-                android:layout_width="12dp"
-                android:layout_height="wrap_content"/>
-
-            <Button
-                android:id="@+id/pickPayloadBtn"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Select File"
-                android:backgroundTint="#475569"
-                android:textColor="#FFFFFF"/>
-        </LinearLayout>
-
-        <!-- Password -->
-        <EditText
-            android:id="@+id/etPassword"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Password (optional)"
-            android:inputType="textPassword"
-            android:textColor="#FFFFFF"
-            android:textColorHint="#64748B"
-            android:layout_marginBottom="12dp"/>
-
-        <!-- Output filename -->
-        <EditText
-            android:id="@+id/etOutputFileName"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Output file name (e.g. stego.png)"
-            android:textColor="#FFFFFF"
-            android:textColorHint="#64748B"
-            android:layout_marginBottom="20dp"/>
-
-        <!-- Progress -->
-        <ProgressBar
-            android:id="@+id/progressBar"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:visibility="gone"
-            android:layout_marginBottom="16dp"/>
-
-        <!-- Action Buttons -->
-        <Button
-            android:id="@+id/btnEmbed"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Embed Payload"
-            android:backgroundTint="#16A34A"
-            android:textColor="#FFFFFF"
-            android:layout_marginBottom="12dp"/>
-
-        <Button
-            android:id="@+id/btnExtract"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Extract Payload"
-            android:backgroundTint="#DC2626"
-            android:textColor="#FFFFFF"
-            android:layout_marginBottom="16dp"/>
-
-        <!-- Status -->
-        <TextView
-            android:id="@+id/statusText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text=""
-            android:textColor="#38BDF8"
-            android:textSize="14sp"/>
-
-    </LinearLayout>
-</ScrollView>
+</LinearLayout>
