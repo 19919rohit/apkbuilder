@@ -1,37 +1,20 @@
 package neunix.stego;
 
-import android.app.Activity;
 import android.content.Intent;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.Environment;
 import android.provider.OpenableColumns;
 import android.view.View;
-import android.widget.Button;
-import android.widget.EditText;
-import android.widget.ImageView;
-import android.widget.ProgressBar;
-import android.widget.TextView;
-import android.widget.Toast;
+import android.widget.*;
 
-// AndroidX for Activity Results
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 
-// Java I/O
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-
-// Java Utilities
-import java.util.Arrays;
+import java.io.*;
 
 public class EmbedActivity extends AppCompatActivity {
 
@@ -43,8 +26,8 @@ public class EmbedActivity extends AppCompatActivity {
     private Button btnEmbed;
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
+    protected void onCreate(Bundle b) {
+        super.onCreate(b);
         setContentView(R.layout.activity_embed);
 
         carrierPreview = findViewById(R.id.carrierPreview);
@@ -54,15 +37,15 @@ public class EmbedActivity extends AppCompatActivity {
         progress = findViewById(R.id.progressBar);
         btnEmbed = findViewById(R.id.btnEmbed);
 
-        ActivityResultLauncher<Intent> carrierPicker =
+        ActivityResultLauncher<Intent> pickCarrier =
                 registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), r -> {
                     if (r.getResultCode() == RESULT_OK && r.getData() != null) {
                         carrierUri = r.getData().getData();
-                        loadCarrierPreview();
+                        loadCarrier();
                     }
                 });
 
-        ActivityResultLauncher<Intent> payloadPicker =
+        ActivityResultLauncher<Intent> pickPayload =
                 registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), r -> {
                     if (r.getResultCode() == RESULT_OK && r.getData() != null) {
                         payloadUri = r.getData().getData();
@@ -71,29 +54,32 @@ public class EmbedActivity extends AppCompatActivity {
                 });
 
         findViewById(R.id.pickCarrierBtn).setOnClickListener(v ->
-                pick(carrierPicker, "image/*"));
+                pick(pickCarrier, "image/*"));
 
         findViewById(R.id.pickPayloadBtn).setOnClickListener(v ->
-                pick(payloadPicker, "*/*"));
+                pick(pickPayload, "*/*"));
 
         btnEmbed.setOnClickListener(v -> embed());
     }
 
-    private void loadCarrierPreview() {
+    private void loadCarrier() {
         try (InputStream in = getContentResolver().openInputStream(carrierUri)) {
             Bitmap bmp = BitmapFactory.decodeStream(in);
             carrierPreview.setImageBitmap(bmp);
 
             int max = StegEngineCore.getMaxPayloadSize(bmp);
-            tvCarrierInfo.setText("Carrier: " + fileName(carrierUri) + "\nMax payload: " + max + " bytes");
+            tvCarrierInfo.setText(
+                    "Carrier: " + fileName(carrierUri) +
+                    "\nMax payload: " + Utils.formatSize(max)
+            );
         } catch (Exception e) {
-            toast("Error loading carrier: " + e.getMessage());
+            toast(e.getMessage());
         }
     }
 
     private void embed() {
         if (carrierUri == null || payloadUri == null) {
-            toast("Select both carrier and payload files first!");
+            toast("Select carrier and payload");
             return;
         }
 
@@ -107,34 +93,32 @@ public class EmbedActivity extends AppCompatActivity {
                     bmp = BitmapFactory.decodeStream(in);
                 }
 
-                byte[] payloadBytes;
+                byte[] payload;
                 String originalName = fileName(payloadUri);
 
                 try (InputStream in = getContentResolver().openInputStream(payloadUri);
-                     ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-
-                    byte[] nameBytes = originalName.getBytes("UTF-8");
-                    baos.write(nameBytes.length);
-                    baos.write(nameBytes);
-
+                     ByteArrayOutputStream out = new ByteArrayOutputStream()) {
                     byte[] buf = new byte[8192];
                     int n;
-                    while ((n = in.read(buf)) != -1) baos.write(buf, 0, n);
-
-                    payloadBytes = baos.toByteArray();
+                    while ((n = in.read(buf)) != -1) out.write(buf, 0, n);
+                    payload = out.toByteArray();
                 }
 
-                // Save stego image in Pictures/StegoBox/
-                File dir = new File(Environment.getExternalStoragePublicDirectory(
-                        Environment.DIRECTORY_PICTURES), "StegoBox");
-                if (!dir.exists()) dir.mkdirs();
+                FileOutputStream fos =
+                        Utils.getUniqueOutputStream("stego.png", "StegoBox");
 
-                File outFile = new File(dir, "stego.png");
-                try (FileOutputStream out = new FileOutputStream(outFile)) {
-                    StegEngineCore.embed(bmp, payloadBytes, etPassword.getText().toString(), out);
-                }
+                StegEngineCore.embed(
+                        bmp,
+                        payload,
+                        originalName,
+                        etPassword.getText().toString(),
+                        fos
+                );
 
-                runOnUiThread(() -> toast("Payload embedded → " + outFile.getAbsolutePath()));
+                fos.close();
+
+                runOnUiThread(() ->
+                        toast("Saved in Pictures/StegoBox"));
 
             } catch (Exception e) {
                 runOnUiThread(() -> toast("Embed failed: " + e.getMessage()));
@@ -149,21 +133,21 @@ public class EmbedActivity extends AppCompatActivity {
 
     private String fileName(Uri uri) {
         try (Cursor c = getContentResolver().query(uri, null, null, null, null)) {
-            if (c != null && c.moveToFirst()) {
+            if (c != null && c.moveToFirst())
                 return c.getString(c.getColumnIndex(OpenableColumns.DISPLAY_NAME));
-            }
-        } catch (Exception ignored) {}
+        }
         return "file";
     }
 
     private void pick(ActivityResultLauncher<Intent> l, String type) {
         Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-        i.setType(type);
         i.addCategory(Intent.CATEGORY_OPENABLE);
+        i.setType(type);
         l.launch(i);
     }
 
-    private void toast(String msg) {
-        runOnUiThread(() -> Toast.makeText(this, msg, Toast.LENGTH_LONG).show());
+    private void toast(String s) {
+        runOnUiThread(() ->
+                Toast.makeText(this, s, Toast.LENGTH_LONG).show());
     }
 }
