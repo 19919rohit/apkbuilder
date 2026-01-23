@@ -1,33 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Base app theme -->
+    <!-- Base application theme -->
     <style name="Theme.App" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <!-- Primary colors -->
         <item name="colorPrimary">@color/purple_500</item>
         <item name="colorPrimaryVariant">@color/purple_700</item>
-        <item name="colorOnPrimary">@color/background_light</item>
+        <item name="colorOnPrimary">@color/white</item>
 
         <!-- Secondary colors -->
         <item name="colorSecondary">@color/teal_200</item>
         <item name="colorSecondaryVariant">@color/teal_200</item>
-        <item name="colorOnSecondary">@color/onBackground_light</item>
+        <item name="colorOnSecondary">@color/black</item>
 
         <!-- Background & surface -->
-        <item name="android:windowBackground">@color/background_light</item>
-        <item name="colorBackground">@color/background_light</item>
-        <item name="colorSurface">@color/surface_light</item>
-        <item name="colorOnSurface">@color/onSurface_light</item>
-        <item name="colorOnBackground">@color/onBackground_light</item>
+        <item name="android:windowBackground">@color/white</item>
+        <item name="android:colorBackground">@color/white</item>
+        <item name="colorSurface">@color/white</item>
+        <item name="colorOnSurface">@color:black</item>
+        <item name="colorOnBackground">@color/black</item>
 
-        <!-- Buttons -->
+        <!-- Material Components -->
         <item name="materialButtonStyle">@style/Widget.MaterialComponents.Button</item>
 
         <!-- Status bar -->
         <item name="android:statusBarColor">@color/purple_700</item>
     </style>
 
-    <!-- Splash theme -->
+    <!-- Splash screen -->
     <style name="Theme.App.Splash" parent="Theme.App">
         <item name="android:windowBackground">@drawable/splash_background</item>
     </style>
