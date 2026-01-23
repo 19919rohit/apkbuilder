@@ -1,17 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Primary -->
+    <!-- Primary colors -->
     <color name="purple_500">#6200EE</color>
     <color name="purple_700">#3700B3</color>
     <color name="teal_200">#03DAC5</color>
 
-    <!-- Background & Surface -->
-    <color name="background_light">#FFFFFF</color>
-    <color name="surface_light">#FFFFFF</color>
-    <color name="onBackground_light">#000000</color>
-    <color name="onSurface_light">#000000</color>
+    <!-- Text & background -->
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+    <color name="gray_200">#EEEEEE</color>
+    <color name="gray_500">#9E9E9E</color>
+    <color name="blue_gray_900">#0F172A</color>
 
-    <!-- Buttons -->
+    <!-- Button colors -->
     <color name="green_500">#16A34A</color>
     <color name="red_500">#DC2626</color>
 </resources>
