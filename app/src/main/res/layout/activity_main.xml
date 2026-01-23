@@ -2,36 +2,34 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#0F172A"
+    android:background="@color/background"
     android:orientation="vertical"
     android:gravity="center"
     android:padding="24dp">
 
-    <!-- App Title -->
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="StegoBox"
         android:textSize="32sp"
         android:textStyle="bold"
-        android:textColor="#FFFFFF"
-        android:layout_marginBottom="16dp"/>
+        android:textColor="@color/text_primary"
+        android:layout_marginBottom="8dp"/>
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Secure Image Steganography"
-        android:textColor="#94A3B8"
+        android:textColor="@color/text_secondary"
         android:layout_marginBottom="40dp"/>
 
-    <!-- Buttons -->
     <Button
         android:id="@+id/btnGoEmbed"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="EMBED"
-        android:backgroundTint="#16A34A"
-        android:textColor="#FFFFFF"
+        android:backgroundTint="@color/green"
+        android:textColor="@color/text_primary"
         android:layout_marginBottom="20dp"/>
 
     <Button
@@ -39,7 +37,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="EXTRACT"
-        android:backgroundTint="#DC2626"
-        android:textColor="#FFFFFF"/>
+        android:backgroundTint="@color/red"
+        android:textColor="@color/text_primary"/>
 
 </LinearLayout>

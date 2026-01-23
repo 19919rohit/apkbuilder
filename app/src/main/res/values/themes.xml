@@ -1,7 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <style name="AppTheme" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-        <item name="colorPrimary">@android:color/holo_blue_bright</item>
-        <item name="colorPrimaryDark">@android:color/holo_blue_dark</item>
-        <item name="colorAccent">@android:color/holo_blue_light</item>
+
+    <style name="Theme.StegoBox" parent="Theme.MaterialComponents.NoActionBar">
+
+        <!-- 🔒 CRITICAL FIX -->
+        <item name="android:forceDarkAllowed">false</item>
+
+        <!-- Core -->
+        <item name="android:windowBackground">@color/background</item>
+        <item name="colorPrimary">@color/blue</item>
+        <item name="colorSecondary">@color/green</item>
+
+        <!-- Text -->
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textColorHint">@color/text_hint</item>
+
+        <!-- Buttons -->
+        <item name="materialButtonStyle">@style/StegoButton</item>
+
+        <!-- Inputs -->
+        <item name="editTextStyle">@style/StegoEditText</item>
+
     </style>
+
+    <style name="StegoButton" parent="Widget.MaterialComponents.Button">
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:backgroundTint">@color/blue</item>
+    </style>
+
+    <style name="StegoEditText" parent="Widget.MaterialComponents.TextInputEditText.OutlinedBox">
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textColorHint">@color/text_hint</item>
+        <item name="android:background">@color/input_bg</item>
+    </style>
+
 </resources>
