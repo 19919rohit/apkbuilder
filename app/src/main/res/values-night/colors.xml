@@ -1,17 +1,31 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Night mode colors -->
+    <!-- Primary colors -->
     <color name="purple_500">#BB86FC</color>
     <color name="purple_700">#3700B3</color>
     <color name="teal_200">#03DAC5</color>
 
-    <!-- Background & Surface -->
+    <!-- Standard colors -->
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+
+    <!-- App-specific UI -->
+    <color name="background">#0F172A</color>
+    <color name="surface">#1E293B</color>
     <color name="background_light">#0F172A</color>
     <color name="surface_light">#1E293B</color>
-    <color name="onBackground_light">#FFFFFF</color>
-    <color name="onSurface_light">#FFFFFF</color>
+
+    <color name="card">#1E293B</color>
+    <color name="text_primary">#FFFFFF</color>
+    <color name="text_secondary">#CBD5E1</color>
+    <color name="text_hint">#94A3B8</color>
+    <color name="input_border">#334155</color>
 
     <!-- Buttons -->
-    <color name="green_500">#16A34A</color>
-    <color name="red_500">#DC2626</color>
+    <color name="green">#16A34A</color>
+    <color name="red">#DC2626</color>
+
+    <!-- On colors -->
+    <color name="onBackground_light">#FFFFFF</color>
+    <color name="onSurface_light">#FFFFFF</color>
 </resources>
