@@ -12,6 +12,14 @@
     <color name="gray_500">#9E9E9E</color>
     <color name="blue_gray_900">#0F172A</color>
 
+    <!-- App specific -->
+    <color name="background">#FFFFFF</color>
+    <color name="card">#F5F5F5</color>
+    <color name="text_primary">#000000</color>
+    <color name="text_secondary">#666666</color>
+    <color name="text_hint">#999999</color>
+    <color name="input_border">#CCCCCC</color>
+
     <!-- Button colors -->
     <color name="green_500">#16A34A</color>
     <color name="red_500">#DC2626</color>
