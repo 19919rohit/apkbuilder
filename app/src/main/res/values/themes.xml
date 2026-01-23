@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Base application theme -->
+    <!-- Base app theme -->
     <style name="Theme.App" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <!-- Primary colors -->
         <item name="colorPrimary">@color/purple_500</item>
@@ -20,14 +20,14 @@
         <item name="colorOnSurface">@color/onSurface_light</item>
         <item name="colorOnBackground">@color/onBackground_light</item>
 
-        <!-- Material button -->
+        <!-- Buttons -->
         <item name="materialButtonStyle">@style/Widget.MaterialComponents.Button</item>
 
         <!-- Status bar -->
         <item name="android:statusBarColor">@color/purple_700</item>
     </style>
 
-    <!-- Splash screen theme -->
+    <!-- Splash theme -->
     <style name="Theme.App.Splash" parent="Theme.App">
         <item name="android:windowBackground">@drawable/splash_background</item>
     </style>
