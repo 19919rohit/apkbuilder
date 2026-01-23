@@ -5,14 +5,19 @@
     <color name="purple_700">#3700B3</color>
     <color name="teal_200">#03DAC5</color>
 
-    <!-- Text & background -->
-    <color name="white">#FFFFFF</color>
-    <color name="black">#000000</color>
-    <color name="gray_200">#EEEEEE</color>
-    <color name="gray_500">#9E9E9E</color>
-    <color name="blue_gray_900">#0F172A</color>
+    <!-- Background / Surface -->
+    <color name="background">#FFFFFF</color>       <!-- Light mode -->
+    <color name="surface">#FFFFFF</color>
+    <color name="onBackground">#000000</color>
+    <color name="onSurface">#000000</color>
 
-    <!-- Button colors -->
+    <!-- Dark mode -->
+    <color name="background_dark">#0F172A</color>
+    <color name="surface_dark">#1E293B</color>
+    <color name="onBackground_dark">#FFFFFF</color>
+    <color name="onSurface_dark">#FFFFFF</color>
+
+    <!-- Buttons -->
     <color name="green_500">#16A34A</color>
     <color name="red_500">#DC2626</color>
 </resources>
