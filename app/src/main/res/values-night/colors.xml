@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Primary colors -->
-    <color name="purple_500">#6200EE</color>
+    <color name="purple_500">#BB86FC</color>
     <color name="purple_700">#3700B3</color>
     <color name="teal_200">#03DAC5</color>
 
     <!-- Text & background -->
     <color name="white">#FFFFFF</color>
     <color name="black">#000000</color>
-    <color name="gray_200">#EEEEEE</color>
-    <color name="gray_500">#9E9E9E</color>
+    <color name="gray_200">#1F2937</color>
+    <color name="gray_500">#6B7280</color>
     <color name="blue_gray_900">#0F172A</color>
 
     <!-- Button colors -->
