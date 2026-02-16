@@ -11,15 +11,15 @@ import java.util.Locale;
 
 public class Utils {
 
-    // Base StegoBox directory in Documents
+    // Base Stegora directory in Documents
     public static File getBaseDir(String subFolder) throws IOException {
         File base = new File(
                 Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS),
-                "StegoBox"
+                "Stegora"
         );
 
         if (!base.exists() && !base.mkdirs())
-            throw new IOException("Failed to create StegoBox directory");
+            throw new IOException("Failed to create Stegora directory");
 
         File dir = new File(base, subFolder);
         if (!dir.exists() && !dir.mkdirs())

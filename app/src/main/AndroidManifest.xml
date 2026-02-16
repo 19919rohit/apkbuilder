@@ -25,7 +25,7 @@
     <application
         android:allowBackup="true"
         android:supportsRtl="true"
-        android:label="StegoBox"
+        android:label="Stegora"
         android:icon="@mipmap/ic_launcher"
         android:theme="@style/Theme.App"
         android:forceDarkAllowed="false">

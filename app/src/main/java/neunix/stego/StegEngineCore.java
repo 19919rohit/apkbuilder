@@ -166,7 +166,7 @@ public class StegEngineCore {
 
         byte[] magic = in.readNBytes(MAGIC.length);
         if (!Arrays.equals(magic, MAGIC))
-            throw new SecurityException("Not a StegoBox image");
+            throw new SecurityException("Not a Stegora image");
 
         boolean encrypted = in.read() == 1;
 

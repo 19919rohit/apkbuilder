@@ -1,2 +1,2 @@
-rootProject.name = 'StegoBox'
+rootProject.name = 'Stegora'
 include ':app'
