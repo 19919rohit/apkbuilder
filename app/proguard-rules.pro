@@ -55,8 +55,3 @@
 -dontwarn kotlin.**
 -dontwarn androidx.**
 
-# ----------------------------------------
-# ✅ (Optional) Keep your package entry if dynamic
-# (auto replaced by builder.py when changing package)
-# ----------------------------------------
--keep class {PACKAGE_NAME}.** { *; }
