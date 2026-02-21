@@ -1,0 +1,2 @@
+rootProject.name = 'JV'
+include ':app'
