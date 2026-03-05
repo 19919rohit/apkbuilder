@@ -40,11 +40,13 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
-        <ImageView
+        <!-- Optional logo: use bg_home small version or remove if not needed -->
+        <!-- <ImageView
             android:layout_width="40dp"
             android:layout_height="40dp"
-            android:src="@drawable/ic_launcher_foreground"
-            android:layout_marginEnd="12dp"/>
+            android:src="@drawable/bg_home"
+            android:layout_marginEnd="12dp"
+            android:contentDescription="App Logo"/> -->
 
         <TextView
             android:layout_width="wrap_content"
@@ -74,7 +76,8 @@
             android:text="Secure Image Steganography"
             android:textColor="@android:color/white"
             android:textSize="16sp"
-            android:layout_marginBottom="40dp"/>
+            android:layout_marginBottom="40dp"
+            android:gravity="center"/>
 
         <Button
             android:id="@+id/btnGoEmbed"
@@ -84,7 +87,8 @@
             android:textStyle="bold"
             android:textColor="@android:color/white"
             android:backgroundTint="#2E7D32"
-            android:layout_marginBottom="20dp"/>
+            android:layout_marginBottom="20dp"
+            android:elevation="4dp"/>
 
         <Button
             android:id="@+id/btnGoExtract"
@@ -93,7 +97,8 @@
             android:text="EXTRACT"
             android:textStyle="bold"
             android:textColor="@android:color/white"
-            android:backgroundTint="#C62828"/>
+            android:backgroundTint="#C62828"
+            android:elevation="4dp"/>
 
     </LinearLayout>
 
