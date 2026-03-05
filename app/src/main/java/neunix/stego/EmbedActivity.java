@@ -4,9 +4,12 @@ import android.content.Intent;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.OpenableColumns;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.View;
 import android.widget.*;
 
@@ -16,6 +19,14 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
+
+import javax.crypto.Cipher;
+import javax.crypto.SecretKey;
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.GCMParameterSpec;
+import javax.crypto.spec.PBEKeySpec;
+import javax.crypto.spec.SecretKeySpec;
 
 public class EmbedActivity extends AppCompatActivity {
 
@@ -30,13 +41,27 @@ public class EmbedActivity extends AppCompatActivity {
 
     private RadioGroup radioPayloadType;
     private LinearLayout layoutFile, layoutText;
+    private Spinner spinnerExpansionMode;
+
+    // 🔐 AES-GCM CONFIG
+    private static final int SALT_LENGTH = 16;
+    private static final int IV_LENGTH = 12;
+    private static final int KEY_LENGTH = 256;
+    private static final int ITERATIONS = 120000;
 
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         setContentView(R.layout.activity_embed);
 
-        // Views
+        bindViews();
+        setupDropdown();
+        setupPickers();
+        setupLiveCapacityMeter();
+        setupValidation();
+    }
+
+    private void bindViews() {
         carrierPreview = findViewById(R.id.carrierPreview);
         tvCarrierInfo = findViewById(R.id.tvCarrierInfo);
         tvPayloadInfo = findViewById(R.id.tvPayloadInfo);
@@ -48,13 +73,35 @@ public class EmbedActivity extends AppCompatActivity {
         radioPayloadType = findViewById(R.id.radioPayloadType);
         layoutFile = findViewById(R.id.layoutFile);
         layoutText = findViewById(R.id.layoutText);
+        spinnerExpansionMode = findViewById(R.id.spinnerExpand);
+    }
 
-        // Pickers
+    private void setupDropdown() {
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(
+                this,
+                android.R.layout.simple_spinner_dropdown_item,
+                new String[]{"Normal", "Expand 200%", "Expand 400%"}
+        );
+        spinnerExpansionMode.setAdapter(adapter);
+
+        spinnerExpansionMode.setOnItemSelectedListener(
+                new AdapterView.OnItemSelectedListener() {
+                    @Override
+                    public void onItemSelected(AdapterView<?> parent, View view, int pos, long id) {
+                        refreshCapacity();
+                    }
+                    @Override public void onNothingSelected(AdapterView<?> parent) {}
+                });
+    }
+
+    private void setupPickers() {
+
         ActivityResultLauncher<Intent> carrierPicker =
                 registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), r -> {
                     if (r.getResultCode() == RESULT_OK && r.getData() != null) {
                         carrierUri = r.getData().getData();
                         loadCarrier();
+                        validateReady();
                     }
                 });
 
@@ -63,46 +110,113 @@ public class EmbedActivity extends AppCompatActivity {
                     if (r.getResultCode() == RESULT_OK && r.getData() != null) {
                         payloadUri = r.getData().getData();
                         tvPayloadInfo.setText("Payload: " + fileName(payloadUri));
+                        validateReady();
                     }
                 });
 
-        findViewById(R.id.pickCarrierBtn).setOnClickListener(v -> pick(carrierPicker, "image/*"));
-        findViewById(R.id.pickPayloadBtn).setOnClickListener(v -> pick(payloadPicker, "*/*"));
+        findViewById(R.id.pickCarrierBtn)
+                .setOnClickListener(v -> pick(carrierPicker, "image/*"));
 
-        // Radio logic
+        findViewById(R.id.pickPayloadBtn)
+                .setOnClickListener(v -> pick(payloadPicker, "*/*"));
+
         radioPayloadType.setOnCheckedChangeListener((g, id) -> {
-            if (id == R.id.radioText) {
-                layoutText.setVisibility(View.VISIBLE);
-                layoutFile.setVisibility(View.GONE);
-                payloadUri = null;
-                tvPayloadInfo.setText("Text payload selected");
-            } else {
-                layoutText.setVisibility(View.GONE);
-                layoutFile.setVisibility(View.VISIBLE);
-                etTextMessage.setText("");
-                tvPayloadInfo.setText("No file selected");
-            }
+            boolean isText = id == R.id.radioText;
+            layoutText.setVisibility(isText ? View.VISIBLE : View.GONE);
+            layoutFile.setVisibility(isText ? View.GONE : View.VISIBLE);
+            validateReady();
         });
 
         btnEmbed.setOnClickListener(v -> embed());
     }
 
+    private void setupValidation() {
+        etTextMessage.addTextChangedListener(watcher);
+        etPassword.addTextChangedListener(watcher);
+    }
+
+    private final TextWatcher watcher = new TextWatcher() {
+        @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+        @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+            refreshCapacity();
+            validateReady();
+        }
+        @Override public void afterTextChanged(Editable s) {}
+    };
+
+    private void validateReady() {
+        boolean ready = carrierUri != null &&
+                (radioPayloadType.getCheckedRadioButtonId() == R.id.radioText
+                        ? !etTextMessage.getText().toString().trim().isEmpty()
+                        : payloadUri != null);
+
+        btnEmbed.setEnabled(ready);
+        btnEmbed.setAlpha(ready ? 1f : 0.5f);
+    }
+
+    private void refreshCapacity() {
+        if (carrierUri == null) return;
+
+        try {
+            Bitmap bmp = decodeOptimized(carrierUri);
+
+            int mode = spinnerExpansionMode.getSelectedItemPosition();
+            if (mode == 1) bmp = ContentAwareExpander.expand(bmp, 2);
+            if (mode == 2) bmp = ContentAwareExpander.expand(bmp, 4);
+
+            int max = StegEngineCore.getMaxPayloadSize(bmp);
+            int current = etTextMessage.getText()
+                    .toString().getBytes(StandardCharsets.UTF_8).length;
+
+            tvCarrierInfo.setText("Capacity: " +
+                    Utils.formatSize(current) + " / " +
+                    Utils.formatSize(max));
+
+            tvCarrierInfo.setTextColor(current > max ? Color.RED : Color.GREEN);
+
+        } catch (Exception ignored) {}
+    }
+
+    private Bitmap decodeOptimized(Uri uri) throws Exception {
+
+        BitmapFactory.Options bounds = new BitmapFactory.Options();
+        bounds.inJustDecodeBounds = true;
+
+        try (InputStream in = getContentResolver().openInputStream(uri)) {
+            BitmapFactory.decodeStream(in, null, bounds);
+        }
+
+        int scale = 1;
+        int maxDim = Math.max(bounds.outWidth, bounds.outHeight);
+        while (maxDim / scale > 2048) scale *= 2;
+
+        BitmapFactory.Options real = new BitmapFactory.Options();
+        real.inSampleSize = scale;
+
+        try (InputStream in = getContentResolver().openInputStream(uri)) {
+            return BitmapFactory.decodeStream(in, null, real);
+        }
+    }
+
     private void loadCarrier() {
-        try (InputStream in = getContentResolver().openInputStream(carrierUri)) {
-            Bitmap bmp = BitmapFactory.decodeStream(in);
+        try {
+            Bitmap bmp = decodeOptimized(carrierUri);
             carrierPreview.setImageBitmap(bmp);
 
             int max = StegEngineCore.getMaxPayloadSize(bmp);
+
             tvCarrierInfo.setText(
-                    "Carrier: " + fileName(carrierUri) +
-                    "\nMax payload: " + Utils.formatSize(max)
+                    "Resolution: " + bmp.getWidth() + " x " + bmp.getHeight() +
+                            "\nMax payload: " + Utils.formatSize(max)
             );
+
         } catch (Exception e) {
             toast("Carrier error: " + e.getMessage());
         }
     }
 
     private void embed() {
+
         if (carrierUri == null) {
             toast("Select carrier image first");
             return;
@@ -113,24 +227,29 @@ public class EmbedActivity extends AppCompatActivity {
 
         new Thread(() -> {
             try {
-                Bitmap bmp;
-                try (InputStream in = getContentResolver().openInputStream(carrierUri)) {
-                    bmp = BitmapFactory.decodeStream(in);
-                }
+
+                Bitmap bmp = decodeOptimized(carrierUri);
+
+                int mode = spinnerExpansionMode.getSelectedItemPosition();
+                if (mode == 1) bmp = ContentAwareExpander.expand(bmp, 2);
+                if (mode == 2) bmp = ContentAwareExpander.expand(bmp, 4);
 
                 byte[] payloadBytes;
                 String originalName;
 
                 if (radioPayloadType.getCheckedRadioButtonId() == R.id.radioText) {
+
                     String text = etTextMessage.getText().toString().trim();
                     if (text.isEmpty())
-                        throw new IllegalArgumentException("Text message is empty");
+                        throw new IllegalArgumentException("Text message empty");
 
                     payloadBytes = text.getBytes(StandardCharsets.UTF_8);
                     originalName = "message.txt";
+
                 } else {
+
                     if (payloadUri == null)
-                        throw new IllegalArgumentException("Select a payload file");
+                        throw new IllegalArgumentException("Select payload file");
 
                     originalName = fileName(payloadUri);
 
@@ -146,13 +265,19 @@ public class EmbedActivity extends AppCompatActivity {
                     }
                 }
 
+                payloadBytes = encryptIfNeeded(
+                        payloadBytes,
+                        etPassword.getText().toString()
+                );
+
                 File outFile = Utils.getTimestampedFile("stego.png", "Embedded");
+
                 try (FileOutputStream out = new FileOutputStream(outFile)) {
                     StegEngineCore.embed(
                             bmp,
                             payloadBytes,
                             originalName,
-                            etPassword.getText().toString(),
+                            "",
                             out
                     );
                 }
@@ -172,6 +297,54 @@ public class EmbedActivity extends AppCompatActivity {
                 });
             }
         }).start();
+    }
+
+    private byte[] encryptIfNeeded(byte[] data, String password) throws Exception {
+
+        if (password == null || password.isEmpty())
+            return data;
+
+        SecureRandom random = new SecureRandom();
+
+        byte[] salt = new byte[SALT_LENGTH];
+        random.nextBytes(salt);
+
+        SecretKey key = deriveKey(password, salt);
+
+        byte[] iv = new byte[IV_LENGTH];
+        random.nextBytes(iv);
+
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        cipher.init(
+                Cipher.ENCRYPT_MODE,
+                key,
+                new GCMParameterSpec(128, iv)
+        );
+
+        byte[] cipherText = cipher.doFinal(data);
+
+        byte[] output = new byte[salt.length + iv.length + cipherText.length];
+
+        System.arraycopy(salt, 0, output, 0, salt.length);
+        System.arraycopy(iv, 0, output, salt.length, iv.length);
+        System.arraycopy(cipherText, 0, output,
+                salt.length + iv.length,
+                cipherText.length);
+
+        return output;
+    }
+
+    private SecretKey deriveKey(String password, byte[] salt) throws Exception {
+
+        SecretKeyFactory factory =
+                SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
+
+        PBEKeySpec spec =
+                new PBEKeySpec(password.toCharArray(), salt, ITERATIONS, KEY_LENGTH);
+
+        SecretKey tmp = factory.generateSecret(spec);
+
+        return new SecretKeySpec(tmp.getEncoded(), "AES");
     }
 
     private String fileName(Uri uri) {
