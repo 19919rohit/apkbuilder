@@ -1,4 +1,4 @@
-package neunix.stego.image;
+package neunix.stego;
 
 import android.graphics.Bitmap;
 import android.graphics.Color;
