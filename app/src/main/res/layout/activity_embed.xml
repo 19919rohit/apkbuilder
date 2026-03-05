@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
+
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fillViewport="true"
-    android:background="@drawable/bg_home">
+    android:background="@drawable/bg_embed_screen">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -27,8 +28,9 @@
             android:id="@+id/imageCard"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            app:cardCornerRadius="18dp"
-            app:cardElevation="6dp"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="4dp"
+            app:cardBackgroundColor="@color/card"
             android:layout_marginBottom="16dp"
             android:foreground="?attr/selectableItemBackground">
 
@@ -43,8 +45,8 @@
                     android:layout_width="match_parent"
                     android:layout_height="200dp"
                     android:scaleType="centerCrop"
-                    android:background="@color/card"
-                    android:contentDescription="Carrier Image" />
+                    android:background="@color/surface"
+                    android:contentDescription="Carrier Image"/>
 
                 <TextView
                     android:id="@+id/tvCarrierInfo"
@@ -53,26 +55,27 @@
                     android:text="No image selected"
                     android:textSize="13sp"
                     android:textColor="@color/text_secondary"
-                    android:layout_marginTop="6dp" />
+                    android:layout_marginTop="6dp"/>
 
                 <Button
                     android:id="@+id/pickCarrierBtn"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="Select Carrier Image"
-                    android:layout_marginTop="8dp" />
+                    android:layout_marginTop="8dp"/>
 
             </LinearLayout>
+
         </androidx.cardview.widget.CardView>
 
-        <!-- EXPAND DROPDOWN -->
+        <!-- EXPANSION MODE -->
         <Spinner
             android:id="@+id/spinnerExpand"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
             android:background="@drawable/bg_spinner"
-            android:padding="12dp" />
+            android:padding="12dp"/>
 
         <!-- PAYLOAD TYPE -->
         <RadioGroup
@@ -88,7 +91,7 @@
                 android:layout_height="wrap_content"
                 android:text="File"
                 android:checked="true"
-                android:textColor="@color/text_primary" />
+                android:textColor="@color/text_primary"/>
 
             <RadioButton
                 android:id="@+id/radioText"
@@ -96,7 +99,8 @@
                 android:layout_height="wrap_content"
                 android:text="Text"
                 android:layout_marginStart="32dp"
-                android:textColor="@color/text_primary" />
+                android:textColor="@color/text_primary"/>
+
         </RadioGroup>
 
         <!-- FILE PAYLOAD -->
@@ -113,14 +117,15 @@
                 android:layout_height="wrap_content"
                 android:text="No file selected"
                 android:textColor="@color/text_secondary"
-                android:textSize="13sp" />
+                android:textSize="13sp"/>
 
             <Button
                 android:id="@+id/pickPayloadBtn"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="Select Payload File"
-                android:layout_marginTop="6dp" />
+                android:layout_marginTop="6dp"/>
+
         </LinearLayout>
 
         <!-- TEXT PAYLOAD -->
@@ -142,7 +147,8 @@
                 android:background="@drawable/bg_input"
                 android:textColor="@color/text_primary"
                 android:textColorHint="@color/text_hint"
-                android:inputType="textMultiLine" />
+                android:inputType="textMultiLine"/>
+
         </LinearLayout>
 
         <!-- PASSWORD -->
@@ -156,22 +162,27 @@
             android:padding="12dp"
             android:background="@drawable/bg_input"
             android:textColor="@color/text_primary"
-            android:textColorHint="@color/text_hint" />
+            android:textColorHint="@color/text_hint"/>
 
+        <!-- PROGRESS -->
         <ProgressBar
             android:id="@+id/progressBar"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center"
             android:layout_marginTop="20dp"
-            android:visibility="gone" />
+            android:visibility="gone"/>
 
+        <!-- EMBED BUTTON -->
         <Button
             android:id="@+id/btnEmbed"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Embed Payload"
-            android:layout_marginTop="20dp" />
+            android:layout_marginTop="20dp"
+            android:backgroundTint="@color/green"
+            android:textColor="@android:color/white"/>
 
     </LinearLayout>
+
 </ScrollView>
