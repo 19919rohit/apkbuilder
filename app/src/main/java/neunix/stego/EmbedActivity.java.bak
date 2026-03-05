@@ -57,6 +57,7 @@ public class EmbedActivity extends AppCompatActivity {
         bindViews();
         setupDropdown();
         setupPickers();
+        setupLiveCapacityMeter();
         setupValidation();
     }
 
@@ -362,8 +363,6 @@ public class EmbedActivity extends AppCompatActivity {
         i.setType(type);
         l.launch(i);
     }
-    
-    
 
     private void toast(String s) {
         runOnUiThread(() ->
