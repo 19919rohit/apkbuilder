@@ -73,7 +73,7 @@
             android:id="@+id/algorithmSpinner"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="@layout/spinner_bg"
+            android:background="@drawable/bg_spinner"
             android:spinnerMode="dropdown"
             android:layout_marginBottom="12dp"/>
 
