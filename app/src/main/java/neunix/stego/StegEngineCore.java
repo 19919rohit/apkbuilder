@@ -34,7 +34,7 @@ public class StegEngineCore {
                 1 +
                 2 +
                 4 +
-                32; // reserve for filename
+                32;
 
         return Math.max(0, (totalBits / 8) - header);
     }
@@ -98,86 +98,88 @@ public class StegEngineCore {
 
     private static Bitmap hide(Bitmap carrier, byte[] data) {
 
+        int width = carrier.getWidth();
+        int height = carrier.getHeight();
+
         Bitmap bmp = carrier.copy(Bitmap.Config.ARGB_8888, true);
+
+        int[] pixels = new int[width * height];
+        bmp.getPixels(pixels, 0, width, 0, 0, width, height);
 
         int byteIndex = 0;
         int bitIndex = 0;
 
         outer:
-        for (int y = 0; y < bmp.getHeight(); y++) {
+        for (int i = 0; i < pixels.length; i++) {
 
-            for (int x = 0; x < bmp.getWidth(); x++) {
+            if (byteIndex >= data.length)
+                break;
+
+            int px = pixels[i];
+
+            int r = Color.red(px);
+            int g = Color.green(px);
+            int b = Color.blue(px);
+
+            int[] rgb = {r, g, b};
+
+            for (int c = 0; c < 3; c++) {
 
                 if (byteIndex >= data.length)
                     break outer;
 
-                int px = bmp.getPixel(x, y);
+                int bit = (data[byteIndex] >> (7 - bitIndex)) & 1;
 
-                int[] rgb = {
-                        Color.red(px),
-                        Color.green(px),
-                        Color.blue(px)
-                };
+                rgb[c] = (rgb[c] & 0xFE) | bit;
 
-                for (int i = 0; i < 3; i++) {
+                bitIndex++;
 
-                    if (byteIndex >= data.length)
-                        break;
-
-                    int bit = (data[byteIndex] >> (7 - bitIndex)) & 1;
-
-                    rgb[i] = (rgb[i] & 0xFE) | bit;
-
-                    bitIndex++;
-
-                    if (bitIndex == 8) {
-                        bitIndex = 0;
-                        byteIndex++;
-                    }
+                if (bitIndex == 8) {
+                    bitIndex = 0;
+                    byteIndex++;
                 }
-
-                bmp.setPixel(
-                        x,
-                        y,
-                        Color.argb(Color.alpha(px), rgb[0], rgb[1], rgb[2])
-                );
             }
+
+            pixels[i] = Color.argb(Color.alpha(px), rgb[0], rgb[1], rgb[2]);
         }
+
+        bmp.setPixels(pixels, 0, width, 0, 0, width, height);
 
         return bmp;
     }
 
     private static byte[] reveal(Bitmap bmp) {
 
+        int width = bmp.getWidth();
+        int height = bmp.getHeight();
+
+        int[] pixels = new int[width * height];
+        bmp.getPixels(pixels, 0, width, 0, 0, width, height);
+
         ByteArrayOutputStream out = new ByteArrayOutputStream();
 
         int cur = 0;
         int bits = 0;
 
-        for (int y = 0; y < bmp.getHeight(); y++) {
+        for (int px : pixels) {
 
-            for (int x = 0; x < bmp.getWidth(); x++) {
+            int[] rgb = {
+                    Color.red(px),
+                    Color.green(px),
+                    Color.blue(px)
+            };
 
-                int px = bmp.getPixel(x, y);
+            for (int c : rgb) {
 
-                int[] rgb = {
-                        Color.red(px),
-                        Color.green(px),
-                        Color.blue(px)
-                };
+                cur = (cur << 1) | (c & 1);
+                bits++;
 
-                for (int c : rgb) {
+                if (bits == 8) {
 
-                    cur = (cur << 1) | (c & 1);
-                    bits++;
+                    out.write(cur);
 
-                    if (bits == 8) {
-
-                        out.write(cur);
-
-                        bits = 0;
-                        cur = 0;
-                    }
+                    bits = 0;
+                    cur = 0;
                 }
             }
         }
@@ -270,17 +272,9 @@ public class StegEngineCore {
 
         byte[] salt = Arrays.copyOfRange(data, 0, SALT_LEN);
 
-        byte[] iv = Arrays.copyOfRange(
-                data,
-                SALT_LEN,
-                SALT_LEN + IV_LEN
-        );
+        byte[] iv = Arrays.copyOfRange(data, SALT_LEN, SALT_LEN + IV_LEN);
 
-        byte[] enc = Arrays.copyOfRange(
-                data,
-                SALT_LEN + IV_LEN,
-                data.length
-        );
+        byte[] enc = Arrays.copyOfRange(data, SALT_LEN + IV_LEN, data.length);
 
         Cipher c = Cipher.getInstance(AES_MODE);
 

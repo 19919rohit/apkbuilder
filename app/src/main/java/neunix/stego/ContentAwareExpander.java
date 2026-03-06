@@ -16,13 +16,15 @@ public final class ContentAwareExpander {
      * @param scaleFactor 1.0f = no change, 2.0f = 400% area
      */
     public static Bitmap expand(Bitmap original, float scaleFactor) {
+
+        if (original == null) return null;
         if (scaleFactor <= 1.0f) return original;
 
         int w = original.getWidth();
         int h = original.getHeight();
 
-        int newW = Math.round(w * scaleFactor);
-        int newH = Math.round(h * scaleFactor);
+        int newW = Math.max(w + 2, Math.round(w * scaleFactor));
+        int newH = Math.max(h + 2, Math.round(h * scaleFactor));
 
         Bitmap expanded = Bitmap.createBitmap(
                 newW,
@@ -50,17 +52,28 @@ public final class ContentAwareExpander {
         }
 
         // 2️⃣ Expand Left + Right
-        expandHorizontal(newPixels, origPixels,
-                w, h, newW, newH,
-                offsetX, offsetY);
+        if (offsetX > 0) {
+            expandHorizontal(
+                    newPixels,
+                    origPixels,
+                    w, h,
+                    newW, newH,
+                    offsetX, offsetY
+            );
+        }
 
         // 3️⃣ Expand Top + Bottom
-        expandVertical(newPixels,
-                newW, newH,
-                offsetX, offsetY,
-                w, h);
+        if (offsetY > 0) {
+            expandVertical(
+                    newPixels,
+                    newW, newH,
+                    offsetX, offsetY,
+                    w, h
+            );
+        }
 
         expanded.setPixels(newPixels, 0, newW, 0, 0, newW, newH);
+
         return expanded;
     }
 
@@ -71,6 +84,7 @@ public final class ContentAwareExpander {
             int newW, int newH,
             int offsetX, int offsetY
     ) {
+
         Random random = new Random();
 
         for (int y = 0; y < h; y++) {
@@ -79,14 +93,29 @@ public final class ContentAwareExpander {
             int rightEdgeColor = origPixels[y * w + (w - 1)];
 
             for (int x = 0; x < offsetX; x++) {
-                float factor = 1f - (x / (float) offsetX);
-                int blended = blendWithNoise(leftEdgeColor, factor, random);
+
+                float factor = (float) x / offsetX;
+
+                int blended = blendWithNoise(
+                        leftEdgeColor,
+                        factor,
+                        random
+                );
+
                 newPixels[(y + offsetY) * newW + x] = blended;
             }
 
             for (int x = offsetX + w; x < newW; x++) {
-                float factor = (x - (offsetX + w)) / (float) offsetX;
-                int blended = blendWithNoise(rightEdgeColor, factor, random);
+
+                float factor =
+                        (float) (x - (offsetX + w)) / offsetX;
+
+                int blended = blendWithNoise(
+                        rightEdgeColor,
+                        factor,
+                        random
+                );
+
                 newPixels[(y + offsetY) * newW + x] = blended;
             }
         }
@@ -98,6 +127,7 @@ public final class ContentAwareExpander {
             int offsetX, int offsetY,
             int w, int h
     ) {
+
         Random random = new Random();
 
         for (int x = 0; x < newW; x++) {
@@ -106,15 +136,28 @@ public final class ContentAwareExpander {
             int bottomEdgeColor = newPixels[(offsetY + h - 1) * newW + x];
 
             for (int y = 0; y < offsetY; y++) {
-                float factor = 1f - (y / (float) offsetY);
+
+                float factor = (float) y / offsetY;
+
                 newPixels[y * newW + x] =
-                        blendWithNoise(topEdgeColor, factor, random);
+                        blendWithNoise(
+                                topEdgeColor,
+                                factor,
+                                random
+                        );
             }
 
             for (int y = offsetY + h; y < newH; y++) {
-                float factor = (y - (offsetY + h)) / (float) offsetY;
+
+                float factor =
+                        (float) (y - (offsetY + h)) / offsetY;
+
                 newPixels[y * newW + x] =
-                        blendWithNoise(bottomEdgeColor, factor, random);
+                        blendWithNoise(
+                                bottomEdgeColor,
+                                factor,
+                                random
+                        );
             }
         }
     }
@@ -123,17 +166,35 @@ public final class ContentAwareExpander {
      * Blend base color with adaptive noise.
      * factor → 0 near original edge, 1 far from edge.
      */
-    private static int blendWithNoise(int baseColor, float factor, Random random) {
+    private static int blendWithNoise(
+            int baseColor,
+            float factor,
+            Random random
+    ) {
 
         int r = Color.red(baseColor);
         int g = Color.green(baseColor);
         int b = Color.blue(baseColor);
 
-        int noiseStrength = (int) (factor * 40); // max noise ±40
+        int noiseStrength = (int) (factor * 20); // reduced noise
 
-        r = clamp(r + random.nextInt(noiseStrength * 2 + 1) - noiseStrength);
-        g = clamp(g + random.nextInt(noiseStrength * 2 + 1) - noiseStrength);
-        b = clamp(b + random.nextInt(noiseStrength * 2 + 1) - noiseStrength);
+        if (noiseStrength > 0) {
+
+            r = clamp(
+                    r + random.nextInt(noiseStrength * 2 + 1)
+                            - noiseStrength
+            );
+
+            g = clamp(
+                    g + random.nextInt(noiseStrength * 2 + 1)
+                            - noiseStrength
+            );
+
+            b = clamp(
+                    b + random.nextInt(noiseStrength * 2 + 1)
+                            - noiseStrength
+            );
+        }
 
         return Color.argb(255, r, g, b);
     }

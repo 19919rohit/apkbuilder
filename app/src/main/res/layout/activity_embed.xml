@@ -1,187 +1,104 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fillViewport="true"
-    android:background="@drawable/bg_embed_screen">
+    android:background="@color/background">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="20dp">
+        android:padding="16dp">
 
-        <!-- HEADER -->
+        <!-- Title -->
         <TextView
-            android:layout_width="wrap_content"
+            android:id="@+id/titleText"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Embed Secret"
+            android:text="Embed Text"
             android:textSize="22sp"
             android:textStyle="bold"
             android:textColor="@color/text_primary"
-            android:layout_marginBottom="16dp" />
+            android:gravity="center"
+            android:paddingBottom="16dp"/>
 
-        <!-- IMAGE CARD -->
-        <androidx.cardview.widget.CardView
-            android:id="@+id/imageCard"
+        <!-- Image Preview -->
+        <ImageView
+            android:id="@+id/imagePreview"
+            android:layout_width="match_parent"
+            android:layout_height="220dp"
+            android:background="@color/surface"
+            android:scaleType="centerCrop"
+            android:contentDescription="Selected image preview"
+            android:layout_marginBottom="12dp"/>
+
+        <!-- Select Image Button -->
+        <Button
+            android:id="@+id/selectImageButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="4dp"
-            app:cardBackgroundColor="@color/card"
-            android:layout_marginBottom="16dp"
-            android:foreground="?attr/selectableItemBackground">
+            android:text="Select Image"
+            android:textColor="@color/text_on_primary"
+            android:background="@color/primary"
+            android:layout_marginBottom="12dp"/>
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="12dp">
-
-                <ImageView
-                    android:id="@+id/carrierPreview"
-                    android:layout_width="match_parent"
-                    android:layout_height="200dp"
-                    android:scaleType="centerCrop"
-                    android:background="@color/surface"
-                    android:contentDescription="Carrier Image"/>
-
-                <TextView
-                    android:id="@+id/tvCarrierInfo"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="No image selected"
-                    android:textSize="13sp"
-                    android:textColor="@color/text_secondary"
-                    android:layout_marginTop="6dp"/>
-
-                <Button
-                    android:id="@+id/pickCarrierBtn"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Select Carrier Image"
-                    android:layout_marginTop="8dp"/>
-
-            </LinearLayout>
-
-        </androidx.cardview.widget.CardView>
-
-        <!-- EXPANSION MODE -->
-        <Spinner
-            android:id="@+id/spinnerExpand"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            android:background="@drawable/bg_spinner"
-            android:padding="12dp"/>
-
-        <!-- PAYLOAD TYPE -->
-        <RadioGroup
-            android:id="@+id/radioPayloadType"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginBottom="12dp">
-
-            <RadioButton
-                android:id="@+id/radioFile"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="File"
-                android:checked="true"
-                android:textColor="@color/text_primary"/>
-
-            <RadioButton
-                android:id="@+id/radioText"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Text"
-                android:layout_marginStart="32dp"
-                android:textColor="@color/text_primary"/>
-
-        </RadioGroup>
-
-        <!-- FILE PAYLOAD -->
-        <LinearLayout
-            android:id="@+id/layoutFile"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:animateLayoutChanges="true">
-
-            <TextView
-                android:id="@+id/tvPayloadInfo"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="No file selected"
-                android:textColor="@color/text_secondary"
-                android:textSize="13sp"/>
-
-            <Button
-                android:id="@+id/pickPayloadBtn"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Select Payload File"
-                android:layout_marginTop="6dp"/>
-
-        </LinearLayout>
-
-        <!-- TEXT PAYLOAD -->
-        <LinearLayout
-            android:id="@+id/layoutText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:visibility="gone"
-            android:animateLayoutChanges="true">
-
-            <EditText
-                android:id="@+id/etTextMessage"
-                android:layout_width="match_parent"
-                android:layout_height="120dp"
-                android:hint="Type secret message"
-                android:gravity="top"
-                android:padding="12dp"
-                android:background="@drawable/bg_input"
-                android:textColor="@color/text_primary"
-                android:textColorHint="@color/text_hint"
-                android:inputType="textMultiLine"/>
-
-        </LinearLayout>
-
-        <!-- PASSWORD -->
+        <!-- Secret Message -->
         <EditText
-            android:id="@+id/etPassword"
+            android:id="@+id/secretMessage"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Password (AES encryption)"
-            android:inputType="textPassword"
-            android:layout_marginTop="16dp"
-            android:padding="12dp"
-            android:background="@drawable/bg_input"
+            android:hint="Enter secret message"
             android:textColor="@color/text_primary"
-            android:textColorHint="@color/text_hint"/>
+            android:textColorHint="@color/text_hint"
+            android:background="@color/input_background"
+            android:padding="12dp"
+            android:inputType="textMultiLine"
+            android:minLines="3"
+            android:gravity="top"
+            android:layout_marginBottom="12dp"/>
 
-        <!-- PROGRESS -->
-        <ProgressBar
-            android:id="@+id/progressBar"
+        <!-- Algorithm Label -->
+        <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:layout_marginTop="20dp"
-            android:visibility="gone"/>
+            android:text="Algorithm"
+            android:textColor="@color/text_secondary"
+            android:textSize="14sp"
+            android:layout_marginBottom="4dp"/>
 
-        <!-- EMBED BUTTON -->
-        <Button
-            android:id="@+id/btnEmbed"
+        <!-- Algorithm Spinner -->
+        <Spinner
+            android:id="@+id/algorithmSpinner"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Embed Payload"
-            android:layout_marginTop="20dp"
-            android:backgroundTint="@color/green"
-            android:textColor="@android:color/white"/>
+            android:background="@layout/spinner_bg"
+            android:spinnerMode="dropdown"
+            android:layout_marginBottom="12dp"/>
+
+        <!-- Password -->
+        <EditText
+            android:id="@+id/passwordInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Optional password"
+            android:textColor="@color/text_primary"
+            android:textColorHint="@color/text_hint"
+            android:background="@color/input_background"
+            android:padding="12dp"
+            android:inputType="textPassword"
+            android:layout_marginBottom="16dp"/>
+
+        <!-- Embed Button -->
+        <Button
+            android:id="@+id/embedButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Embed Message"
+            android:textColor="@color/text_on_primary"
+            android:background="@color/primary"
+            android:padding="14dp"/>
 
     </LinearLayout>
 
