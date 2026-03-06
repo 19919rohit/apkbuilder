@@ -22,13 +22,12 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.zip.GZIPOutputStream;
 
 /**
- * Full EmbedActivity for Stegora
- * Handles embedding text/file payloads into carrier images
- * Supports expansion modes, GZIP compression, async caching
- * Original filenames are preserved
+ * Final production EmbedActivity for Stegora
+ * Handles embedding text or file payloads into carrier images
+ * Supports expansion modes, async caching, original filenames preserved
+ * GZIP compression removed completely
  */
 public class EmbedActivity extends AppCompatActivity {
 
@@ -207,10 +206,10 @@ public class EmbedActivity extends AppCompatActivity {
 
     private int mapModeToFactor(int index) {
         switch (index) {
-            case 1: return 1;
-            case 2: return 2;
-            case 3: return 4;
-            default: return 0;
+            case 1: return 1; // Expand 25%
+            case 2: return 2; // Expand 50%
+            case 3: return 4; // Expand 100%
+            default: return 0; // Normal
         }
     }
 
@@ -235,6 +234,10 @@ public class EmbedActivity extends AppCompatActivity {
     private void loadCarrier() {
         try {
             carrierBitmap = decodeOptimized(carrierUri);
+
+            // ===== Convert JPG/JPEG to PNG if necessary =====
+            carrierBitmap = JPGtoPNG.convert(this, carrierUri);
+
             // Precompute expansions
             for (int i = 1; i <= 3; i++) {
                 final int modeIndex = i;
@@ -243,6 +246,7 @@ public class EmbedActivity extends AppCompatActivity {
                     synchronized (expansionCache) { expansionCache.put(modeIndex, bmp); }
                 });
             }
+
             int max = StegEngineCore.getMaxPayloadSize(carrierBitmap);
             runOnUiThread(() -> {
                 carrierPreview.setImageBitmap(carrierBitmap);
@@ -275,22 +279,22 @@ public class EmbedActivity extends AppCompatActivity {
                 byte[] payloadBytes;
                 String originalName;
 
+                // ===== Payload bytes without GZIP =====
                 if (radioPayloadType.getCheckedRadioButtonId() == R.id.radioText) {
                     String text = etTextMessage.getText().toString().trim();
                     if (text.isEmpty()) throw new IllegalArgumentException("Text message empty");
-                    payloadBytes = gzip(text.getBytes(StandardCharsets.UTF_8));
-                    originalName = "message.txt"; // keep original
+                    payloadBytes = text.getBytes(StandardCharsets.UTF_8);
+                    originalName = "message.txt";
                 } else {
                     if (payloadUri == null) throw new IllegalArgumentException("Select payload file");
                     originalName = fileName(payloadUri);
 
                     try (InputStream in = getContentResolver().openInputStream(payloadUri);
-                         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                         GZIPOutputStream gos = new GZIPOutputStream(baos)) {
+                         ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
 
-                        byte[] buf = new byte[8192]; int n;
-                        while ((n = in.read(buf)) != -1) gos.write(buf, 0, n);
-                        gos.finish();
+                        byte[] buf = new byte[8192];
+                        int n;
+                        while ((n = in.read(buf)) != -1) baos.write(buf, 0, n);
                         payloadBytes = baos.toByteArray();
                     }
                 }
@@ -307,20 +311,15 @@ public class EmbedActivity extends AppCompatActivity {
 
                 runOnUiThread(() -> toast("Embedded → " + outFile.getAbsolutePath()));
 
-            } catch (Exception e) { runOnUiThread(() -> toast("Embed failed: " + e.getMessage())); }
-            finally {
-                runOnUiThread(() -> { progress.setVisibility(View.GONE); btnEmbed.setEnabled(true); });
+            } catch (Exception e) {
+                runOnUiThread(() -> toast("Embed failed: " + e.getMessage()));
+            } finally {
+                runOnUiThread(() -> {
+                    progress.setVisibility(View.GONE);
+                    btnEmbed.setEnabled(true);
+                });
             }
         });
-    }
-
-    private byte[] gzip(byte[] data) throws IOException {
-        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
-             GZIPOutputStream gos = new GZIPOutputStream(baos)) {
-            gos.write(data);
-            gos.finish();
-            return baos.toByteArray();
-        }
     }
 
     // ================= HELPERS =================

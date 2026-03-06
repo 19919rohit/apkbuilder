@@ -15,8 +15,12 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 
 import java.io.*;
-import java.util.zip.GZIPInputStream;
 
+/**
+ * Final production ExtractActivity for Stegora
+ * Matches the final EmbedActivity: No GZIP, exact payload extraction
+ * Supports file/text extraction, password-protected embedding
+ */
 public class ExtractActivity extends AppCompatActivity {
 
     private Uri carrierUri;
@@ -130,12 +134,7 @@ public class ExtractActivity extends AppCompatActivity {
                 byte[] payloadData = ex.data;
                 String fileName = ex.fileName;
 
-                // Only decompress if the payload ends with .gz
-                if (fileName.endsWith(".gz")) {
-                    payloadData = decompressGzip(payloadData);
-                    fileName = fileName.substring(0, fileName.length() - 3); // remove .gz
-                }
-
+                // Save payload exactly as embedded
                 File outFile = Utils.getTimestampedFile(fileName, "Extracted");
 
                 try (FileOutputStream fos = new FileOutputStream(outFile)) {
@@ -154,22 +153,6 @@ public class ExtractActivity extends AppCompatActivity {
                 });
             }
         }).start();
-    }
-
-    /* ===================== GZIP HELPERS ===================== */
-    private byte[] decompressGzip(byte[] data) throws IOException {
-
-        try (ByteArrayInputStream bais = new ByteArrayInputStream(data);
-             GZIPInputStream gzip = new GZIPInputStream(bais);
-             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-
-            byte[] buffer = new byte[8192];
-            int n;
-            while ((n = gzip.read(buffer)) != -1) {
-                out.write(buffer, 0, n);
-            }
-            return out.toByteArray();
-        }
     }
 
     /* ===================== URI HELPERS ===================== */
