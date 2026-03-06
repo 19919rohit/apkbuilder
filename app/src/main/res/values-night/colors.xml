@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+
     <!-- Primary colors -->
     <color name="purple_500">#BB86FC</color>
     <color name="purple_700">#3700B3</color>
@@ -16,16 +17,24 @@
     <color name="surface_light">#1E293B</color>
 
     <color name="card">#1E293B</color>
+
+    <!-- Text -->
     <color name="text_primary">#FFFFFF</color>
     <color name="text_secondary">#CBD5E1</color>
     <color name="text_hint">#94A3B8</color>
+
+    <!-- Inputs -->
+    <color name="input_background">#1E293B</color>
     <color name="input_border">#334155</color>
 
     <!-- Buttons -->
+    <color name="primary">#16A34A</color>
+    <color name="text_on_primary">#FFFFFF</color>
     <color name="green">#16A34A</color>
     <color name="red">#DC2626</color>
 
     <!-- On colors -->
     <color name="onBackground_light">#FFFFFF</color>
     <color name="onSurface_light">#FFFFFF</color>
+
 </resources>
