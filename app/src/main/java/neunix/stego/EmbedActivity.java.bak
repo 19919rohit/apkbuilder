@@ -69,14 +69,14 @@ public class EmbedActivity extends AppCompatActivity {
 
         ArrayAdapter<String> adapter = new ArrayAdapter<>(
                 this,
-                R.layout.spinner_item,
+                R.layout.spinner_selected,
                 new String[]{
                         "Normal",
                         "Expand 200%",
                         "Expand 400%"
                 });
 
-        adapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
+        adapter.setDropDownViewResource(R.layout.spinner_dropdown);
 
         spinnerExpansionMode.setAdapter(adapter);
 
