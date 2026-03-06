@@ -27,8 +27,8 @@ public class ExtractActivity extends AppCompatActivity {
     private Button btnExtract;
 
     @Override
-    protected void onCreate(Bundle b) {
-        super.onCreate(b);
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_extract);
 
         bindViews();
@@ -36,6 +36,7 @@ public class ExtractActivity extends AppCompatActivity {
         setupButtons();
     }
 
+    /* ===================== BIND VIEWS ===================== */
     private void bindViews() {
         carrierPreview = findViewById(R.id.carrierPreview);
         tvCarrierInfo = findViewById(R.id.tvCarrierInfo);
@@ -44,14 +45,15 @@ public class ExtractActivity extends AppCompatActivity {
         btnExtract = findViewById(R.id.btnExtract);
     }
 
+    /* ===================== PICKERS ===================== */
     private void setupPickers() {
 
         ActivityResultLauncher<Intent> picker =
                 registerForActivityResult(
                         new ActivityResultContracts.StartActivityForResult(),
-                        r -> {
-                            if (r.getResultCode() == RESULT_OK && r.getData() != null) {
-                                carrierUri = r.getData().getData();
+                        result -> {
+                            if (result.getResultCode() == RESULT_OK && result.getData() != null) {
+                                carrierUri = result.getData().getData();
                                 new Thread(this::loadCarrier).start();
                             }
                         }
@@ -65,8 +67,7 @@ public class ExtractActivity extends AppCompatActivity {
         btnExtract.setOnClickListener(v -> extract());
     }
 
-    /* ================= IMAGE LOADING ================= */
-
+    /* ===================== IMAGE LOADING ===================== */
     private void loadCarrier() {
         try {
             Bitmap bmp = decodeOptimized(carrierUri);
@@ -104,8 +105,7 @@ public class ExtractActivity extends AppCompatActivity {
         }
     }
 
-    /* ================= EXTRACTION ================= */
-
+    /* ===================== EXTRACTION ===================== */
     private void extract() {
         if (carrierUri == null) {
             toast("Select stego image first");
@@ -118,8 +118,7 @@ public class ExtractActivity extends AppCompatActivity {
         new Thread(() -> {
             try {
                 Bitmap bmp = decodeOptimized(carrierUri);
-                if (bmp == null)
-                    throw new IOException("Invalid stego image");
+                if (bmp == null) throw new IOException("Invalid stego image");
 
                 // Extract using the same engine as EmbedActivity
                 StegEngineCore.ExtractedData ex =
@@ -128,23 +127,25 @@ public class ExtractActivity extends AppCompatActivity {
                                 etPassword.getText().toString().trim()
                         );
 
-                // ======== GZIP decompression ========
-                byte[] extractedData = decompressGzip(ex.data);
+                byte[] payloadData = ex.data;
+                String fileName = ex.fileName;
 
-                File outFile = Utils.getTimestampedFile(ex.fileName, "Extracted");
-
-                try (FileOutputStream fos = new FileOutputStream(outFile)) {
-                    fos.write(extractedData);
+                // Only decompress if the payload ends with .gz
+                if (fileName.endsWith(".gz")) {
+                    payloadData = decompressGzip(payloadData);
+                    fileName = fileName.substring(0, fileName.length() - 3); // remove .gz
                 }
 
-                runOnUiThread(() ->
-                        toast("Extracted → " + outFile.getAbsolutePath())
-                );
+                File outFile = Utils.getTimestampedFile(fileName, "Extracted");
+
+                try (FileOutputStream fos = new FileOutputStream(outFile)) {
+                    fos.write(payloadData);
+                }
+
+                runOnUiThread(() -> toast("Extracted → " + outFile.getAbsolutePath()));
 
             } catch (Exception e) {
-                runOnUiThread(() ->
-                        toast("Extract failed: " + e.getMessage())
-                );
+                runOnUiThread(() -> toast("Extract failed: " + e.getMessage()));
 
             } finally {
                 runOnUiThread(() -> {
@@ -152,12 +153,10 @@ public class ExtractActivity extends AppCompatActivity {
                     btnExtract.setEnabled(true);
                 });
             }
-
         }).start();
     }
 
-    /* ================= GZIP HELPERS ================= */
-
+    /* ===================== GZIP HELPERS ===================== */
     private byte[] decompressGzip(byte[] data) throws IOException {
 
         try (ByteArrayInputStream bais = new ByteArrayInputStream(data);
@@ -173,8 +172,7 @@ public class ExtractActivity extends AppCompatActivity {
         }
     }
 
-    /* ================= URI HELPERS ================= */
-
+    /* ===================== URI HELPERS ===================== */
     private String fileName(Uri uri) {
         try (Cursor c = getContentResolver().query(uri, null, null, null, null)) {
             if (c != null && c.moveToFirst())
@@ -191,9 +189,8 @@ public class ExtractActivity extends AppCompatActivity {
         l.launch(i);
     }
 
+    /* ===================== TOAST ===================== */
     private void toast(String s) {
-        runOnUiThread(() ->
-                Toast.makeText(this, s, Toast.LENGTH_LONG).show()
-        );
+        runOnUiThread(() -> Toast.makeText(this, s, Toast.LENGTH_LONG).show());
     }
 }
