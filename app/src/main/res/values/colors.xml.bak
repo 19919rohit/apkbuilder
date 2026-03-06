@@ -17,10 +17,6 @@
     <color name="background">#FFFFFF</color>
     <color name="surface">#FFFFFF</color>
     <color name="card">#F8F8F8</color>
-    <color name="background_light">#FFFFFF</color> <!-- fallback for day mode -->
-    <color name="surface_light">#F1F1F1</color>
-    <color name="onBackground_light">#000000</color>
-    <color name="onSurface_light">#000000</color>
 
     <!-- Text -->
     <color name="text_primary">#000000</color>
