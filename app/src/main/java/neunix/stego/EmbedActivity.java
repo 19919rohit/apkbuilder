@@ -27,7 +27,7 @@ public class EmbedActivity extends AppCompatActivity {
     private Bitmap carrierBitmap;
 
     private ImageView carrierPreview;
-    private TextView tvCarrierInfo, tvPayloadInfo;
+    private TextView tvCarrierInfo, tvFilePayloadInfo;
     private EditText etPassword, etTextMessage;
     private ProgressBar progress;
     private Button btnEmbed;
@@ -51,7 +51,7 @@ public class EmbedActivity extends AppCompatActivity {
 
         carrierPreview = findViewById(R.id.carrierPreview);
         tvCarrierInfo = findViewById(R.id.tvCarrierInfo);
-        tvPayloadInfo = findViewById(R.id.tvPayloadInfo);
+        tvFilePayloadInfo = findViewById(R.id.tvFilePayloadInfo);
         etPassword = findViewById(R.id.etPassword);
         etTextMessage = findViewById(R.id.etTextMessage);
         progress = findViewById(R.id.progressBar);
@@ -117,7 +117,9 @@ public class EmbedActivity extends AppCompatActivity {
 
                         payloadUri = r.getData().getData();
 
-                        tvPayloadInfo.setText("Payload: " + fileName(payloadUri));
+                        if (radioPayloadType.getCheckedRadioButtonId() == R.id.radioFile) {
+                            tvFilePayloadInfo.setText("Payload: " + fileName(payloadUri));
+                        }
 
                         validateReady();
                         refreshCapacity();
@@ -127,7 +129,7 @@ public class EmbedActivity extends AppCompatActivity {
         findViewById(R.id.pickCarrierBtn)
                 .setOnClickListener(v -> pick(carrierPicker, "image/*"));
 
-        findViewById(R.id.pickPayloadBtn)
+        findViewById(R.id.pickFilePayloadBtn)
                 .setOnClickListener(v -> pick(payloadPicker, "*/*"));
 
         radioPayloadType.setOnCheckedChangeListener((g, id) -> {
@@ -136,6 +138,15 @@ public class EmbedActivity extends AppCompatActivity {
 
             layoutText.setVisibility(isText ? View.VISIBLE : View.GONE);
             layoutFile.setVisibility(isText ? View.GONE : View.VISIBLE);
+
+            // ======== IMPROVEMENT: Clear payload info in Text mode ========
+            if (isText) {
+                payloadUri = null;
+                tvFilePayloadInfo.setText("");
+                findViewById(R.id.pickFilePayloadBtn).setEnabled(false);
+            } else {
+                findViewById(R.id.pickFilePayloadBtn).setEnabled(true);
+            }
 
             validateReady();
             refreshCapacity();
