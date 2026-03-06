@@ -18,14 +18,6 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
-import java.security.SecureRandom;
-
-import javax.crypto.Cipher;
-import javax.crypto.SecretKey;
-import javax.crypto.SecretKeyFactory;
-import javax.crypto.spec.GCMParameterSpec;
-import javax.crypto.spec.PBEKeySpec;
-import javax.crypto.spec.SecretKeySpec;
 
 public class EmbedActivity extends AppCompatActivity {
 
@@ -44,12 +36,6 @@ public class EmbedActivity extends AppCompatActivity {
     private LinearLayout layoutFile, layoutText;
     private Spinner spinnerExpansionMode;
 
-    // 🔐 AES-GCM CONFIG
-    private static final int SALT_LENGTH = 16;
-    private static final int IV_LENGTH = 12;
-    private static final int KEY_LENGTH = 256;
-    private static final int ITERATIONS = 120000;
-
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
@@ -62,6 +48,7 @@ public class EmbedActivity extends AppCompatActivity {
     }
 
     private void bindViews() {
+
         carrierPreview = findViewById(R.id.carrierPreview);
         tvCarrierInfo = findViewById(R.id.tvCarrierInfo);
         tvPayloadInfo = findViewById(R.id.tvPayloadInfo);
@@ -76,13 +63,20 @@ public class EmbedActivity extends AppCompatActivity {
         spinnerExpansionMode = findViewById(R.id.spinnerExpand);
     }
 
+    /* ================= SPINNER ================= */
+
     private void setupDropdown() {
 
         ArrayAdapter<String> adapter = new ArrayAdapter<>(
                 this,
-                android.R.layout.simple_spinner_dropdown_item,
-                new String[]{"Normal", "Expand 200%", "Expand 400%"}
-        );
+                R.layout.spinner_selected,
+                new String[]{
+                        "Normal",
+                        "Expand 200%",
+                        "Expand 400%"
+                });
+
+        adapter.setDropDownViewResource(R.layout.spinner_dropdown);
 
         spinnerExpansionMode.setAdapter(adapter);
 
@@ -99,10 +93,13 @@ public class EmbedActivity extends AppCompatActivity {
                 });
     }
 
+    /* ================= PICKERS ================= */
+
     private void setupPickers() {
 
         ActivityResultLauncher<Intent> carrierPicker =
                 registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), r -> {
+
                     if (r.getResultCode() == RESULT_OK && r.getData() != null) {
 
                         carrierUri = r.getData().getData();
@@ -119,9 +116,11 @@ public class EmbedActivity extends AppCompatActivity {
                     if (r.getResultCode() == RESULT_OK && r.getData() != null) {
 
                         payloadUri = r.getData().getData();
+
                         tvPayloadInfo.setText("Payload: " + fileName(payloadUri));
 
                         validateReady();
+                        refreshCapacity();
                     }
                 });
 
@@ -139,12 +138,16 @@ public class EmbedActivity extends AppCompatActivity {
             layoutFile.setVisibility(isText ? View.GONE : View.VISIBLE);
 
             validateReady();
+            refreshCapacity();
         });
 
         btnEmbed.setOnClickListener(v -> embed());
     }
 
+    /* ================= VALIDATION ================= */
+
     private void setupValidation() {
+
         etTextMessage.addTextChangedListener(watcher);
         etPassword.addTextChangedListener(watcher);
     }
@@ -169,13 +172,15 @@ public class EmbedActivity extends AppCompatActivity {
 
         boolean ready =
                 carrierUri != null &&
-                (radioPayloadType.getCheckedRadioButtonId() == R.id.radioText
-                        ? !etTextMessage.getText().toString().trim().isEmpty()
-                        : payloadUri != null);
+                        (radioPayloadType.getCheckedRadioButtonId() == R.id.radioText
+                                ? !etTextMessage.getText().toString().trim().isEmpty()
+                                : payloadUri != null);
 
         btnEmbed.setEnabled(ready);
         btnEmbed.setAlpha(ready ? 1f : 0.5f);
     }
+
+    /* ================= CAPACITY ================= */
 
     private void refreshCapacity() {
 
@@ -192,28 +197,41 @@ public class EmbedActivity extends AppCompatActivity {
 
             int max = StegEngineCore.getMaxPayloadSize(bmp);
 
-            int current =
-                    etTextMessage.getText()
-                            .toString()
-                            .getBytes(StandardCharsets.UTF_8)
-                            .length;
+            int current;
+
+            if (radioPayloadType.getCheckedRadioButtonId() == R.id.radioText) {
+
+                current = etTextMessage
+                        .getText()
+                        .toString()
+                        .getBytes(StandardCharsets.UTF_8)
+                        .length;
+
+            } else {
+
+                current = payloadUri == null ? 0 : getFileSize(payloadUri);
+            }
+
+            int finalCurrent = current;
 
             runOnUiThread(() -> {
 
                 tvCarrierInfo.setText(
-                        "Capacity: " +
-                                Utils.formatSize(current) +
-                                " / " +
+                        "Payload size: " +
+                                Utils.formatSize(finalCurrent) +
+                                "\nAvailable capacity: " +
                                 Utils.formatSize(max)
                 );
 
                 tvCarrierInfo.setTextColor(
-                        getColor(current > max ? R.color.red : R.color.green)
+                        getColor(finalCurrent > max ? R.color.red : R.color.green)
                 );
             });
 
         } catch (Exception ignored) {}
     }
+
+    /* ================= IMAGE LOADING ================= */
 
     private Bitmap decodeOptimized(Uri uri) throws Exception {
 
@@ -256,7 +274,7 @@ public class EmbedActivity extends AppCompatActivity {
                                 bmp.getWidth() +
                                 " x " +
                                 bmp.getHeight() +
-                                "\nMax payload: " +
+                                "\nMax capacity: " +
                                 Utils.formatSize(max)
                 );
             });
@@ -266,6 +284,8 @@ public class EmbedActivity extends AppCompatActivity {
             toast("Carrier error: " + e.getMessage());
         }
     }
+
+    /* ================= EMBED ================= */
 
     private void embed() {
 
@@ -327,17 +347,7 @@ public class EmbedActivity extends AppCompatActivity {
                 if (payloadBytes.length > capacity)
                     throw new IllegalArgumentException("Payload too large for this image");
 
-                payloadBytes =
-                        encryptIfNeeded(
-                                payloadBytes,
-                                etPassword.getText().toString()
-                        );
-
-                File outFile =
-                        Utils.getTimestampedFile(
-                                "stego.png",
-                                "Embedded"
-                        );
+                File outFile = Utils.getTimestampedFile("stego.png", "Embedded");
 
                 try (FileOutputStream out = new FileOutputStream(outFile)) {
 
@@ -345,7 +355,7 @@ public class EmbedActivity extends AppCompatActivity {
                             bmp,
                             payloadBytes,
                             originalName,
-                            "",
+                            etPassword.getText().toString(),
                             out
                     );
                 }
@@ -372,69 +382,23 @@ public class EmbedActivity extends AppCompatActivity {
         }).start();
     }
 
-    private byte[] encryptIfNeeded(byte[] data, String password) throws Exception {
+    /* ================= HELPERS ================= */
 
-        if (password == null || password.isEmpty()) {
+    private int getFileSize(Uri uri) {
 
-            byte[] out = new byte[data.length + 1];
-            out[0] = 0;
+        try (Cursor c = getContentResolver().query(uri, null, null, null, null)) {
 
-            System.arraycopy(data, 0, out, 1, data.length);
-            return out;
-        }
+            if (c != null && c.moveToFirst()) {
 
-        SecureRandom random = SecureRandom.getInstanceStrong();
+                int sizeIndex = c.getColumnIndex(OpenableColumns.SIZE);
 
-        byte[] salt = new byte[SALT_LENGTH];
-        random.nextBytes(salt);
+                if (sizeIndex >= 0)
+                    return (int) c.getLong(sizeIndex);
+            }
 
-        SecretKey key = deriveKey(password, salt);
+        } catch (Exception ignored) {}
 
-        byte[] iv = new byte[IV_LENGTH];
-        random.nextBytes(iv);
-
-        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-
-        cipher.init(
-                Cipher.ENCRYPT_MODE,
-                key,
-                new GCMParameterSpec(128, iv)
-        );
-
-        byte[] cipherText = cipher.doFinal(data);
-
-        byte[] output =
-                new byte[
-                        salt.length +
-                        iv.length +
-                        cipherText.length
-                ];
-
-        System.arraycopy(salt, 0, output, 0, salt.length);
-        System.arraycopy(iv, 0, output, salt.length, iv.length);
-        System.arraycopy(cipherText, 0, output,
-                salt.length + iv.length,
-                cipherText.length);
-
-        byte[] finalOut = new byte[output.length + 1];
-        finalOut[0] = 1;
-
-        System.arraycopy(output, 0, finalOut, 1, output.length);
-
-        return finalOut;
-    }
-
-    private SecretKey deriveKey(String password, byte[] salt) throws Exception {
-
-        SecretKeyFactory factory =
-                SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
-
-        PBEKeySpec spec =
-                new PBEKeySpec(password.toCharArray(), salt, ITERATIONS, KEY_LENGTH);
-
-        SecretKey tmp = factory.generateSecret(spec);
-
-        return new SecretKeySpec(tmp.getEncoded(), "AES");
+        return 0;
     }
 
     private String fileName(Uri uri) {
