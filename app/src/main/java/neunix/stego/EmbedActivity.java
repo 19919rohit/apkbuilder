@@ -18,6 +18,11 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.zip.GZIPOutputStream;
 
 public class EmbedActivity extends AppCompatActivity {
 
@@ -35,6 +40,10 @@ public class EmbedActivity extends AppCompatActivity {
     private RadioGroup radioPayloadType;
     private LinearLayout layoutFile, layoutText;
     private Spinner spinnerExpansionMode;
+
+    // Cache for expanded images
+    private final Map<Integer, Bitmap> expansionCache = new HashMap<>();
+    private final ExecutorService executor = Executors.newFixedThreadPool(3); // for async expansion
 
     @Override
     protected void onCreate(Bundle b) {
@@ -72,8 +81,9 @@ public class EmbedActivity extends AppCompatActivity {
                 R.layout.spinner_item,
                 new String[]{
                         "Normal",
-                        "Expand 200%",
-                        "Expand 400%"
+                        "Expand 25%",
+                        "Expand 50%",
+                        "Expand 100%"
                 });
 
         adapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
@@ -85,7 +95,7 @@ public class EmbedActivity extends AppCompatActivity {
 
                     @Override
                     public void onItemSelected(AdapterView<?> parent, View view, int pos, long id) {
-                        refreshCapacity();
+                        updatePreviewAndCapacity(pos);
                     }
 
                     @Override
@@ -103,9 +113,9 @@ public class EmbedActivity extends AppCompatActivity {
                     if (r.getResultCode() == RESULT_OK && r.getData() != null) {
 
                         carrierUri = r.getData().getData();
+                        expansionCache.clear(); // clear previous cache
 
                         new Thread(this::loadCarrier).start();
-
                         validateReady();
                     }
                 });
@@ -139,7 +149,6 @@ public class EmbedActivity extends AppCompatActivity {
             layoutText.setVisibility(isText ? View.VISIBLE : View.GONE);
             layoutFile.setVisibility(isText ? View.GONE : View.VISIBLE);
 
-            // ======== IMPROVEMENT: Clear payload info in Text mode ========
             if (isText) {
                 payloadUri = null;
                 tvFilePayloadInfo.setText("");
@@ -158,7 +167,6 @@ public class EmbedActivity extends AppCompatActivity {
     /* ================= VALIDATION ================= */
 
     private void setupValidation() {
-
         etTextMessage.addTextChangedListener(watcher);
         etPassword.addTextChangedListener(watcher);
     }
@@ -170,7 +178,6 @@ public class EmbedActivity extends AppCompatActivity {
 
         @Override
         public void onTextChanged(CharSequence s, int start, int before, int count) {
-
             refreshCapacity();
             validateReady();
         }
@@ -194,52 +201,61 @@ public class EmbedActivity extends AppCompatActivity {
     /* ================= CAPACITY ================= */
 
     private void refreshCapacity() {
+        updatePreviewAndCapacity(spinnerExpansionMode.getSelectedItemPosition());
+    }
 
+    private void updatePreviewAndCapacity(int modeIndex) {
         if (carrierBitmap == null) return;
 
-        try {
+        executor.submit(() -> {
 
-            Bitmap bmp = carrierBitmap;
+            Bitmap bmp;
 
-            int mode = spinnerExpansionMode.getSelectedItemPosition();
+            synchronized (expansionCache) {
+                bmp = expansionCache.get(modeIndex);
+            }
 
-            if (mode == 1) bmp = ContentAwareExpander.expand(bmp, 2);
-            if (mode == 2) bmp = ContentAwareExpander.expand(bmp, 4);
+            if (bmp == null) {
+                int factor = mapModeToFactor(modeIndex);
+                bmp = ContentAwareExpander.expand(carrierBitmap, factor);
+                synchronized (expansionCache) {
+                    expansionCache.put(modeIndex, bmp);
+                }
+            }
 
             int max = StegEngineCore.getMaxPayloadSize(bmp);
 
-            int current;
+            int current = 0;
 
             if (radioPayloadType.getCheckedRadioButtonId() == R.id.radioText) {
-
-                current = etTextMessage
-                        .getText()
-                        .toString()
-                        .getBytes(StandardCharsets.UTF_8)
-                        .length;
-
+                current = etTextMessage.getText().toString().getBytes(StandardCharsets.UTF_8).length;
             } else {
-
                 current = payloadUri == null ? 0 : getFileSize(payloadUri);
             }
 
             int finalCurrent = current;
+            Bitmap finalBmp = bmp;
 
             runOnUiThread(() -> {
+                carrierPreview.setImageBitmap(finalBmp);
 
                 tvCarrierInfo.setText(
-                        "Payload size: " +
-                                Utils.formatSize(finalCurrent) +
-                                "\nAvailable capacity: " +
-                                Utils.formatSize(max)
+                        "Payload size: " + Utils.formatSize(finalCurrent) +
+                                "\nAvailable capacity: " + Utils.formatSize(max)
                 );
 
-                tvCarrierInfo.setTextColor(
-                        getColor(finalCurrent > max ? R.color.red : R.color.green)
-                );
+                tvCarrierInfo.setTextColor(getColor(finalCurrent > max ? R.color.red : R.color.green));
             });
+        });
+    }
 
-        } catch (Exception ignored) {}
+    private int mapModeToFactor(int index) {
+        switch (index) {
+            case 1: return 1; // 25%
+            case 2: return 2; // 50%
+            case 3: return 4; // 100%
+            default: return 0; // Normal
+        }
     }
 
     /* ================= IMAGE LOADING ================= */
@@ -269,29 +285,30 @@ public class EmbedActivity extends AppCompatActivity {
     private void loadCarrier() {
 
         try {
-
             carrierBitmap = decodeOptimized(carrierUri);
 
-            Bitmap bmp = carrierBitmap;
+            // Precompute all expansions asynchronously
+            for (int i = 1; i <= 3; i++) {
+                final int modeIndex = i;
+                executor.submit(() -> {
+                    Bitmap bmp = ContentAwareExpander.expand(carrierBitmap, mapModeToFactor(modeIndex));
+                    synchronized (expansionCache) {
+                        expansionCache.put(modeIndex, bmp);
+                    }
+                });
+            }
 
-            int max = StegEngineCore.getMaxPayloadSize(bmp);
+            int max = StegEngineCore.getMaxPayloadSize(carrierBitmap);
 
             runOnUiThread(() -> {
-
-                carrierPreview.setImageBitmap(bmp);
-
+                carrierPreview.setImageBitmap(carrierBitmap);
                 tvCarrierInfo.setText(
-                        "Resolution: " +
-                                bmp.getWidth() +
-                                " x " +
-                                bmp.getHeight() +
-                                "\nMax capacity: " +
-                                Utils.formatSize(max)
+                        "Resolution: " + carrierBitmap.getWidth() + " x " + carrierBitmap.getHeight() +
+                                "\nMax capacity: " + Utils.formatSize(max)
                 );
             });
 
         } catch (Exception e) {
-
             toast("Carrier error: " + e.getMessage());
         }
     }
@@ -301,7 +318,6 @@ public class EmbedActivity extends AppCompatActivity {
     private void embed() {
 
         if (carrierBitmap == null) {
-
             toast("Select carrier image first");
             return;
         }
@@ -309,59 +325,51 @@ public class EmbedActivity extends AppCompatActivity {
         progress.setVisibility(View.VISIBLE);
         btnEmbed.setEnabled(false);
 
-        new Thread(() -> {
+        executor.submit(() -> {
 
             try {
-
-                Bitmap bmp = carrierBitmap;
-
                 int mode = spinnerExpansionMode.getSelectedItemPosition();
 
-                if (mode == 1) bmp = ContentAwareExpander.expand(bmp, 2);
-                if (mode == 2) bmp = ContentAwareExpander.expand(bmp, 4);
+                Bitmap bmp;
+
+                synchronized (expansionCache) {
+                    bmp = expansionCache.get(mode);
+                    if (bmp == null) bmp = ContentAwareExpander.expand(carrierBitmap, mapModeToFactor(mode));
+                }
 
                 byte[] payloadBytes;
                 String originalName;
 
                 if (radioPayloadType.getCheckedRadioButtonId() == R.id.radioText) {
-
                     String text = etTextMessage.getText().toString().trim();
-
-                    if (text.isEmpty())
-                        throw new IllegalArgumentException("Text message empty");
-
-                    payloadBytes = text.getBytes(StandardCharsets.UTF_8);
-                    originalName = "message.txt";
-
+                    if (text.isEmpty()) throw new IllegalArgumentException("Text message empty");
+                    payloadBytes = gzip(text.getBytes(StandardCharsets.UTF_8)); // GZIP compression
+                    originalName = "message.txt.gz";
                 } else {
-
-                    if (payloadUri == null)
-                        throw new IllegalArgumentException("Select payload file");
-
+                    if (payloadUri == null) throw new IllegalArgumentException("Select payload file");
                     originalName = fileName(payloadUri);
 
                     try (InputStream in = getContentResolver().openInputStream(payloadUri);
-                         ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+                         ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                         GZIPOutputStream gos = new GZIPOutputStream(baos)) {
 
                         byte[] buf = new byte[8192];
                         int n;
-
-                        while ((n = in.read(buf)) != -1)
-                            baos.write(buf, 0, n);
+                        while ((n = in.read(buf)) != -1) gos.write(buf, 0, n);
+                        gos.finish();
 
                         payloadBytes = baos.toByteArray();
+                        originalName += ".gz";
                     }
                 }
 
                 int capacity = StegEngineCore.getMaxPayloadSize(bmp);
-
                 if (payloadBytes.length > capacity)
                     throw new IllegalArgumentException("Payload too large for this image");
 
                 File outFile = Utils.getTimestampedFile("stego.png", "Embedded");
 
                 try (FileOutputStream out = new FileOutputStream(outFile)) {
-
                     StegEngineCore.embed(
                             bmp,
                             payloadBytes,
@@ -371,78 +379,59 @@ public class EmbedActivity extends AppCompatActivity {
                     );
                 }
 
-                runOnUiThread(() ->
-                        toast("Embedded → " + outFile.getAbsolutePath())
-                );
+                runOnUiThread(() -> toast("Embedded → " + outFile.getAbsolutePath()));
 
             } catch (Exception e) {
-
-                runOnUiThread(() ->
-                        toast("Embed failed: " + e.getMessage())
-                );
-
+                runOnUiThread(() -> toast("Embed failed: " + e.getMessage()));
             } finally {
-
                 runOnUiThread(() -> {
-
                     progress.setVisibility(View.GONE);
                     btnEmbed.setEnabled(true);
                 });
             }
+        });
+    }
 
-        }).start();
+    private byte[] gzip(byte[] data) throws IOException {
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
+             GZIPOutputStream gos = new GZIPOutputStream(baos)) {
+            gos.write(data);
+            gos.finish();
+            return baos.toByteArray();
+        }
     }
 
     /* ================= HELPERS ================= */
 
     private int getFileSize(Uri uri) {
-
         try (Cursor c = getContentResolver().query(uri, null, null, null, null)) {
-
             if (c != null && c.moveToFirst()) {
-
                 int sizeIndex = c.getColumnIndex(OpenableColumns.SIZE);
-
-                if (sizeIndex >= 0)
-                    return (int) c.getLong(sizeIndex);
+                if (sizeIndex >= 0) return (int) c.getLong(sizeIndex);
             }
-
         } catch (Exception ignored) {}
-
         return 0;
     }
 
     private String fileName(Uri uri) {
-
         try (Cursor c = getContentResolver().query(uri, null, null, null, null)) {
-
             if (c != null && c.moveToFirst()) {
-
                 int idx = c.getColumnIndex(OpenableColumns.DISPLAY_NAME);
-
-                if (idx >= 0)
-                    return c.getString(idx);
+                if (idx >= 0) return c.getString(idx);
             }
-        }
-
+        } catch (Exception ignored) {}
         return "file";
     }
 
     private void pick(ActivityResultLauncher<Intent> l, String type) {
-
         Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-
         i.addCategory(Intent.CATEGORY_OPENABLE);
         i.setType(type);
         i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-
         l.launch(i);
     }
 
     private void toast(String s) {
-
-        runOnUiThread(() ->
-                Toast.makeText(this, s, Toast.LENGTH_LONG).show()
-        );
+        runOnUiThread(() -> Toast.makeText(this, s, Toast.LENGTH_LONG).show());
     }
 }

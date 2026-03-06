@@ -1,205 +1,73 @@
 package neunix.stego;
 
 import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.graphics.Color;
 
-import java.util.Random;
-
-public final class ContentAwareExpander {
-
-    private ContentAwareExpander() {}
+public class ContentAwareExpander {
 
     /**
-     * Expands image using content-aware mirrored edge blending.
+     * Expand a bitmap intelligently based on payload factor.
+     * Original image stays centered. Canvas only grows as needed.
      *
-     * @param original Original bitmap (ARGB_8888 recommended)
-     * @param scaleFactor 1.0f = no change, 2.0f = 400% area
+     * @param original Original bitmap
+     * @param factor   1 = 25%, 2 = 50%, 4 = 100% expansion factor
+     * @return Expanded bitmap
      */
-    public static Bitmap expand(Bitmap original, float scaleFactor) {
+    public static Bitmap expand(Bitmap original, int factor) {
 
-        if (original == null) return null;
-        if (scaleFactor <= 1.0f) return original;
+        int origWidth = original.getWidth();
+        int origHeight = original.getHeight();
 
-        int w = original.getWidth();
-        int h = original.getHeight();
-
-        int newW = Math.max(w + 2, Math.round(w * scaleFactor));
-        int newH = Math.max(h + 2, Math.round(h * scaleFactor));
-
-        Bitmap expanded = Bitmap.createBitmap(
-                newW,
-                newH,
-                Bitmap.Config.ARGB_8888
-        );
-
-        int[] origPixels = new int[w * h];
-        original.getPixels(origPixels, 0, w, 0, 0, w, h);
-
-        int[] newPixels = new int[newW * newH];
-
-        int offsetX = (newW - w) / 2;
-        int offsetY = (newH - h) / 2;
-
-        // 1️⃣ Copy original to center
-        for (int y = 0; y < h; y++) {
-            System.arraycopy(
-                    origPixels,
-                    y * w,
-                    newPixels,
-                    (y + offsetY) * newW + offsetX,
-                    w
-            );
+        // Calculate scale factor
+        double scaleMultiplier;
+        switch (factor) {
+            case 1: scaleMultiplier = 1.25; break; // +25%
+            case 2: scaleMultiplier = 1.5; break;  // +50%
+            case 4: scaleMultiplier = 2.0; break;  // +100%
+            default: scaleMultiplier = 1.0;
         }
 
-        // 2️⃣ Expand Left + Right
-        if (offsetX > 0) {
-            expandHorizontal(
-                    newPixels,
-                    origPixels,
-                    w, h,
-                    newW, newH,
-                    offsetX, offsetY
-            );
-        }
+        int newWidth = (int)(origWidth * scaleMultiplier);
+        int newHeight = (int)(origHeight * scaleMultiplier);
 
-        // 3️⃣ Expand Top + Bottom
-        if (offsetY > 0) {
-            expandVertical(
-                    newPixels,
-                    newW, newH,
-                    offsetX, offsetY,
-                    w, h
-            );
-        }
+        // Only create new canvas if it actually grows
+        if (newWidth == origWidth && newHeight == origHeight) return original;
 
-        expanded.setPixels(newPixels, 0, newW, 0, 0, newW, newH);
+        Bitmap expanded = Bitmap.createBitmap(newWidth, newHeight, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(expanded);
+
+        // Fill background with average color
+        int avgColor = getAverageColor(original);
+        canvas.drawColor(avgColor);
+
+        // Draw original image centered
+        float left = (newWidth - origWidth) / 2f;
+        float top = (newHeight - origHeight) / 2f;
+        canvas.drawBitmap(original, left, top, null);
 
         return expanded;
     }
 
-    private static void expandHorizontal(
-            int[] newPixels,
-            int[] origPixels,
-            int w, int h,
-            int newW, int newH,
-            int offsetX, int offsetY
-    ) {
-
-        Random random = new Random();
-
-        for (int y = 0; y < h; y++) {
-
-            int leftEdgeColor = origPixels[y * w];
-            int rightEdgeColor = origPixels[y * w + (w - 1)];
-
-            for (int x = 0; x < offsetX; x++) {
-
-                float factor = (float) x / offsetX;
-
-                int blended = blendWithNoise(
-                        leftEdgeColor,
-                        factor,
-                        random
-                );
-
-                newPixels[(y + offsetY) * newW + x] = blended;
-            }
-
-            for (int x = offsetX + w; x < newW; x++) {
-
-                float factor =
-                        (float) (x - (offsetX + w)) / offsetX;
-
-                int blended = blendWithNoise(
-                        rightEdgeColor,
-                        factor,
-                        random
-                );
-
-                newPixels[(y + offsetY) * newW + x] = blended;
-            }
-        }
-    }
-
-    private static void expandVertical(
-            int[] newPixels,
-            int newW, int newH,
-            int offsetX, int offsetY,
-            int w, int h
-    ) {
-
-        Random random = new Random();
-
-        for (int x = 0; x < newW; x++) {
-
-            int topEdgeColor = newPixels[offsetY * newW + x];
-            int bottomEdgeColor = newPixels[(offsetY + h - 1) * newW + x];
-
-            for (int y = 0; y < offsetY; y++) {
-
-                float factor = (float) y / offsetY;
-
-                newPixels[y * newW + x] =
-                        blendWithNoise(
-                                topEdgeColor,
-                                factor,
-                                random
-                        );
-            }
-
-            for (int y = offsetY + h; y < newH; y++) {
-
-                float factor =
-                        (float) (y - (offsetY + h)) / offsetY;
-
-                newPixels[y * newW + x] =
-                        blendWithNoise(
-                                bottomEdgeColor,
-                                factor,
-                                random
-                        );
-            }
-        }
-    }
-
     /**
-     * Blend base color with adaptive noise.
-     * factor → 0 near original edge, 1 far from edge.
+     * Get average color of the bitmap using sampled pixels
      */
-    private static int blendWithNoise(
-            int baseColor,
-            float factor,
-            Random random
-    ) {
+    private static int getAverageColor(Bitmap bmp) {
+        int width = bmp.getWidth();
+        int height = bmp.getHeight();
+        long r=0, g=0, b=0;
+        int count = 0;
 
-        int r = Color.red(baseColor);
-        int g = Color.green(baseColor);
-        int b = Color.blue(baseColor);
-
-        int noiseStrength = (int) (factor * 20); // reduced noise
-
-        if (noiseStrength > 0) {
-
-            r = clamp(
-                    r + random.nextInt(noiseStrength * 2 + 1)
-                            - noiseStrength
-            );
-
-            g = clamp(
-                    g + random.nextInt(noiseStrength * 2 + 1)
-                            - noiseStrength
-            );
-
-            b = clamp(
-                    b + random.nextInt(noiseStrength * 2 + 1)
-                            - noiseStrength
-            );
+        int step = Math.max(1, Math.min(width, height)/100); // sampling every few pixels
+        for (int x=0; x<width; x+=step){
+            for (int y=0; y<height; y+=step){
+                int pixel = bmp.getPixel(x,y);
+                r += Color.red(pixel);
+                g += Color.green(pixel);
+                b += Color.blue(pixel);
+                count++;
+            }
         }
-
-        return Color.argb(255, r, g, b);
-    }
-
-    private static int clamp(int v) {
-        return v < 0 ? 0 : Math.min(v, 255);
+        return Color.rgb((int)(r/count), (int)(g/count), (int)(b/count));
     }
 }
