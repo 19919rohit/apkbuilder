@@ -8,4 +8,4 @@
     android:paddingEnd="16dp"
     android:textSize="16sp"
     android:textColor="?attr/colorOnSurface"
-    android:background="@drawable/bg_spinner"/>
+    android:background="?attr/colorSurface"/>
