@@ -28,8 +28,8 @@
     <color name="text_hint">#999999</color>
 
     <!-- Inputs -->
-    <color name="input_background">#F0F0F0</color>
-    <color name="input_border">#CCCCCC</color>
+    <color name="input_background">#FFFFFF</color>
+    <color name="input_border">#D0D0D0</color>
 
     <!-- Buttons -->
     <color name="primary">#4CAF50</color>

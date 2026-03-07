@@ -25,7 +25,7 @@
 
     <!-- Inputs -->
     <color name="input_background">#1E293B</color>
-    <color name="input_border">#334155</color>
+    <color name="input_border">#475569</color>
 
     <!-- Buttons -->
     <color name="primary">#16A34A</color>
