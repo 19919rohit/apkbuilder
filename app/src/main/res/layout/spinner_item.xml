@@ -7,5 +7,5 @@
     android:paddingStart="16dp"
     android:paddingEnd="16dp"
     android:textSize="16sp"
-    android:textColor="?attr/textColorPrimary"
+    android:textColor="?attr/colorOnSurface"
     android:background="@drawable/bg_spinner"/>
