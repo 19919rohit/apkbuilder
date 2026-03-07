@@ -10,66 +10,44 @@ import android.provider.OpenableColumns;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 
+/**
+ * JPGtoPNG
+ * Converts JPG/JPEG images (or other formats) to PNG in memory.
+ * Returns a Bitmap ready for embedding in EmbedActivity.
+ */
 public class JPGtoPNG {
 
-    private final Context context;
+    /**
+     * Converts an image Uri to a PNG Bitmap.
+     *
+     * @param context the Android context
+     * @param uri     the image Uri (JPG, JPEG, etc.)
+     * @return Bitmap in PNG format
+     * @throws Exception if decoding or conversion fails
+     */
+    public static Bitmap convert(Context context, Uri uri) throws Exception {
 
-    public JPGtoPNG(Context ctx) {
-        context = ctx;
+        // Load original image optimized
+        Bitmap bitmap = decodeOptimized(context, uri);
+        if (bitmap == null) throw new Exception("Failed to decode image");
+
+        // Convert to PNG in memory
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        if (!bitmap.compress(Bitmap.CompressFormat.PNG, 100, baos)) {
+            throw new Exception("Failed to convert to PNG");
+        }
+
+        byte[] pngBytes = baos.toByteArray();
+
+        // Decode PNG bytes back to Bitmap
+        return BitmapFactory.decodeByteArray(pngBytes, 0, pngBytes.length);
     }
 
     /**
-     * Converts any image Uri to an in-memory PNG bitmap
-     * @param uri Input image Uri (JPG, JPEG, WEBP, PNG)
-     * @return PNG-compressed byte array
-     * @throws Exception on read/compression failure
+     * Optimized decoding: reduces memory usage for large images.
+     * Scales down if max dimension > 1600 px
      */
-    public byte[] convert(Uri uri) throws Exception {
-
-        Bitmap bitmap = decodeOptimized(uri);
-
-        try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-            if (!bitmap.compress(Bitmap.CompressFormat.PNG, 100, baos))
-                throw new Exception("Failed to convert to PNG");
-            return baos.toByteArray();
-        }
-    }
-
-    /**
-     * Gets the original file name from a Uri
-     * @param uri Input Uri
-     * @return File name as String
-     */
-    public String getFileName(Uri uri) {
-        String result = null;
-
-        if ("content".equals(uri.getScheme())) {
-            try (Cursor cursor = context.getContentResolver().query(uri, null, null, null, null)) {
-                if (cursor != null && cursor.moveToFirst()) {
-                    int idx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
-                    if (idx >= 0) result = cursor.getString(idx);
-                }
-            } catch (Exception ignored) {}
-        }
-
-        if (result == null) {
-            String path = uri.getPath();
-            if (path != null) {
-                int cut = path.lastIndexOf('/');
-                result = (cut != -1) ? path.substring(cut + 1) : path;
-            }
-        }
-
-        return (result != null) ? result : "file";
-    }
-
-    /**
-     * Optimized bitmap decoding to avoid OOM on large images
-     * @param uri Image Uri
-     * @return Decoded Bitmap
-     * @throws Exception on failure
-     */
-    private Bitmap decodeOptimized(Uri uri) throws Exception {
+    private static Bitmap decodeOptimized(Context context, Uri uri) throws Exception {
 
         BitmapFactory.Options bounds = new BitmapFactory.Options();
         bounds.inJustDecodeBounds = true;
@@ -80,16 +58,27 @@ public class JPGtoPNG {
 
         int scale = 1;
         int maxDim = Math.max(bounds.outWidth, bounds.outHeight);
-
         while (maxDim / scale > 1600) scale *= 2;
 
         BitmapFactory.Options opts = new BitmapFactory.Options();
         opts.inSampleSize = scale;
 
         try (InputStream in = context.getContentResolver().openInputStream(uri)) {
-            Bitmap bmp = BitmapFactory.decodeStream(in, null, opts);
-            if (bmp == null) throw new Exception("Failed to decode bitmap");
-            return bmp;
+            return BitmapFactory.decodeStream(in, null, opts);
         }
+    }
+
+    /**
+     * Optional helper to get the original file name from a Uri
+     */
+    public static String getFileName(Context context, Uri uri) {
+        String name = "file";
+        try (Cursor c = context.getContentResolver().query(uri, null, null, null, null)) {
+            if (c != null && c.moveToFirst()) {
+                int idx = c.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+                if (idx >= 0) name = c.getString(idx);
+            }
+        } catch (Exception ignored) {}
+        return name;
     }
 }

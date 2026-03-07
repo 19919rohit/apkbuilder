@@ -233,7 +233,7 @@ public class EmbedActivity extends AppCompatActivity {
 
     private void loadCarrier() {
         try {
-            carrierBitmap = decodeOptimized(carrierUri);
+            
 
             // ===== Convert JPG/JPEG to PNG if necessary =====
             carrierBitmap = JPGtoPNG.convert(this, carrierUri);
