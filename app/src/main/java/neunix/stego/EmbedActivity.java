@@ -305,7 +305,7 @@ public class EmbedActivity extends AppCompatActivity {
                 if (payloadBytes.length > capacity)
                     throw new IllegalArgumentException("Payload too large for this image");
 
-                File outFile = Utils.getTimestampedFile("stego.png", "Embedded");
+                File outFile = Utils.getTimestampedFile(this, "stego.png", "Embedded");
                 try (FileOutputStream out = new FileOutputStream(outFile)) {
                     StegEngineCore.embed(bmp, payloadBytes, originalName,
                             etPassword.getText().toString(), out);
