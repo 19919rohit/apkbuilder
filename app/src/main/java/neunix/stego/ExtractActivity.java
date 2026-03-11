@@ -139,7 +139,7 @@ public class ExtractActivity extends AppCompatActivity {
                 String fileName = ex.fileName;
 
                 // Save payload exactly as embedded
-                File outFile = Utils.getTimestampedFile(fileName, "Extracted");
+                File outFile = Utils.getTimestampedFile(this, fileName, "Extracted");
 
                 try (FileOutputStream fos = new FileOutputStream(outFile)) {
                     fos.write(payloadData);

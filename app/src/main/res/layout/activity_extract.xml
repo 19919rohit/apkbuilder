@@ -53,7 +53,7 @@
 
             <!-- Extract Button -->
             <Button
-                android:id="@+id/extractBtn"
+                android:id="@+id/btnExtract"
                 android:layout_width="match_parent"
                 android:layout_height="55dp"
                 android:text="Extract Secret"

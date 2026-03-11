@@ -2,19 +2,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <!-- ===================== -->
-    <!-- Permissions -->
+    <!-- No Permissions -->
     <!-- ===================== -->
 
-    <!-- SAF / Media access (Android 12 and below) -->
-    <uses-permission
-        android:name="android.permission.READ_EXTERNAL_STORAGE"
-        android:maxSdkVersion="32" />
 
-    <!-- Legacy write (Android 9 and below only) -->
-    <uses-permission
-        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-        android:maxSdkVersion="28" />
-        
     <!-- ===================== -->
     <!-- Application -->
     <!-- ===================== -->
@@ -47,7 +38,7 @@
         <!-- ===================== -->
         <activity
             android:name=".MainActivity"
-            android:exported="false"
+            android:exported="true"
             android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustResize" />
 
@@ -56,7 +47,7 @@
         <!-- ===================== -->
         <activity
             android:name=".EmbedActivity"
-            android:exported="false"
+            android:exported="true"
             android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustResize" />
 
@@ -65,7 +56,34 @@
         <!-- ===================== -->
         <activity
             android:name=".ExtractActivity"
-            android:exported="false"
+            android:exported="true"
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustResize" />
+
+        <!-- ===================== -->
+        <!-- Files Screen -->
+        <!-- ===================== -->
+        <activity
+            android:name=".FilesActivity"
+            android:exported="true"
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustResize" />
+
+        <!-- ===================== -->
+        <!-- Embedded Files Screen -->
+        <!-- ===================== -->
+        <activity
+            android:name=".EmbeddedFilesActivity"
+            android:exported="true"
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustResize" />
+
+        <!-- ===================== -->
+        <!-- Extracted Files Screen -->
+        <!-- ===================== -->
+        <activity
+            android:name=".ExtractedFilesActivity"
+            android:exported="true"
             android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustResize" />
 
