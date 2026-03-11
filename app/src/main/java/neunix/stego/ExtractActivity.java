@@ -17,18 +17,20 @@ import androidx.appcompat.app.AppCompatActivity;
 import java.io.*;
 
 /**
- * Final production ExtractActivity for Stegora
- * Matches the final EmbedActivity: No GZIP, exact payload extraction
- * Supports file/text extraction, password-protected embedding
+ * ExtractActivity for Stegora
+ * Automatically detects text messages and displays them
+ * Saves payloads exactly as embedded
  */
 public class ExtractActivity extends AppCompatActivity {
 
     private Uri carrierUri;
     private ImageView carrierPreview;
     private TextView tvCarrierInfo;
+    private TextView extractedMessage;
     private EditText etPassword;
     private ProgressBar progress;
     private Button btnExtract;
+    private Button selectImageBtn;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -38,24 +40,23 @@ public class ExtractActivity extends AppCompatActivity {
         bindViews();
         setupPickers();
         setupButtons();
-        
+
+        // Back button
         ImageView backButton = findViewById(R.id.backButton);
         backButton.setOnClickListener(v -> onBackPressed());
     }
-    
 
-    /* ===================== BIND VIEWS ===================== */
     private void bindViews() {
         carrierPreview = findViewById(R.id.carrierPreview);
         tvCarrierInfo = findViewById(R.id.tvCarrierInfo);
+        extractedMessage = findViewById(R.id.extractedMessage);
         etPassword = findViewById(R.id.etPassword);
         progress = findViewById(R.id.progressBar);
         btnExtract = findViewById(R.id.btnExtract);
+        selectImageBtn = findViewById(R.id.selectImageBtn);
     }
 
-    /* ===================== PICKERS ===================== */
     private void setupPickers() {
-
         ActivityResultLauncher<Intent> picker =
                 registerForActivityResult(
                         new ActivityResultContracts.StartActivityForResult(),
@@ -67,15 +68,13 @@ public class ExtractActivity extends AppCompatActivity {
                         }
                 );
 
-        findViewById(R.id.pickCarrierBtn)
-                .setOnClickListener(v -> pick(picker, "image/*"));
+        selectImageBtn.setOnClickListener(v -> pick(picker, "image/*"));
     }
 
     private void setupButtons() {
         btnExtract.setOnClickListener(v -> extract());
     }
 
-    /* ===================== IMAGE LOADING ===================== */
     private void loadCarrier() {
         try {
             Bitmap bmp = decodeOptimized(carrierUri);
@@ -113,7 +112,6 @@ public class ExtractActivity extends AppCompatActivity {
         }
     }
 
-    /* ===================== EXTRACTION ===================== */
     private void extract() {
         if (carrierUri == null) {
             toast("Select stego image first");
@@ -122,13 +120,13 @@ public class ExtractActivity extends AppCompatActivity {
 
         progress.setVisibility(View.VISIBLE);
         btnExtract.setEnabled(false);
+        extractedMessage.setText("");
 
         new Thread(() -> {
             try {
                 Bitmap bmp = decodeOptimized(carrierUri);
                 if (bmp == null) throw new IOException("Invalid stego image");
 
-                // Extract using the same engine as EmbedActivity
                 StegEngineCore.ExtractedData ex =
                         StegEngineCore.extract(
                                 bmp,
@@ -138,14 +136,31 @@ public class ExtractActivity extends AppCompatActivity {
                 byte[] payloadData = ex.data;
                 String fileName = ex.fileName;
 
-                // Save payload exactly as embedded
+                // Save payload to Extracted folder
                 File outFile = Utils.getTimestampedFile(this, fileName, "Extracted");
-
                 try (FileOutputStream fos = new FileOutputStream(outFile)) {
                     fos.write(payloadData);
                 }
 
-                runOnUiThread(() -> toast("Extracted and saved to files "));
+                // Detect if payload is UTF-8 text
+                String textPreview = null;
+                try {
+                    textPreview = new String(payloadData, "UTF-8");
+                    // Only display if printable
+                    if (!textPreview.chars().allMatch(c -> c >= 9 && c <= 126 || c == 10 || c == 13)) {
+                        textPreview = null;
+                    }
+                } catch (Exception ignored) {}
+
+                final String finalTextPreview = textPreview;
+                runOnUiThread(() -> {
+                    toast("Extracted and saved to files");
+                    if (finalTextPreview != null) {
+                        extractedMessage.setText(finalTextPreview);
+                    } else {
+                        extractedMessage.setText("Payload saved as file: " + outFile.getName());
+                    }
+                });
 
             } catch (Exception e) {
                 runOnUiThread(() -> toast("Extract failed: " + e.getMessage()));
@@ -159,7 +174,6 @@ public class ExtractActivity extends AppCompatActivity {
         }).start();
     }
 
-    /* ===================== URI HELPERS ===================== */
     private String fileName(Uri uri) {
         try (Cursor c = getContentResolver().query(uri, null, null, null, null)) {
             if (c != null && c.moveToFirst())
@@ -176,7 +190,6 @@ public class ExtractActivity extends AppCompatActivity {
         l.launch(i);
     }
 
-    /* ===================== TOAST ===================== */
     private void toast(String s) {
         runOnUiThread(() -> Toast.makeText(this, s, Toast.LENGTH_SHORT).show());
     }
