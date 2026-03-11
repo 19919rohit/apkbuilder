@@ -3,6 +3,7 @@ package neunix.stego;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Paint;
 
 public class ContentAwareExpander {
 
@@ -37,6 +38,11 @@ public class ContentAwareExpander {
         Bitmap expanded = Bitmap.createBitmap(newWidth, newHeight, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(expanded);
 
+        // Use Paint for proper filtering
+        Paint paint = new Paint();
+        paint.setAntiAlias(true);
+        paint.setFilterBitmap(true);
+
         // Fill background with average color
         int avgColor = getAverageColor(original);
         canvas.drawColor(avgColor);
@@ -44,7 +50,7 @@ public class ContentAwareExpander {
         // Draw original image centered
         float left = (newWidth - origWidth) / 2f;
         float top = (newHeight - origHeight) / 2f;
-        canvas.drawBitmap(original, left, top, null);
+        canvas.drawBitmap(original, left, top, paint);
 
         return expanded;
     }

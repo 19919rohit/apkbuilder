@@ -38,7 +38,11 @@ public class ExtractActivity extends AppCompatActivity {
         bindViews();
         setupPickers();
         setupButtons();
+        
+        ImageView backButton = findViewById(R.id.backButton);
+        backButton.setOnClickListener(v -> onBackPressed());
     }
+    
 
     /* ===================== BIND VIEWS ===================== */
     private void bindViews() {
@@ -141,7 +145,7 @@ public class ExtractActivity extends AppCompatActivity {
                     fos.write(payloadData);
                 }
 
-                runOnUiThread(() -> toast("Extracted → " + outFile.getAbsolutePath()));
+                runOnUiThread(() -> toast("Extracted and saved to files "));
 
             } catch (Exception e) {
                 runOnUiThread(() -> toast("Extract failed: " + e.getMessage()));
@@ -174,6 +178,6 @@ public class ExtractActivity extends AppCompatActivity {
 
     /* ===================== TOAST ===================== */
     private void toast(String s) {
-        runOnUiThread(() -> Toast.makeText(this, s, Toast.LENGTH_LONG).show());
+        runOnUiThread(() -> Toast.makeText(this, s, Toast.LENGTH_SHORT).show());
     }
 }

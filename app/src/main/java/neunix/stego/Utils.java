@@ -1,6 +1,6 @@
 package neunix.stego;
 
-import android.os.Environment;
+import android.content.Context;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -11,12 +11,9 @@ import java.util.Locale;
 
 public class Utils {
 
-    // Base Stegora directory in Documents
-    public static File getBaseDir(String subFolder) throws IOException {
-        File base = new File(
-                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS),
-                "Stegora"
-        );
+    // Base Stegora directory inside app-specific storage
+    public static File getBaseDir(Context context, String subFolder) throws IOException {
+        File base = new File(context.getExternalFilesDir(null), "Stegora");
 
         if (!base.exists() && !base.mkdirs())
             throw new IOException("Failed to create Stegora directory");
@@ -29,8 +26,8 @@ public class Utils {
     }
 
     // Timestamped unique file
-    public static File getTimestampedFile(String baseName, String subFolder) throws IOException {
-        File dir = getBaseDir(subFolder);
+    public static File getTimestampedFile(Context context, String baseName, String subFolder) throws IOException {
+        File dir = getBaseDir(context, subFolder);
 
         String name = baseName;
         String ext = "";
@@ -47,11 +44,10 @@ public class Utils {
         return new File(dir, name + "_" + timestamp + ext);
     }
 
-    public static FileOutputStream getTimestampedOutputStream(
-            String baseName,
-            String subFolder
-    ) throws IOException {
-        return new FileOutputStream(getTimestampedFile(baseName, subFolder));
+    public static FileOutputStream getTimestampedOutputStream(Context context,
+                                                              String baseName,
+                                                              String subFolder) throws IOException {
+        return new FileOutputStream(getTimestampedFile(context, baseName, subFolder));
     }
 
     // Format bytes → KB / MB

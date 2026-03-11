@@ -62,6 +62,9 @@ public class EmbedActivity extends AppCompatActivity {
         setupDropdown();
         setupPickers();
         setupValidation();
+        
+        ImageView backButton = findViewById(R.id.backButton);
+        backButton.setOnClickListener(v -> onBackPressed());
     }
 
     // ================= BIND VIEWS =================
@@ -233,9 +236,8 @@ public class EmbedActivity extends AppCompatActivity {
 
     private void loadCarrier() {
         try {
-            
 
-            // ===== Convert JPG/JPEG to PNG if necessary =====
+            // ===== Convert JPG/JPEG to PNG if necessary, safely from content:// =====
             carrierBitmap = JPGtoPNG.convert(this, carrierUri);
 
             // Precompute expansions
@@ -309,7 +311,7 @@ public class EmbedActivity extends AppCompatActivity {
                             etPassword.getText().toString(), out);
                 }
 
-                runOnUiThread(() -> toast("Embedded → " + outFile.getAbsolutePath()));
+                runOnUiThread(() -> toast("Embedded and saved to Files"));
 
             } catch (Exception e) {
                 runOnUiThread(() -> toast("Embed failed: " + e.getMessage()));
@@ -352,6 +354,6 @@ public class EmbedActivity extends AppCompatActivity {
     }
 
     private void toast(String s) {
-        runOnUiThread(() -> Toast.makeText(this, s, Toast.LENGTH_LONG).show());
+        runOnUiThread(() -> Toast.makeText(this, s, Toast.LENGTH_SHORT).show());
     }
 }
