@@ -124,7 +124,7 @@ public class ExtractActivity extends AppCompatActivity {
 
         try {
 
-            File dir = Utils.getBaseDir(this, subFolder);
+            File dir = Utils.getBaseDir(subFolder);
 
             File[] files = dir.listFiles(f ->
                     f.isFile() &&
@@ -199,7 +199,7 @@ public class ExtractActivity extends AppCompatActivity {
 
             try {
 
-                StegEngineCore.ExtractedData payload =
+                StegEngineCore.ExtractedPayload payload =
                         StegEngineCore.extract(
                                 carrierBitmap,
                                 etPassword.getText().toString()
@@ -222,7 +222,7 @@ public class ExtractActivity extends AppCompatActivity {
             } catch (Exception e) {
 
                 runOnUiThread(() ->
-                        toast(e.getMessage()));
+                        toast("Extraction failed"));
             } finally {
 
                 runOnUiThread(() -> {
