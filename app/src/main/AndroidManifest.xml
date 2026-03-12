@@ -1,10 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="neunix.stego">
 
     <!-- ===================== -->
-    <!-- No Permissions -->
+    <!-- Permissions (optional) -->
     <!-- ===================== -->
-
+    <!-- I may add storage permissions if needed :)-->
+    <!-- <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" /> -->
+    <!-- <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" /> -->
 
     <!-- ===================== -->
     <!-- Application -->
@@ -18,69 +21,70 @@
         android:forceDarkAllowed="false">
 
         <!-- ===================== -->
-        <!-- Splash Screen -->
+        <!-- File Provider (for sharing files) -->
         <!-- ===================== -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="neunix.stego.provider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+        <!-- ===================== -->
+        <!-- Activities -->
+        <!-- ===================== -->
+
+        <!-- Splash Screen -->
         <activity
             android:name=".SplashActivity"
             android:exported="true"
             android:theme="@style/Theme.App.Splash"
             android:screenOrientation="portrait">
-
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-
         </activity>
 
-        <!-- ===================== -->
         <!-- Home Screen -->
-        <!-- ===================== -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustResize" />
 
-        <!-- ===================== -->
         <!-- Embed Screen -->
-        <!-- ===================== -->
         <activity
             android:name=".EmbedActivity"
             android:exported="true"
             android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustResize" />
 
-        <!-- ===================== -->
         <!-- Extract Screen -->
-        <!-- ===================== -->
         <activity
             android:name=".ExtractActivity"
             android:exported="true"
             android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustResize" />
 
-        <!-- ===================== -->
         <!-- Files Screen -->
-        <!-- ===================== -->
         <activity
             android:name=".FilesActivity"
             android:exported="true"
             android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustResize" />
 
-        <!-- ===================== -->
         <!-- Embedded Files Screen -->
-        <!-- ===================== -->
         <activity
             android:name=".EmbeddedFilesActivity"
             android:exported="true"
             android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustResize" />
 
-        <!-- ===================== -->
         <!-- Extracted Files Screen -->
-        <!-- ===================== -->
         <activity
             android:name=".ExtractedFilesActivity"
             android:exported="true"
@@ -89,4 +93,4 @@
 
     </application>
 
-</manifest>
+</manifest> 

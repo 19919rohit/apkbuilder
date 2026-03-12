@@ -33,7 +33,7 @@ public class ExtractedFilesActivity extends AppCompatActivity {
 
     private void loadFiles() {
 
-        File dir = new File(getExternalFilesDir(null), "extracted");
+        File dir = new File(getExternalFilesDir(null), "Extracted");
 
         if (!dir.exists()) {
             dir.mkdirs();

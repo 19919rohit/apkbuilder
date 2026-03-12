@@ -33,7 +33,7 @@ public class EmbeddedFilesActivity extends AppCompatActivity {
 
     private void loadFiles() {
 
-        File dir = new File(getExternalFilesDir(null), "embedded");
+        File dir = new File(getExternalFilesDir(null), "Embedded");
 
         if (!dir.exists()) {
             dir.mkdirs();

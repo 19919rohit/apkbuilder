@@ -5,6 +5,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@color/background"
     android:orientation="vertical"
     android:padding="16dp">
 
@@ -38,7 +39,7 @@
         android:text="Embedded Images"
         android:drawableStart="@drawable/ic_embed"
         android:drawablePadding="10dp"
-        android:textColor="@color/text_primary"
+        android:textColor="@color/text_on_primary"
         app:backgroundTint="@color/button_secondary"
         android:layout_marginBottom="16dp"/>
 
@@ -50,7 +51,7 @@
         android:text="Extracted Files"
         android:drawableStart="@drawable/ic_extract"
         app:backgroundTint="@color/button_secondary"
-        android:textColor="@color/text_primary"
+        android:textColor="@color/text_on_primary"
         android:drawablePadding="10dp"/>
 
 </LinearLayout>
