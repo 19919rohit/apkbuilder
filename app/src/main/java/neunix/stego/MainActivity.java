@@ -13,12 +13,12 @@ public class MainActivity extends AppCompatActivity {
 
     private Button btnEmbed;
     private Button btnExtract;
+    private Button btnFiles;   // NEW
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Full screen background support
         makeStatusBarTransparent();
 
         setContentView(R.layout.activity_main);
@@ -30,21 +30,22 @@ public class MainActivity extends AppCompatActivity {
     private void initViews() {
         btnEmbed = findViewById(R.id.btnGoEmbed);
         btnExtract = findViewById(R.id.btnGoExtract);
+        btnFiles = findViewById(R.id.btnGoFiles);   // NEW
     }
 
     private void setupClickListeners() {
 
-        btnEmbed.setOnClickListener(v -> {
-            Intent intent = new Intent(MainActivity.this, EmbedActivity.class);
-            startActivity(intent);
-            overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
-        });
+        btnEmbed.setOnClickListener(v -> openActivity(EmbedActivity.class));
 
-        btnExtract.setOnClickListener(v -> {
-            Intent intent = new Intent(MainActivity.this, ExtractActivity.class);
-            startActivity(intent);
-            overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
-        });
+        btnExtract.setOnClickListener(v -> openActivity(ExtractActivity.class));
+
+        btnFiles.setOnClickListener(v -> openActivity(FilesActivity.class)); // NEW
+    }
+
+    private void openActivity(Class<?> activity) {
+        Intent intent = new Intent(MainActivity.this, activity);
+        startActivity(intent);
+        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
     }
 
     private void makeStatusBarTransparent() {

@@ -3,7 +3,6 @@ package neunix.stego;
 import android.content.Intent;
 import android.database.Cursor;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.OpenableColumns;
@@ -12,25 +11,34 @@ import android.widget.*;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
-import java.io.*;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
-/**
- * ExtractActivity for Stegora
- * Automatically detects text messages and displays them
- * Saves payloads exactly as embedded
- */
 public class ExtractActivity extends AppCompatActivity {
 
+    // ===== URI =====
     private Uri carrierUri;
+
+    // ===== Bitmap =====
+    private Bitmap carrierBitmap;
+
+    // ===== UI =====
     private ImageView carrierPreview;
     private TextView tvCarrierInfo;
-    private TextView extractedMessage;
     private EditText etPassword;
-    private ProgressBar progress;
+    private ProgressBar progressBar;
     private Button btnExtract;
-    private Button selectImageBtn;
+
+    // ===== Executor =====
+    private final ExecutorService executor = Executors.newSingleThreadExecutor();
+
+    // ===== Picker =====
+    private ActivityResultLauncher<Intent> externalPicker;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -39,158 +47,199 @@ public class ExtractActivity extends AppCompatActivity {
 
         bindViews();
         setupPickers();
-        setupButtons();
 
-        // Back button
+        findViewById(R.id.pickCarrierBtn)
+                .setOnClickListener(v -> showPickerDialog());
+
+        btnExtract.setOnClickListener(v -> extract());
+
         ImageView backButton = findViewById(R.id.backButton);
         backButton.setOnClickListener(v -> onBackPressed());
     }
 
+    // ================= BIND VIEWS =================
     private void bindViews() {
+
         carrierPreview = findViewById(R.id.carrierPreview);
         tvCarrierInfo = findViewById(R.id.tvCarrierInfo);
-        extractedMessage = findViewById(R.id.extractedMessage);
+
         etPassword = findViewById(R.id.etPassword);
-        progress = findViewById(R.id.progressBar);
+
+        progressBar = findViewById(R.id.progressBar);
         btnExtract = findViewById(R.id.btnExtract);
-        selectImageBtn = findViewById(R.id.selectImageBtn);
     }
 
+    // ================= PICKERS =================
     private void setupPickers() {
-        ActivityResultLauncher<Intent> picker =
+
+        externalPicker =
                 registerForActivityResult(
                         new ActivityResultContracts.StartActivityForResult(),
                         result -> {
-                            if (result.getResultCode() == RESULT_OK && result.getData() != null) {
+
+                            if (result.getResultCode() == RESULT_OK &&
+                                    result.getData() != null) {
+
                                 carrierUri = result.getData().getData();
+
                                 new Thread(this::loadCarrier).start();
                             }
-                        }
-                );
-
-        selectImageBtn.setOnClickListener(v -> pick(picker, "image/*"));
+                        });
     }
 
-    private void setupButtons() {
-        btnExtract.setOnClickListener(v -> extract());
+    // ================= PICKER DIALOG =================
+    private void showPickerDialog() {
+
+        String[] options = {"App Files", "Other Apps / Gallery"};
+
+        new AlertDialog.Builder(this)
+                .setTitle("Select Stego Image")
+                .setItems(options, (dialog, which) -> {
+
+                    if (which == 0) {
+
+                        pickInternalFile("Embedded", file -> {
+
+                            carrierUri = Uri.fromFile(file);
+
+                            new Thread(this::loadCarrier).start();
+                        });
+
+                    } else {
+
+                        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                        i.addCategory(Intent.CATEGORY_OPENABLE);
+                        i.setType("image/*");
+                        i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+                        externalPicker.launch(i);
+                    }
+
+                })
+                .show();
     }
 
-    private void loadCarrier() {
+    // ================= INTERNAL FILE PICKER =================
+    private void pickInternalFile(String subFolder, InternalFileCallback callback) {
+
         try {
-            Bitmap bmp = decodeOptimized(carrierUri);
-            if (bmp == null) throw new IOException("Invalid image");
+
+            File dir = Utils.getBaseDir(subFolder);
+
+            File[] files = dir.listFiles(f ->
+                    f.isFile() &&
+                            (f.getName().endsWith(".png") ||
+                                    f.getName().endsWith(".jpg")));
+
+            if (files == null || files.length == 0) {
+
+                toast("No internal files found");
+                return;
+            }
+
+            String[] names = new String[files.length];
+
+            for (int i = 0; i < files.length; i++)
+                names[i] = files[i].getName();
+
+            new AlertDialog.Builder(this)
+                    .setTitle("Select File")
+                    .setItems(names, (dialog, which) ->
+                            callback.onFileSelected(files[which]))
+                    .show();
+
+        } catch (Exception e) {
+
+            toast("Error accessing internal files");
+        }
+    }
+
+    private interface InternalFileCallback {
+        void onFileSelected(File file);
+    }
+
+    // ================= LOAD IMAGE =================
+    private void loadCarrier() {
+
+        try {
+
+            carrierBitmap = JPGtoPNG.convert(this, carrierUri);
 
             runOnUiThread(() -> {
-                carrierPreview.setImageBitmap(bmp);
-                tvCarrierInfo.setText("Carrier: " + fileName(carrierUri) +
-                        "\nResolution: " + bmp.getWidth() + " x " + bmp.getHeight());
+
+                carrierPreview.setImageBitmap(carrierBitmap);
+
+                tvCarrierInfo.setText(
+                        "Resolution: " +
+                                carrierBitmap.getWidth() +
+                                " x " +
+                                carrierBitmap.getHeight()
+                );
             });
 
         } catch (Exception e) {
-            toast("Error: " + e.getMessage());
+
+            toast("Image load error");
         }
     }
 
-    private Bitmap decodeOptimized(Uri uri) throws IOException {
-        BitmapFactory.Options bounds = new BitmapFactory.Options();
-        bounds.inJustDecodeBounds = true;
-
-        try (InputStream in = getContentResolver().openInputStream(uri)) {
-            BitmapFactory.decodeStream(in, null, bounds);
-        }
-
-        int scale = 1;
-        int maxDim = Math.max(bounds.outWidth, bounds.outHeight);
-
-        while (maxDim / scale > 1600) scale *= 2;
-
-        BitmapFactory.Options real = new BitmapFactory.Options();
-        real.inSampleSize = scale;
-
-        try (InputStream in = getContentResolver().openInputStream(uri)) {
-            return BitmapFactory.decodeStream(in, null, real);
-        }
-    }
-
+    // ================= EXTRACTION =================
     private void extract() {
-        if (carrierUri == null) {
+
+        if (carrierBitmap == null) {
+
             toast("Select stego image first");
             return;
         }
 
-        progress.setVisibility(View.VISIBLE);
+        progressBar.setVisibility(View.VISIBLE);
         btnExtract.setEnabled(false);
-        extractedMessage.setText("");
 
-        new Thread(() -> {
+        executor.submit(() -> {
+
             try {
-                Bitmap bmp = decodeOptimized(carrierUri);
-                if (bmp == null) throw new IOException("Invalid stego image");
 
-                StegEngineCore.ExtractedData ex =
+                StegEngineCore.ExtractedPayload payload =
                         StegEngineCore.extract(
-                                bmp,
-                                etPassword.getText().toString().trim()
+                                carrierBitmap,
+                                etPassword.getText().toString()
                         );
 
-                byte[] payloadData = ex.data;
-                String fileName = ex.fileName;
+                File outFile = Utils.getTimestampedFile(
+                        this,
+                        payload.fileName,
+                        "Extracted"
+                );
 
-                // Save payload to Extracted folder
-                File outFile = Utils.getTimestampedFile(this, fileName, "Extracted");
-                try (FileOutputStream fos = new FileOutputStream(outFile)) {
-                    fos.write(payloadData);
+                try (FileOutputStream out = new FileOutputStream(outFile)) {
+
+                    out.write(payload.data);
                 }
 
-                // Detect if payload is UTF-8 text
-                String textPreview = null;
-                try {
-                    textPreview = new String(payloadData, "UTF-8");
-                    // Only display if printable
-                    if (!textPreview.chars().allMatch(c -> c >= 9 && c <= 126 || c == 10 || c == 13)) {
-                        textPreview = null;
-                    }
-                } catch (Exception ignored) {}
-
-                final String finalTextPreview = textPreview;
-                runOnUiThread(() -> {
-                    toast("Extracted and saved to files");
-                    if (finalTextPreview != null) {
-                        extractedMessage.setText(finalTextPreview);
-                    } else {
-                        extractedMessage.setText("Payload saved as file: " + outFile.getName());
-                    }
-                });
+                runOnUiThread(() ->
+                        toast("Extracted and saved to Files"));
 
             } catch (Exception e) {
-                runOnUiThread(() -> toast("Extract failed: " + e.getMessage()));
 
+                runOnUiThread(() ->
+                        toast("Extraction failed"));
             } finally {
+
                 runOnUiThread(() -> {
-                    progress.setVisibility(View.GONE);
+
+                    progressBar.setVisibility(View.GONE);
                     btnExtract.setEnabled(true);
+
                 });
             }
-        }).start();
+
+        });
     }
 
-    private String fileName(Uri uri) {
-        try (Cursor c = getContentResolver().query(uri, null, null, null, null)) {
-            if (c != null && c.moveToFirst())
-                return c.getString(c.getColumnIndexOrThrow(OpenableColumns.DISPLAY_NAME));
-        }
-        return "file";
-    }
-
-    private void pick(ActivityResultLauncher<Intent> l, String type) {
-        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-        i.addCategory(Intent.CATEGORY_OPENABLE);
-        i.setType(type);
-        i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        l.launch(i);
-    }
-
+    // ================= HELPERS =================
     private void toast(String s) {
-        runOnUiThread(() -> Toast.makeText(this, s, Toast.LENGTH_SHORT).show());
+
+        runOnUiThread(() ->
+                Toast.makeText(this, s, Toast.LENGTH_SHORT).show());
     }
 }

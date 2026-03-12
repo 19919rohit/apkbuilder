@@ -1,108 +1,108 @@
 <?xml version="1.0" encoding="utf-8"?>
+
 <androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_home"
+    android:padding="24dp">
 
-    <!-- Background -->
-    <ImageView
-        android:id="@+id/bgImage"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:scaleType="centerCrop"
-        android:src="@drawable/bg_home"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
-
-    <!-- Dark overlay -->
-    <View
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:background="#80000000"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
-
-    <!-- App title -->
-    <TextView
-        android:id="@+id/appTitle"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Stegora"
-        android:textSize="32sp"
-        android:textStyle="bold"
-        android:textColor="@android:color/white"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toTopOf="@id/subTitle"
-        app:layout_constraintVertical_bias="0.35"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
-
-    <!-- Subtitle -->
-    <TextView
-        android:id="@+id/subTitle"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Hide messages and files secretly in images."
-        android:textSize="16sp"
-        android:textColor="@android:color/white"
-        android:gravity="center"
-        android:layout_marginTop="8dp"
-        app:layout_constraintTop_toBottomOf="@id/appTitle"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
-
-    <!-- Buttons -->
+    <!-- HERO SECTION -->
     <LinearLayout
-        android:id="@+id/buttonLayout"
+        android:id="@+id/heroSection"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/buttonsContainer"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="60dp">
+
+        <!-- App Name -->
+        <TextView
+            android:id="@+id/appTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="STEGORA"
+            android:textSize="34sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.08"
+            android:textColor="@android:color/white"/>
+
+        <!-- Subtitle -->
+        <TextView
+            android:id="@+id/appSubtitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Hide Files and Messages Secretly in Images"
+            android:textSize="15sp"
+            android:textColor="@android:color/white"
+            android:alpha="0.85"
+            android:layout_marginTop="8dp"/>
+
+    </LinearLayout>
+
+
+    <!-- BUTTON SECTION -->
+    <LinearLayout
+        android:id="@+id/buttonsContainer"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="24dp"
-        android:layout_marginTop="40dp"
-        app:layout_constraintTop_toBottomOf="@id/subTitle"
+        android:gravity="center"
+        app:layout_constraintTop_toBottomOf="@id/heroSection"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="40dp">
 
+        <!-- Embed -->
         <Button
             android:id="@+id/btnGoEmbed"
             android:layout_width="match_parent"
-            android:layout_height="55dp"
-            android:text="EMBED"
-            android:textStyle="bold"
-            android:textColor="@android:color/white"
-            android:backgroundTint="#2E7D32"
-            android:drawableStart="@drawable/ic_embed"
-            android:drawablePadding="10dp"
-            android:layout_marginBottom="16dp"/>
+            android:layout_height="60dp"
+            android:text="Embed Secret"
+            android:textSize="18sp"
+            android:layout_marginBottom="16dp"
+            android:backgroundTint="@color/green"/>
 
+        <!-- Extract -->
         <Button
             android:id="@+id/btnGoExtract"
             android:layout_width="match_parent"
-            android:layout_height="55dp"
-            android:text="EXTRACT"
-            android:textStyle="bold"
-            android:textColor="@android:color/white"
-            android:backgroundTint="#C62828"
-            android:drawableStart="@drawable/ic_extract"
-            android:drawablePadding="10dp"
-            android:layout_marginBottom="16dp"/>
+            android:layout_height="60dp"
+            android:text="Extract Secret"
+            android:textSize="18sp"
+            android:layout_marginBottom="16dp"
+            android:backgroundTint="@color/red"/>
 
+        <!-- Files -->
         <Button
-            android:id="@+id/btnFiles"
+            android:id="@+id/btnGoFiles"
             android:layout_width="match_parent"
-            android:layout_height="55dp"
-            android:text="FILES"
-            android:textStyle="bold"
-            android:textColor="@android:color/white"
-            android:backgroundTint="#1565C0"
-            android:drawableStart="@drawable/ic_files"
-            android:drawablePadding="10dp"/>
+            android:layout_height="60dp"
+            android:text="Files"
+            android:textSize="18sp"
+            android:backgroundTint="@color/blue"/>
 
     </LinearLayout>
+
+
+    <!-- FOOTER -->
+    <TextView
+        android:id="@+id/footerText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="v3.2.0"
+        android:textSize="13sp"
+        android:textColor="@android:color/white"
+        android:alpha="0.7"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginBottom="8dp"/>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
