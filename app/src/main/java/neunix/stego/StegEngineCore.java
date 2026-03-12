@@ -23,6 +23,8 @@ public class StegEngineCore {
 
     private static final byte[] MAGIC = "NXSTEG".getBytes(StandardCharsets.US_ASCII);
 
+    private static final SecureRandom RAND = new SecureRandom();
+
     /* ================= CAPACITY ================= */
 
     public static int getMaxPayloadSize(Bitmap carrier) {
@@ -130,7 +132,20 @@ public class StegEngineCore {
 
                 int bit = (data[byteIndex] >> (7 - bitIndex)) & 1;
 
-                rgb[c] = (rgb[c] & 0xFE) | bit;
+                int lsb = rgb[c] & 1;
+
+                if (lsb != bit) {
+
+                    if (rgb[c] == 0) {
+                        rgb[c]++;
+                    }
+                    else if (rgb[c] == 255) {
+                        rgb[c]--;
+                    }
+                    else {
+                        rgb[c] += RAND.nextBoolean() ? 1 : -1;
+                    }
+                }
 
                 bitIndex++;
 
@@ -308,7 +323,7 @@ public class StegEngineCore {
 
         byte[] b = new byte[n];
 
-        new SecureRandom().nextBytes(b);
+        RAND.nextBytes(b);
 
         return b;
     }

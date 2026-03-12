@@ -193,7 +193,7 @@ public class EmbedActivity extends AppCompatActivity {
 
         try{
 
-            File dir = Utils.getBaseDir(subFolder);
+            File dir = Utils.getBaseDir(this, subFolder);
 
             File[] files = dir.listFiles();
 
