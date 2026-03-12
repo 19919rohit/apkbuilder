@@ -86,7 +86,7 @@
             android:layout_height="60dp"
             android:text="Files"
             android:textSize="18sp"
-            android:backgroundTint="@color/blue"/>
+            android:backgroundTint="#0000FF"/>
 
     </LinearLayout>
 
