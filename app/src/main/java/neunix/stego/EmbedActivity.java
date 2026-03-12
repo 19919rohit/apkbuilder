@@ -41,7 +41,7 @@ public class EmbedActivity extends AppCompatActivity {
     private Spinner spinnerExpansionMode;
 
     private final Map<Integer, Bitmap> expansionCache = new HashMap<>();
-    private final ExecutorService executor = Executors.newFixedThreadPool(2);
+    private final ExecutorService executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 
     private ActivityResultLauncher<Intent> carrierPicker;
     private ActivityResultLauncher<Intent> payloadPicker;
@@ -88,7 +88,7 @@ public class EmbedActivity extends AppCompatActivity {
         pickPayloadBtn.setOnClickListener(v -> pick(payloadPicker,"*/*"));
     }
 
-    private void setupDropdown() {
+    private void setupDropdown(){
 
         ArrayAdapter<String> adapter = new ArrayAdapter<>(
                 this,
@@ -231,7 +231,7 @@ public class EmbedActivity extends AppCompatActivity {
                             ? "message.txt"
                             : payloadUri==null?"payload":fileName(payloadUri);
 
-            int max=StegEngineCore.getRealCapacity(bmp,name);
+            int max=StegEngineCore.getMaxPayloadSize(bmp);
 
             int current =
                     radioPayloadType.getCheckedRadioButtonId()==R.id.radioText
@@ -273,12 +273,20 @@ public class EmbedActivity extends AppCompatActivity {
 
         try{
 
-            carrierBitmap=JPGtoPNG.convert(this,carrierUri);
+            // Only convert JPG/JPEG to PNG
+            String name = fileName(carrierUri).toLowerCase();
+            if(name.endsWith(".jpg") || name.endsWith(".jpeg")){
+                carrierBitmap=JPGtoPNG.convert(this,carrierUri);
+            }else{
+                try(InputStream in = getContentResolver().openInputStream(carrierUri)){
+                    carrierBitmap=BitmapFactory.decodeStream(in);
+                }
+            }
 
             refreshCapacity();
 
         }catch(Exception e){
-
+            e.printStackTrace();
             toast("Carrier load failed");
         }
     }
@@ -331,7 +339,7 @@ public class EmbedActivity extends AppCompatActivity {
                     }
                 }
 
-                int maxCapacity=StegEngineCore.getRealCapacity(bmp,originalName);
+                int maxCapacity=StegEngineCore.getMaxPayloadSize(bmp);
 
                 if(payloadBytes.length>maxCapacity){
 
@@ -368,6 +376,7 @@ public class EmbedActivity extends AppCompatActivity {
 
             }catch(Exception e){
 
+                e.printStackTrace();
                 runOnUiThread(()->toast("Embed failed"));
 
             }finally{
