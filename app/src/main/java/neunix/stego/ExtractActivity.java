@@ -1,11 +1,9 @@
 package neunix.stego;
 
 import android.content.Intent;
-import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Bundle;
-import android.provider.OpenableColumns;
 import android.view.View;
 import android.widget.*;
 
@@ -29,10 +27,12 @@ public class ExtractActivity extends AppCompatActivity {
 
     // ===== UI =====
     private ImageView carrierPreview;
+    private ImageView backButton;
     private TextView tvCarrierInfo;
     private EditText etPassword;
     private ProgressBar progressBar;
     private Button btnExtract;
+    private Button pickCarrierBtn;
 
     // ===== Executor =====
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -47,26 +47,32 @@ public class ExtractActivity extends AppCompatActivity {
 
         bindViews();
         setupPickers();
-
-        findViewById(R.id.pickCarrierBtn)
-                .setOnClickListener(v -> showPickerDialog());
-
-        btnExtract.setOnClickListener(v -> extract());
-
-        ImageView backButton = findViewById(R.id.backButton);
-        backButton.setOnClickListener(v -> onBackPressed());
+        setupListeners();
     }
 
     // ================= BIND VIEWS =================
     private void bindViews() {
 
         carrierPreview = findViewById(R.id.carrierPreview);
+        backButton = findViewById(R.id.backButton);
         tvCarrierInfo = findViewById(R.id.tvCarrierInfo);
 
         etPassword = findViewById(R.id.etPassword);
 
         progressBar = findViewById(R.id.progressBar);
         btnExtract = findViewById(R.id.btnExtract);
+        pickCarrierBtn = findViewById(R.id.pickCarrierBtn);
+    }
+
+    // ================= LISTENERS =================
+    private void setupListeners() {
+
+        pickCarrierBtn.setOnClickListener(v -> showPickerDialog());
+
+        btnExtract.setOnClickListener(v -> extract());
+
+        if (backButton != null)
+            backButton.setOnClickListener(v -> onBackPressed());
     }
 
     // ================= PICKERS =================
@@ -82,7 +88,7 @@ public class ExtractActivity extends AppCompatActivity {
 
                                 carrierUri = result.getData().getData();
 
-                                new Thread(this::loadCarrier).start();
+                                executor.submit(this::loadCarrier);
                             }
                         });
     }
@@ -98,11 +104,11 @@ public class ExtractActivity extends AppCompatActivity {
 
                     if (which == 0) {
 
-                        pickInternalFile("Embedded", file -> {
+                        pickInternalFile(Utils.DIR_EMBEDDED, file -> {
 
                             carrierUri = Uri.fromFile(file);
 
-                            new Thread(this::loadCarrier).start();
+                            executor.submit(this::loadCarrier);
                         });
 
                     } else {
@@ -124,7 +130,7 @@ public class ExtractActivity extends AppCompatActivity {
 
         try {
 
-            File dir = Utils.getBaseDir(this, subFolder);
+            File dir = Utils.getBaseDir(this, Utils.DIR_EMBEDDED);
 
             File[] files = dir.listFiles(f ->
                     f.isFile() &&
@@ -163,17 +169,27 @@ public class ExtractActivity extends AppCompatActivity {
 
         try {
 
+            if (carrierUri == null) {
+                toast("Invalid image");
+                return;
+            }
+
             carrierBitmap = JPGtoPNG.convert(this, carrierUri);
+
+            if (carrierBitmap == null) {
+                toast("Unsupported image");
+                return;
+            }
 
             runOnUiThread(() -> {
 
                 carrierPreview.setImageBitmap(carrierBitmap);
 
                 tvCarrierInfo.setText(
-                        "Resolution: " +
-                                carrierBitmap.getWidth() +
-                                " x " +
-                                carrierBitmap.getHeight()
+                        "Resolution: "
+                                + carrierBitmap.getWidth()
+                                + " x "
+                                + carrierBitmap.getHeight()
                 );
             });
 
@@ -208,7 +224,7 @@ public class ExtractActivity extends AppCompatActivity {
                 File outFile = Utils.getTimestampedFile(
                         this,
                         payload.fileName,
-                        "Extracted"
+                        Utils.DIR_EXTRACTED
                 );
 
                 try (FileOutputStream out = new FileOutputStream(outFile)) {

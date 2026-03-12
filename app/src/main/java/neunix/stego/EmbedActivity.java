@@ -158,7 +158,7 @@ public class EmbedActivity extends AppCompatActivity {
 
                     if(which==0){
 
-                        pickInternalFile("Embedded",file->{
+                        pickInternalFile(Utils.DIR_EMBEDDED,file->{
 
                             carrierUri = Uri.fromFile(file);
 
@@ -193,7 +193,7 @@ public class EmbedActivity extends AppCompatActivity {
 
         try{
 
-            File dir = Utils.getBaseDir(this, subFolder);
+            File dir = Utils.getBaseDir(this, Utils.DIR_EMBEDDED);
 
             File[] files = dir.listFiles();
 
@@ -411,7 +411,7 @@ public class EmbedActivity extends AppCompatActivity {
                     }
                 }
 
-                File outFile = Utils.getTimestampedFile(this,"stego.png","Embedded");
+                File outFile = Utils.getTimestampedFile(this,"stego.png",Utils.DIR_EMBEDDED);
 
                 try(FileOutputStream out=new FileOutputStream(outFile)){
 

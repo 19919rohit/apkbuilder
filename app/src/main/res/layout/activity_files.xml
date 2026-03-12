@@ -13,6 +13,7 @@
         android:layout_width="40dp"
         android:layout_height="40dp"
         android:padding="6dp"
+        android:tint="@color/text_primary"
         android:background="?attr/selectableItemBackgroundBorderless"
         android:src="@drawable/ic_back"
         android:contentDescription="Back"/>
@@ -25,6 +26,7 @@
         android:textSize="24sp"
         android:textStyle="bold"
         android:layout_marginTop="8dp"
+        android:textColor="@color/text_primary"
         android:layout_marginBottom="24dp"/>
 
     <!-- Embedded Files Button -->
@@ -35,6 +37,8 @@
         android:text="Embedded Images"
         android:drawableStart="@drawable/ic_embed"
         android:drawablePadding="10dp"
+        android:textColor="@color/text_primary"
+        app:backgroundTint="@color/button_secondary"
         android:layout_marginBottom="16dp"/>
 
     <!-- Extracted Files Button -->
@@ -44,6 +48,8 @@
         android:layout_height="60dp"
         android:text="Extracted Files"
         android:drawableStart="@drawable/ic_extract"
+        app:backgroundTint="@color/button_secondary"
+        android:textColor="@color/text_primary"
         android:drawablePadding="10dp"/>
 
 </LinearLayout>

@@ -34,6 +34,7 @@
     <!-- Buttons -->
     <color name="primary">#4CAF50</color>
     <color name="text_on_primary">#FFFFFF</color>
+    <color name="button_secondary">#0000FF</color>
     <color name="green">#16A34A</color>
     <color name="red">#DC2626</color>
 

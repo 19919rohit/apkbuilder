@@ -32,6 +32,7 @@
     <color name="text_on_primary">#FFFFFF</color>
     <color name="green">#16A34A</color>
     <color name="red">#DC2626</color>
+    <color name="button_secondary">#BB86FC</color>
 
     <!-- On colors -->
     <color name="onBackground_light">#FFFFFF</color>
