@@ -1,7 +1,6 @@
 package neunix.stego;
 
 import android.graphics.Bitmap;
-import android.util.Log;
 
 import java.io.*;
 import java.nio.ByteBuffer;
@@ -14,8 +13,6 @@ import javax.crypto.*;
 import javax.crypto.spec.*;
 
 public final class StegEngineCore {
-
-    private static final String TAG = "StegoraEngine";
 
     private static final byte[] MAGIC =
             "NXSTEG".getBytes(StandardCharsets.US_ASCII);
@@ -77,19 +74,17 @@ public final class StegEngineCore {
 
         long seed = makeSeed(password, hash);
 
-        byte[] packed =
-                pack(fileName, finalPayload, encrypted, hash);
+        byte[] header =
+                packHeader(fileName, finalPayload.length, encrypted, hash);
 
-        int capacity =
-                getMaxPayloadSize(carrier, fileName);
+        Bitmap bmp =
+                carrier.copy(Bitmap.Config.ARGB_8888, true);
 
-        if (packed.length > capacity)
-            throw new IllegalArgumentException(
-                    "Payload too large");
+        embedSequential(bmp, header);
 
-        Bitmap result = hide(carrier, packed, seed);
+        embedRandom(bmp, finalPayload, seed, header.length);
 
-        if (!result.compress(Bitmap.CompressFormat.PNG, 100, out))
+        if (!bmp.compress(Bitmap.CompressFormat.PNG, 100, out))
             throw new IOException("PNG write failed");
     }
 
@@ -104,85 +99,126 @@ public final class StegEngineCore {
 
         byte[] sequential = revealSequential(bmp);
 
-        PackedData header = unpack(sequential);
+        Header header = unpackHeader(sequential);
 
         long seed = makeSeed(password, header.hash);
 
-        byte[] shuffled = revealRandom(bmp, seed);
-
-        PackedData p = unpack(shuffled);
+        byte[] payload =
+                revealRandom(bmp, seed, header.payloadLen, header.headerBytes);
 
         byte[] data;
 
-        if (p.encrypted) {
+        if (header.encrypted) {
 
             if (password == null || password.isEmpty())
                 throw new SecurityException("Password required");
 
-            data = decrypt(p.payload, password);
+            data = decrypt(payload, password);
 
         } else {
-            data = p.payload;
+            data = payload;
         }
 
-        if (!Arrays.equals(sha256(data), p.hash))
+        if (!Arrays.equals(sha256(payload), header.hash))
             throw new SecurityException("Integrity check failed");
 
-        return new ExtractedData(p.fileName, data);
+        return new ExtractedData(header.fileName, data);
     }
 
     /* ------------------------------------------------ */
-    /* LOW RAM PIXEL WALK                               */
+    /* SEQUENTIAL HEADER EMBED                          */
     /* ------------------------------------------------ */
 
-    private static int stepFromSeed(long seed, int n) {
+    private static void embedSequential(Bitmap bmp, byte[] data) {
 
-        int step = (int) (Math.abs(seed) % n);
+        int w = bmp.getWidth();
+        int h = bmp.getHeight();
 
-        if (step == 0) step = 1;
+        int[] px = new int[w * h];
+        bmp.getPixels(px, 0, w, 0, 0, w, h);
 
-        while (gcd(step, n) != 1)
-            step++;
+        int byteIndex = 0;
+        int bitIndex = 0;
 
-        return step;
-    }
+        int maskClear = ~((1 << LSB) - 1);
 
-    private static int gcd(int a, int b) {
+        for (int i = 0; i < px.length; i++) {
 
-        while (b != 0) {
-            int t = b;
-            b = a % b;
-            a = t;
+            int p = px[i];
+
+            int r = (p >> 16) & 255;
+            int g = (p >> 8) & 255;
+            int b = p & 255;
+
+            int[] rgb = {r, g, b};
+
+            for (int c = 0; c < 3; c++) {
+
+                if (byteIndex >= data.length)
+                    break;
+
+                int bits = 0;
+
+                for (int bit = 0; bit < LSB; bit++) {
+
+                    bits <<= 1;
+
+                    bits |= ((data[byteIndex] >> (7 - bitIndex)) & 1);
+
+                    bitIndex++;
+
+                    if (bitIndex == 8) {
+
+                        bitIndex = 0;
+                        byteIndex++;
+
+                        if (byteIndex >= data.length)
+                            break;
+                    }
+                }
+
+                rgb[c] = (rgb[c] & maskClear) | bits;
+            }
+
+            px[i] =
+                    (p & 0xFF000000)
+                            | (rgb[0] << 16)
+                            | (rgb[1] << 8)
+                            | rgb[2];
+
+            if (byteIndex >= data.length)
+                break;
         }
 
-        return a;
+        bmp.setPixels(px, 0, w, 0, 0, w, h);
     }
 
     /* ------------------------------------------------ */
-    /* HIDE                                             */
+    /* RANDOM PAYLOAD EMBED                             */
     /* ------------------------------------------------ */
 
-    private static Bitmap hide(
-            Bitmap carrier,
+    private static void embedRandom(
+            Bitmap bmp,
             byte[] data,
-            long seed
+            long seed,
+            int headerBytes
     ) {
 
-        int w = carrier.getWidth();
-        int h = carrier.getHeight();
+        int w = bmp.getWidth();
+        int h = bmp.getHeight();
 
         int total = w * h;
-
-        Bitmap bmp =
-                carrier.copy(Bitmap.Config.ARGB_8888, true);
 
         int[] px = new int[total];
         bmp.getPixels(px, 0, w, 0, 0, w, h);
 
+        int headerPixels =
+                (headerBytes * 8 + (3 * LSB - 1)) / (3 * LSB);
+
         int step = stepFromSeed(seed, total);
 
         int pos = (int) (seed % total);
-        if (pos < 0) pos += total;
+        if (pos < headerPixels) pos += headerPixels;
 
         int byteIndex = 0;
         int bitIndex = 0;
@@ -190,6 +226,14 @@ public final class StegEngineCore {
         int maskClear = ~((1 << LSB) - 1);
 
         for (int i = 0; i < total; i++) {
+
+            if (pos < headerPixels) {
+
+                pos += step;
+                if (pos >= total) pos -= total;
+
+                continue;
+            }
 
             int p = px[pos];
 
@@ -243,90 +287,22 @@ public final class StegEngineCore {
         }
 
         bmp.setPixels(px, 0, w, 0, 0, w, h);
-
-        return bmp;
     }
 
     /* ------------------------------------------------ */
     /* REVEAL                                           */
     /* ------------------------------------------------ */
 
-    private static byte[] revealRandom(Bitmap bmp, long seed) {
-
-        int w = bmp.getWidth();
-        int h = bmp.getHeight();
-
-        int total = w * h;
-
-        int[] px = new int[total];
-        bmp.getPixels(px, 0, w, 0, 0, w, h);
-
-        int maxBytes = (total * 3 * LSB) / 8;
-
-        byte[] out = new byte[maxBytes];
-
-        int step = stepFromSeed(seed, total);
-
-        int pos = (int) (seed % total);
-        if (pos < 0) pos += total;
-
-        int bytePos = 0;
-        int cur = 0;
-        int bits = 0;
-
-        for (int i = 0; i < total; i++) {
-
-            int p = px[pos];
-
-            int r = (p >> 16) & 255;
-            int g = (p >> 8) & 255;
-            int b = p & 255;
-
-            int[] rgb = {r, g, b};
-
-            for (int c : rgb) {
-
-                for (int k = LSB - 1; k >= 0; k--) {
-
-                    cur = (cur << 1) | ((c >> k) & 1);
-
-                    bits++;
-
-                    if (bits == 8) {
-
-                        if (bytePos < out.length)
-                            out[bytePos++] = (byte) cur;
-
-                        cur = 0;
-                        bits = 0;
-                    }
-                }
-            }
-
-            pos += step;
-
-            if (pos >= total)
-                pos -= total;
-        }
-
-        return Arrays.copyOf(out, bytePos);
-    }
-
     private static byte[] revealSequential(Bitmap bmp) {
 
         int w = bmp.getWidth();
         int h = bmp.getHeight();
 
-        int total = w * h;
-
-        int[] px = new int[total];
+        int[] px = new int[w * h];
         bmp.getPixels(px, 0, w, 0, 0, w, h);
 
-        int maxBytes = (total * 3 * LSB) / 8;
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
 
-        byte[] out = new byte[maxBytes];
-
-        int bytePos = 0;
         int cur = 0;
         int bits = 0;
 
@@ -348,9 +324,7 @@ public final class StegEngineCore {
 
                     if (bits == 8) {
 
-                        if (bytePos < out.length)
-                            out[bytePos++] = (byte) cur;
-
+                        out.write(cur);
                         cur = 0;
                         bits = 0;
                     }
@@ -358,25 +332,99 @@ public final class StegEngineCore {
             }
         }
 
-        return Arrays.copyOf(out, bytePos);
+        return out.toByteArray();
+    }
+
+    private static byte[] revealRandom(
+            Bitmap bmp,
+            long seed,
+            int payloadLen,
+            int headerBytes
+    ) {
+
+        int w = bmp.getWidth();
+        int h = bmp.getHeight();
+
+        int total = w * h;
+
+        int[] px = new int[total];
+        bmp.getPixels(px, 0, w, 0, 0, w, h);
+
+        int headerPixels =
+                (headerBytes * 8 + (3 * LSB - 1)) / (3 * LSB);
+
+        int step = stepFromSeed(seed, total);
+
+        int pos = (int) (seed % total);
+        if (pos < headerPixels) pos += headerPixels;
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+
+        int cur = 0;
+        int bits = 0;
+
+        for (int i = 0; i < total && out.size() < payloadLen; i++) {
+
+            if (pos < headerPixels) {
+
+                pos += step;
+                if (pos >= total) pos -= total;
+
+                continue;
+            }
+
+            int p = px[pos];
+
+            int r = (p >> 16) & 255;
+            int g = (p >> 8) & 255;
+            int b = p & 255;
+
+            int[] rgb = {r, g, b};
+
+            for (int c : rgb) {
+
+                for (int k = LSB - 1; k >= 0; k--) {
+
+                    cur = (cur << 1) | ((c >> k) & 1);
+
+                    bits++;
+
+                    if (bits == 8) {
+
+                        out.write(cur);
+
+                        if (out.size() == payloadLen)
+                            return out.toByteArray();
+
+                        cur = 0;
+                        bits = 0;
+                    }
+                }
+            }
+
+            pos += step;
+
+            if (pos >= total)
+                pos -= total;
+        }
+
+        return out.toByteArray();
     }
 
     /* ------------------------------------------------ */
-    /* PACK / UNPACK                                    */
+    /* HEADER                                           */
     /* ------------------------------------------------ */
 
-    private static byte[] pack(
+    private static byte[] packHeader(
             String name,
-            byte[] payload,
+            int payloadLen,
             boolean enc,
             byte[] hash
     ) throws IOException {
 
-        byte[] nameBytes =
-                name.getBytes(StandardCharsets.UTF_8);
+        byte[] nameBytes = name.getBytes(StandardCharsets.UTF_8);
 
-        ByteArrayOutputStream out =
-                new ByteArrayOutputStream();
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
 
         out.write(MAGIC);
         out.write(VERSION);
@@ -389,16 +437,15 @@ public final class StegEngineCore {
         out.write(nameBytes);
 
         out.write(ByteBuffer.allocate(4)
-                .putInt(payload.length)
+                .putInt(payloadLen)
                 .array());
 
-        out.write(payload);
         out.write(hash);
 
         return out.toByteArray();
     }
 
-    private static PackedData unpack(byte[] raw)
+    private static Header unpackHeader(byte[] raw)
             throws IOException {
 
         ByteArrayInputStream in =
@@ -426,13 +473,14 @@ public final class StegEngineCore {
                 ByteBuffer.wrap(in.readNBytes(4))
                         .getInt();
 
-        byte[] payload =
-                in.readNBytes(payloadLen);
-
         byte[] hash =
                 in.readNBytes(HASH_LEN);
 
-        return new PackedData(name, payload, enc, hash);
+        int headerBytes =
+                MAGIC.length + 1 + 1 + 2 +
+                        nameLen + 4 + HASH_LEN;
+
+        return new Header(name, payloadLen, enc, hash, headerBytes);
     }
 
     /* ------------------------------------------------ */
@@ -533,6 +581,32 @@ public final class StegEngineCore {
         return ByteBuffer.wrap(md.digest()).getLong();
     }
 
+    private static int stepFromSeed(long seed, int n) {
+
+        int step = (int) (Math.abs(seed) % n);
+
+        if (step == 0) step = 1;
+
+        while (gcd(step, n) != 1)
+            step++;
+
+        return step;
+    }
+
+    private static int gcd(int a, int b) {
+
+        while (b != 0) {
+
+            int t = b;
+            b = a % b;
+            a = t;
+        }
+
+        return a;
+    }
+
+    /* ------------------------------------------------ */
+
     public static class ExtractedData {
 
         public final String fileName;
@@ -545,19 +619,21 @@ public final class StegEngineCore {
         }
     }
 
-    private static class PackedData {
+    private static class Header {
 
         final String fileName;
-        final byte[] payload;
+        final int payloadLen;
         final boolean encrypted;
         final byte[] hash;
+        final int headerBytes;
 
-        PackedData(String n, byte[] p, boolean e, byte[] h) {
+        Header(String n, int len, boolean e, byte[] h, int hb) {
 
             fileName = n;
-            payload = p;
+            payloadLen = len;
             encrypted = e;
             hash = h;
+            headerBytes = hb;
         }
     }
 }
