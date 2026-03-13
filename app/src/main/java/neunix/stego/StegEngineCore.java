@@ -7,8 +7,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.*;
 import java.security.spec.KeySpec;
-import java.util.Arrays;
-import java.util.SplittableRandom;
+import java.util.*;
 
 import javax.crypto.*;
 import javax.crypto.spec.*;
@@ -18,21 +17,14 @@ public final class StegEngineCore {
     private static final byte[] MAGIC = "NXSTEG".getBytes(StandardCharsets.US_ASCII);
     private static final byte VERSION = 1;
 
-    private static final int LSBS = 2;
     private static final int HASH_LEN = 32;
 
     private static final int SALT_LEN = 16;
     private static final int IV_LEN = 16;
 
-    private static final int AES_KEY_SIZE = 256;
     private static final int PBKDF2_ITER = 65536;
 
-    private static final String AES_MODE = "AES/CBC/PKCS5Padding";
-
     private static final SecureRandom RAND = new SecureRandom();
-
-    private static final int MASK_CLEAR = ~((1 << LSBS) - 1);
-    private static final int MASK_BITS = ((1 << LSBS) - 1);
 
     /* ------------------------------------------------ */
     /* CAPACITY                                         */
@@ -40,7 +32,10 @@ public final class StegEngineCore {
 
     public static int getMaxPayloadSize(Bitmap bmp, String name) {
 
-        int totalBits = bmp.getWidth() * bmp.getHeight() * 3 * LSBS;
+        int pixels = bmp.getWidth() * bmp.getHeight();
+
+        // adaptive average ≈ 2.5 bits per channel
+        int totalBits = pixels * 3 * 2;
 
         int header =
                 MAGIC.length +
@@ -52,6 +47,10 @@ public final class StegEngineCore {
                 HASH_LEN;
 
         return Math.max(0, (totalBits / 8) - header);
+    }
+
+    public static int getMaxPayloadSize(Bitmap bmp) {
+        return getMaxPayloadSize(bmp, "");
     }
 
     /* ------------------------------------------------ */
@@ -84,7 +83,7 @@ public final class StegEngineCore {
         int capacity = getMaxPayloadSize(carrier, fileName);
 
         if (packed.length > capacity)
-            throw new IllegalArgumentException("Payload too large");
+            throw new IllegalArgumentException("Payload too large for this image");
 
         Bitmap result = hide(carrier, packed, seed);
 
@@ -129,7 +128,24 @@ public final class StegEngineCore {
     }
 
     /* ------------------------------------------------ */
-    /* HIDE RANDOMIZED                                  */
+    /* ADAPTIVE LSB                                     */
+    /* ------------------------------------------------ */
+
+    private static int adaptiveLSB(int r, int g, int b) {
+
+        int diff = Math.abs(r - g) + Math.abs(g - b) + Math.abs(b - r);
+
+        if (diff > 100)
+            return 3;
+
+        if (diff > 40)
+            return 2;
+
+        return 1;
+    }
+
+    /* ------------------------------------------------ */
+    /* HIDE                                             */
     /* ------------------------------------------------ */
 
     private static Bitmap hide(Bitmap carrier, byte[] data, long seed) {
@@ -149,13 +165,17 @@ public final class StegEngineCore {
         int bitIndex = 0;
 
         outer:
-        for (int i = 0; i < order.length; i++) {
+        for (int i : order) {
 
-            int p = px[order[i]];
+            int p = px[i];
 
             int r = (p >> 16) & 255;
             int g = (p >> 8) & 255;
             int b = p & 255;
+
+            int lsb = adaptiveLSB(r, g, b);
+
+            int maskClear = ~((1 << lsb) - 1);
 
             int[] rgb = {r, g, b};
 
@@ -166,7 +186,7 @@ public final class StegEngineCore {
 
                 int bits = 0;
 
-                for (int bit = 0; bit < LSBS; bit++) {
+                for (int bit = 0; bit < lsb; bit++) {
 
                     bits <<= 1;
                     bits |= ((data[byteIndex] >> (7 - bitIndex)) & 1);
@@ -183,14 +203,14 @@ public final class StegEngineCore {
                     }
                 }
 
-                rgb[c] = (rgb[c] & MASK_CLEAR) | (bits & MASK_BITS);
+                rgb[c] = (rgb[c] & maskClear) | bits;
             }
 
-            px[order[i]] =
+            px[i] =
                     (p & 0xFF000000) |
-                    (rgb[0] << 16) |
-                    (rgb[1] << 8) |
-                    rgb[2];
+                            (rgb[0] << 16) |
+                            (rgb[1] << 8) |
+                            rgb[2];
         }
 
         bmp.setPixels(px, 0, w, 0, 0, w, h);
@@ -199,19 +219,18 @@ public final class StegEngineCore {
     }
 
     /* ------------------------------------------------ */
-    /* REVEAL RANDOM                                    */
+    /* REVEAL                                           */
     /* ------------------------------------------------ */
 
     private static byte[] revealRandom(Bitmap bmp, long seed) {
 
         int w = bmp.getWidth();
         int h = bmp.getHeight();
-        int n = w * h;
 
-        int[] px = new int[n];
+        int[] px = new int[w * h];
         bmp.getPixels(px, 0, w, 0, 0, w, h);
 
-        int[] order = shuffledPixels(n, seed);
+        int[] order = shuffledPixels(px.length, seed);
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
 
@@ -226,18 +245,22 @@ public final class StegEngineCore {
             int g = (p >> 8) & 255;
             int b = p & 255;
 
+            int lsb = adaptiveLSB(r, g, b);
+
             int[] rgb = {r, g, b};
 
             for (int c : rgb) {
 
-                for (int i = LSBS - 1; i >= 0; i--) {
+                for (int i = lsb - 1; i >= 0; i--) {
 
                     cur = (cur << 1) | ((c >> i) & 1);
+
                     bits++;
 
                     if (bits == 8) {
 
                         out.write(cur);
+
                         cur = 0;
                         bits = 0;
                     }
@@ -247,10 +270,6 @@ public final class StegEngineCore {
 
         return out.toByteArray();
     }
-
-    /* ------------------------------------------------ */
-    /* SEQUENTIAL HEADER READ                           */
-    /* ------------------------------------------------ */
 
     private static byte[] revealSequential(Bitmap bmp) {
 
@@ -271,18 +290,22 @@ public final class StegEngineCore {
             int g = (p >> 8) & 255;
             int b = p & 255;
 
+            int lsb = adaptiveLSB(r, g, b);
+
             int[] rgb = {r, g, b};
 
             for (int c : rgb) {
 
-                for (int i = LSBS - 1; i >= 0; i--) {
+                for (int i = lsb - 1; i >= 0; i--) {
 
                     cur = (cur << 1) | ((c >> i) & 1);
+
                     bits++;
 
                     if (bits == 8) {
 
                         out.write(cur);
+
                         cur = 0;
                         bits = 0;
                     }
@@ -294,7 +317,32 @@ public final class StegEngineCore {
     }
 
     /* ------------------------------------------------ */
-    /* PACK / UNPACK                                    */
+    /* RANDOM PIXELS                                    */
+    /* ------------------------------------------------ */
+
+    private static int[] shuffledPixels(int n, long seed) {
+
+        int[] arr = new int[n];
+
+        for (int i = 0; i < n; i++)
+            arr[i] = i;
+
+        Random r = new Random(seed);
+
+        for (int i = n - 1; i > 0; i--) {
+
+            int j = r.nextInt(i + 1);
+
+            int t = arr[i];
+            arr[i] = arr[j];
+            arr[j] = t;
+        }
+
+        return arr;
+    }
+
+    /* ------------------------------------------------ */
+    /* PACK                                             */
     /* ------------------------------------------------ */
 
     private static byte[] pack(String name, byte[] payload, boolean enc, byte[] hash) throws IOException {
@@ -326,7 +374,7 @@ public final class StegEngineCore {
         byte[] magic = in.readNBytes(MAGIC.length);
 
         if (!Arrays.equals(magic, MAGIC))
-            throw new SecurityException("Not Stegora image");
+            throw new SecurityException("Not a Stegora image");
 
         int version = in.read();
 
@@ -349,43 +397,6 @@ public final class StegEngineCore {
     }
 
     /* ------------------------------------------------ */
-    /* RANDOM ORDER                                     */
-    /* ------------------------------------------------ */
-
-    private static int[] shuffledPixels(int n, long seed) {
-
-        int[] arr = new int[n];
-
-        for (int i = 0; i < n; i++)
-            arr[i] = i;
-
-        SplittableRandom r = new SplittableRandom(seed);
-
-        for (int i = n - 1; i > 0; i--) {
-
-            int j = r.nextInt(i + 1);
-
-            int t = arr[i];
-            arr[i] = arr[j];
-            arr[j] = t;
-        }
-
-        return arr;
-    }
-
-    private static long makeSeed(String password, byte[] hash) throws Exception {
-
-        MessageDigest md = MessageDigest.getInstance("SHA-256");
-
-        if (password != null && !password.isEmpty())
-            md.update(password.getBytes(StandardCharsets.UTF_8));
-        else
-            md.update(hash);
-
-        return ByteBuffer.wrap(md.digest()).getLong();
-    }
-
-    /* ------------------------------------------------ */
     /* CRYPTO                                           */
     /* ------------------------------------------------ */
 
@@ -394,7 +405,7 @@ public final class StegEngineCore {
         byte[] salt = random(SALT_LEN);
         byte[] iv = random(IV_LEN);
 
-        Cipher c = Cipher.getInstance(AES_MODE);
+        Cipher c = Cipher.getInstance("AES/CBC/PKCS5Padding");
 
         c.init(
                 Cipher.ENCRYPT_MODE,
@@ -411,7 +422,7 @@ public final class StegEngineCore {
         byte[] iv = Arrays.copyOfRange(data, SALT_LEN, SALT_LEN + IV_LEN);
         byte[] enc = Arrays.copyOfRange(data, SALT_LEN + IV_LEN, data.length);
 
-        Cipher c = Cipher.getInstance(AES_MODE);
+        Cipher c = Cipher.getInstance("AES/CBC/PKCS5Padding");
 
         c.init(
                 Cipher.DECRYPT_MODE,
@@ -424,7 +435,7 @@ public final class StegEngineCore {
 
     private static SecretKey key(String pw, byte[] salt) throws Exception {
 
-        KeySpec spec = new PBEKeySpec(pw.toCharArray(), salt, PBKDF2_ITER, AES_KEY_SIZE);
+        KeySpec spec = new PBEKeySpec(pw.toCharArray(), salt, PBKDF2_ITER, 256);
 
         byte[] k = SecretKeyFactory
                 .getInstance("PBKDF2WithHmacSHA256")
@@ -454,6 +465,18 @@ public final class StegEngineCore {
     private static byte[] sha256(byte[] data) throws Exception {
 
         return MessageDigest.getInstance("SHA-256").digest(data);
+    }
+
+    private static long makeSeed(String password, byte[] hash) throws Exception {
+
+        MessageDigest md = MessageDigest.getInstance("SHA-256");
+
+        if (password != null && !password.isEmpty())
+            md.update(password.getBytes(StandardCharsets.UTF_8));
+        else
+            md.update(hash);
+
+        return ByteBuffer.wrap(md.digest()).getLong();
     }
 
     /* ------------------------------------------------ */
