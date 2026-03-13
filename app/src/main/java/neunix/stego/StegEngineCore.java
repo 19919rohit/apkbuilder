@@ -9,7 +9,6 @@ import java.nio.charset.StandardCharsets;
 import java.security.*;
 import java.security.spec.KeySpec;
 import java.util.Arrays;
-import java.util.Random;
 
 import javax.crypto.*;
 import javax.crypto.spec.*;
@@ -28,7 +27,6 @@ public final class StegEngineCore {
     private static final int IV_LEN = 16;
 
     private static final int PBKDF2_ITER = 65536;
-
     private static final int LSB = 2;
 
     private static final SecureRandom RAND = new SecureRandom();
@@ -40,17 +38,12 @@ public final class StegEngineCore {
     public static int getMaxPayloadSize(Bitmap bmp, String name) {
 
         int pixels = bmp.getWidth() * bmp.getHeight();
-
         int bits = pixels * 3 * LSB;
 
         int header =
-                MAGIC.length +
-                        1 +
-                        1 +
-                        2 +
+                MAGIC.length + 1 + 1 + 2 +
                         name.getBytes(StandardCharsets.UTF_8).length +
-                        4 +
-                        HASH_LEN;
+                        4 + HASH_LEN;
 
         return Math.max(0, (bits / 8) - header);
     }
@@ -71,6 +64,9 @@ public final class StegEngineCore {
             OutputStream out
     ) throws Exception {
 
+        if (carrier.getConfig() != Bitmap.Config.ARGB_8888)
+            carrier = carrier.copy(Bitmap.Config.ARGB_8888, true);
+
         boolean encrypted =
                 password != null && !password.isEmpty();
 
@@ -84,10 +80,12 @@ public final class StegEngineCore {
         byte[] packed =
                 pack(fileName, finalPayload, encrypted, hash);
 
-        int capacity = getMaxPayloadSize(carrier, fileName);
+        int capacity =
+                getMaxPayloadSize(carrier, fileName);
 
         if (packed.length > capacity)
-            throw new IllegalArgumentException("Payload too large");
+            throw new IllegalArgumentException(
+                    "Payload too large");
 
         Bitmap result = hide(carrier, packed, seed);
 
@@ -99,8 +97,10 @@ public final class StegEngineCore {
     /* EXTRACT                                          */
     /* ------------------------------------------------ */
 
-    public static ExtractedData extract(Bitmap bmp, String password)
-            throws Exception {
+    public static ExtractedData extract(
+            Bitmap bmp,
+            String password
+    ) throws Exception {
 
         byte[] sequential = revealSequential(bmp);
 
@@ -122,7 +122,6 @@ public final class StegEngineCore {
             data = decrypt(p.payload, password);
 
         } else {
-
             data = p.payload;
         }
 
@@ -133,22 +132,41 @@ public final class StegEngineCore {
     }
 
     /* ------------------------------------------------ */
-    /* PIXEL PERMUTATION (O(1) MEMORY)                  */
+    /* LOW RAM PIXEL WALK                               */
     /* ------------------------------------------------ */
 
-    private static int permute(int i, int n, long seed) {
+    private static int stepFromSeed(long seed, int n) {
 
-        long a = (seed | 1); // must be odd
-        long b = seed >>> 32;
+        int step = (int) (Math.abs(seed) % n);
 
-        return (int) ((a * i + b) % n);
+        if (step == 0) step = 1;
+
+        while (gcd(step, n) != 1)
+            step++;
+
+        return step;
+    }
+
+    private static int gcd(int a, int b) {
+
+        while (b != 0) {
+            int t = b;
+            b = a % b;
+            a = t;
+        }
+
+        return a;
     }
 
     /* ------------------------------------------------ */
     /* HIDE                                             */
     /* ------------------------------------------------ */
 
-    private static Bitmap hide(Bitmap carrier, byte[] data, long seed) {
+    private static Bitmap hide(
+            Bitmap carrier,
+            byte[] data,
+            long seed
+    ) {
 
         int w = carrier.getWidth();
         int h = carrier.getHeight();
@@ -156,12 +174,15 @@ public final class StegEngineCore {
         int total = w * h;
 
         Bitmap bmp =
-                carrier.getConfig() == Bitmap.Config.ARGB_8888
-                        ? carrier.copy(Bitmap.Config.ARGB_8888, true)
-                        : carrier.copy(Bitmap.Config.ARGB_8888, true);
+                carrier.copy(Bitmap.Config.ARGB_8888, true);
 
         int[] px = new int[total];
         bmp.getPixels(px, 0, w, 0, 0, w, h);
+
+        int step = stepFromSeed(seed, total);
+
+        int pos = (int) (seed % total);
+        if (pos < 0) pos += total;
 
         int byteIndex = 0;
         int bitIndex = 0;
@@ -170,9 +191,7 @@ public final class StegEngineCore {
 
         for (int i = 0; i < total; i++) {
 
-            int idx = permute(i, total, seed);
-
-            int p = px[idx];
+            int p = px[pos];
 
             int r = (p >> 16) & 255;
             int g = (p >> 8) & 255;
@@ -208,7 +227,7 @@ public final class StegEngineCore {
                 rgb[c] = (rgb[c] & maskClear) | bits;
             }
 
-            px[idx] =
+            px[pos] =
                     (p & 0xFF000000)
                             | (rgb[0] << 16)
                             | (rgb[1] << 8)
@@ -216,6 +235,11 @@ public final class StegEngineCore {
 
             if (byteIndex >= data.length)
                 break;
+
+            pos += step;
+
+            if (pos >= total)
+                pos -= total;
         }
 
         bmp.setPixels(px, 0, w, 0, 0, w, h);
@@ -241,15 +265,18 @@ public final class StegEngineCore {
 
         byte[] out = new byte[maxBytes];
 
+        int step = stepFromSeed(seed, total);
+
+        int pos = (int) (seed % total);
+        if (pos < 0) pos += total;
+
         int bytePos = 0;
         int cur = 0;
         int bits = 0;
 
         for (int i = 0; i < total; i++) {
 
-            int idx = permute(i, total, seed);
-
-            int p = px[idx];
+            int p = px[pos];
 
             int r = (p >> 16) & 255;
             int g = (p >> 8) & 255;
@@ -275,6 +302,11 @@ public final class StegEngineCore {
                     }
                 }
             }
+
+            pos += step;
+
+            if (pos >= total)
+                pos -= total;
         }
 
         return Arrays.copyOf(out, bytePos);
@@ -340,9 +372,11 @@ public final class StegEngineCore {
             byte[] hash
     ) throws IOException {
 
-        byte[] nameBytes = name.getBytes(StandardCharsets.UTF_8);
+        byte[] nameBytes =
+                name.getBytes(StandardCharsets.UTF_8);
 
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ByteArrayOutputStream out =
+                new ByteArrayOutputStream();
 
         out.write(MAGIC);
         out.write(VERSION);
@@ -364,35 +398,39 @@ public final class StegEngineCore {
         return out.toByteArray();
     }
 
-    private static PackedData unpack(byte[] raw) throws IOException {
+    private static PackedData unpack(byte[] raw)
+            throws IOException {
 
-        int debugLen = Math.min(16, raw.length);
-        byte[] debug = Arrays.copyOfRange(raw, 0, debugLen);
-
-        Log.d(TAG, "First extracted bytes: " + Arrays.toString(debug));
-
-        ByteArrayInputStream in = new ByteArrayInputStream(raw);
+        ByteArrayInputStream in =
+                new ByteArrayInputStream(raw);
 
         byte[] magic = in.readNBytes(MAGIC.length);
 
         if (!Arrays.equals(magic, MAGIC))
             throw new SecurityException("Not a Stegora image");
 
-        int version = in.read();
+        in.read();
+
         boolean enc = in.read() == 1;
 
         int nameLen =
-                ByteBuffer.wrap(in.readNBytes(2)).getShort() & 0xFFFF;
+                ByteBuffer.wrap(in.readNBytes(2))
+                        .getShort() & 0xFFFF;
 
         String name =
-                new String(in.readNBytes(nameLen), StandardCharsets.UTF_8);
+                new String(
+                        in.readNBytes(nameLen),
+                        StandardCharsets.UTF_8);
 
         int payloadLen =
-                ByteBuffer.wrap(in.readNBytes(4)).getInt();
+                ByteBuffer.wrap(in.readNBytes(4))
+                        .getInt();
 
-        byte[] payload = in.readNBytes(payloadLen);
+        byte[] payload =
+                in.readNBytes(payloadLen);
 
-        byte[] hash = in.readNBytes(HASH_LEN);
+        byte[] hash =
+                in.readNBytes(HASH_LEN);
 
         return new PackedData(name, payload, enc, hash);
     }
@@ -407,7 +445,8 @@ public final class StegEngineCore {
         byte[] salt = random(SALT_LEN);
         byte[] iv = random(IV_LEN);
 
-        Cipher c = Cipher.getInstance("AES/CBC/PKCS5Padding");
+        Cipher c =
+                Cipher.getInstance("AES/CBC/PKCS5Padding");
 
         c.init(Cipher.ENCRYPT_MODE,
                 key(password, salt),
@@ -419,11 +458,17 @@ public final class StegEngineCore {
     private static byte[] decrypt(byte[] data, String password)
             throws Exception {
 
-        byte[] salt = Arrays.copyOfRange(data, 0, SALT_LEN);
-        byte[] iv = Arrays.copyOfRange(data, SALT_LEN, SALT_LEN + IV_LEN);
-        byte[] enc = Arrays.copyOfRange(data, SALT_LEN + IV_LEN, data.length);
+        byte[] salt =
+                Arrays.copyOfRange(data, 0, SALT_LEN);
 
-        Cipher c = Cipher.getInstance("AES/CBC/PKCS5Padding");
+        byte[] iv =
+                Arrays.copyOfRange(data, SALT_LEN, SALT_LEN + IV_LEN);
+
+        byte[] enc =
+                Arrays.copyOfRange(data, SALT_LEN + IV_LEN, data.length);
+
+        Cipher c =
+                Cipher.getInstance("AES/CBC/PKCS5Padding");
 
         c.init(Cipher.DECRYPT_MODE,
                 key(password, salt),
@@ -447,10 +492,12 @@ public final class StegEngineCore {
         return new SecretKeySpec(k, "AES");
     }
 
-    private static byte[] sha256(byte[] data) throws Exception {
+    private static byte[] sha256(byte[] data)
+            throws Exception {
 
-        MessageDigest md = MessageDigest.getInstance("SHA-256");
-        return md.digest(data);
+        return MessageDigest
+                .getInstance("SHA-256")
+                .digest(data);
     }
 
     private static byte[] random(int n) {
@@ -463,7 +510,8 @@ public final class StegEngineCore {
     private static byte[] concat(byte[]... arr)
             throws IOException {
 
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ByteArrayOutputStream out =
+                new ByteArrayOutputStream();
 
         for (byte[] a : arr)
             out.write(a);
@@ -474,7 +522,8 @@ public final class StegEngineCore {
     private static long makeSeed(String password, byte[] hash)
             throws Exception {
 
-        MessageDigest md = MessageDigest.getInstance("SHA-256");
+        MessageDigest md =
+                MessageDigest.getInstance("SHA-256");
 
         if (password != null && !password.isEmpty())
             md.update(password.getBytes(StandardCharsets.UTF_8));
@@ -484,14 +533,13 @@ public final class StegEngineCore {
         return ByteBuffer.wrap(md.digest()).getLong();
     }
 
-    /* ------------------------------------------------ */
-
     public static class ExtractedData {
 
         public final String fileName;
         public final byte[] data;
 
         public ExtractedData(String n, byte[] d) {
+
             fileName = n;
             data = d;
         }
@@ -505,6 +553,7 @@ public final class StegEngineCore {
         final byte[] hash;
 
         PackedData(String n, byte[] p, boolean e, byte[] h) {
+
             fileName = n;
             payload = p;
             encrypted = e;
