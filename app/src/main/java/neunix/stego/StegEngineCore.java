@@ -1,639 +1,500 @@
 package neunix.stego;
 
 import android.graphics.Bitmap;
+import android.graphics.Color;
+import android.util.Log;
 
-import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.security.*;
-import java.security.spec.KeySpec;
+import java.security.MessageDigest;
 import java.util.Arrays;
+import java.util.Random;
 
-import javax.crypto.*;
-import javax.crypto.spec.*;
+public class StegEngineCore {
 
-public final class StegEngineCore {
+    private static final String TAG = "StegoraEngine";
 
     private static final byte[] MAGIC =
-            "NXSTEG".getBytes(StandardCharsets.US_ASCII);
+            "NXSTEG".getBytes(StandardCharsets.UTF_8);
 
-    private static final byte VERSION = 1;
-
-    private static final int HASH_LEN = 32;
-    private static final int SALT_LEN = 16;
-    private static final int IV_LEN = 16;
-
-    private static final int PBKDF2_ITER = 65536;
     private static final int LSB = 2;
 
-    private static final SecureRandom RAND = new SecureRandom();
+    private static final int HEADER_SIZE = 6 + 4 + 2 + 4;
+    // magic + payload length + filename length + seed
 
-    /* ------------------------------------------------ */
-    /* CAPACITY                                         */
-    /* ------------------------------------------------ */
+    // =============================
+    // DATA CLASS
+    // =============================
 
-    public static int getMaxPayloadSize(Bitmap bmp, String name) {
+    public static class ExtractedData {
 
-        int pixels = bmp.getWidth() * bmp.getHeight();
-        int bits = pixels * 3 * LSB;
+        public byte[] data;
+        public String fileName;
 
-        int header =
-                MAGIC.length + 1 + 1 + 2 +
-                        name.getBytes(StandardCharsets.UTF_8).length +
-                        4 + HASH_LEN;
+        public ExtractedData(byte[] data, String fileName) {
 
-        return Math.max(0, (bits / 8) - header);
+            this.data = data;
+            this.fileName = fileName;
+        }
     }
 
-    public static int getMaxPayloadSize(Bitmap bmp) {
-        return getMaxPayloadSize(bmp, "");
-    }
+    // =============================
+    // EMBED
+    // =============================
 
-    /* ------------------------------------------------ */
-    /* EMBED                                            */
-    /* ------------------------------------------------ */
-
-    public static void embed(
+    public static Bitmap embed(
             Bitmap carrier,
             byte[] payload,
             String fileName,
-            String password,
-            OutputStream out
+            String password
     ) throws Exception {
 
-        if (carrier.getConfig() != Bitmap.Config.ARGB_8888)
-            carrier = carrier.copy(Bitmap.Config.ARGB_8888, true);
+        try {
 
-        boolean encrypted =
-                password != null && !password.isEmpty();
+            if (carrier == null)
+                throw new Exception("Carrier null");
 
-        byte[] finalPayload =
-                encrypted ? encrypt(payload, password) : payload;
+            if (payload == null)
+                throw new Exception("Payload null");
 
-        byte[] hash = sha256(finalPayload);
+            if (fileName == null)
+                fileName = "file.bin";
 
-        long seed = makeSeed(password, hash);
+            int width = carrier.getWidth();
+            int height = carrier.getHeight();
 
-        byte[] header =
-                packHeader(fileName, finalPayload.length, encrypted, hash);
+            int totalPixels = width * height;
 
-        Bitmap bmp =
-                carrier.copy(Bitmap.Config.ARGB_8888, true);
+            Bitmap out =
+                    carrier.copy(Bitmap.Config.ARGB_8888, true);
 
-        embedSequential(bmp, header);
+            int seed = deriveSeed(password);
 
-        embedRandom(bmp, finalPayload, seed, header.length);
+            byte[] fileNameBytes =
+                    fileName.getBytes(StandardCharsets.UTF_8);
 
-        if (!bmp.compress(Bitmap.CompressFormat.PNG, 100, out))
-            throw new IOException("PNG write failed");
+            ByteBuffer header =
+                    ByteBuffer.allocate(
+                            HEADER_SIZE + fileNameBytes.length
+                    );
+
+            header.put(MAGIC);
+            header.putInt(payload.length);
+            header.putShort((short) fileNameBytes.length);
+            header.putInt(seed);
+            header.put(fileNameBytes);
+
+            byte[] headerBytes = header.array();
+
+            int capacityBits =
+                    totalPixels * 3 * LSB;
+
+            int requiredBits =
+                    (headerBytes.length + payload.length) * 8;
+
+            if (requiredBits > capacityBits)
+                throw new Exception("Payload too large");
+
+            embedSequential(out, headerBytes);
+
+            embedRandom(out, payload, seed, headerBytes.length);
+
+            return out;
+
+        } catch (Exception e) {
+
+            Log.e(TAG, "Embed failed", e);
+            throw e;
+        }
     }
 
-    /* ------------------------------------------------ */
-    /* EXTRACT                                          */
-    /* ------------------------------------------------ */
+    // =============================
+    // EXTRACT
+    // =============================
 
     public static ExtractedData extract(
             Bitmap bmp,
             String password
     ) throws Exception {
 
-        byte[] sequential = revealSequential(bmp);
+        try {
 
-        Header header = unpackHeader(sequential);
+            if (bmp == null)
+                throw new Exception("Bitmap null");
 
-        long seed = makeSeed(password, header.hash);
+            byte[] header =
+                    revealSequential(bmp, HEADER_SIZE);
 
-        byte[] payload =
-                revealRandom(bmp, seed, header.payloadLen, header.headerBytes);
+            if (!Arrays.equals(
+                    Arrays.copyOfRange(header, 0, 6),
+                    MAGIC
+            )) {
 
-        byte[] data;
-
-        if (header.encrypted) {
-
-            if (password == null || password.isEmpty())
-                throw new SecurityException("Password required");
-
-            data = decrypt(payload, password);
-
-        } else {
-            data = payload;
-        }
-
-        if (!Arrays.equals(sha256(payload), header.hash))
-            throw new SecurityException("Integrity check failed");
-
-        return new ExtractedData(header.fileName, data);
-    }
-
-    /* ------------------------------------------------ */
-    /* SEQUENTIAL HEADER EMBED                          */
-    /* ------------------------------------------------ */
-
-    private static void embedSequential(Bitmap bmp, byte[] data) {
-
-        int w = bmp.getWidth();
-        int h = bmp.getHeight();
-
-        int[] px = new int[w * h];
-        bmp.getPixels(px, 0, w, 0, 0, w, h);
-
-        int byteIndex = 0;
-        int bitIndex = 0;
-
-        int maskClear = ~((1 << LSB) - 1);
-
-        for (int i = 0; i < px.length; i++) {
-
-            int p = px[i];
-
-            int r = (p >> 16) & 255;
-            int g = (p >> 8) & 255;
-            int b = p & 255;
-
-            int[] rgb = {r, g, b};
-
-            for (int c = 0; c < 3; c++) {
-
-                if (byteIndex >= data.length)
-                    break;
-
-                int bits = 0;
-
-                for (int bit = 0; bit < LSB; bit++) {
-
-                    bits <<= 1;
-
-                    bits |= ((data[byteIndex] >> (7 - bitIndex)) & 1);
-
-                    bitIndex++;
-
-                    if (bitIndex == 8) {
-
-                        bitIndex = 0;
-                        byteIndex++;
-
-                        if (byteIndex >= data.length)
-                            break;
-                    }
-                }
-
-                rgb[c] = (rgb[c] & maskClear) | bits;
+                throw new Exception("Not a Stegora image");
             }
 
-            px[i] =
-                    (p & 0xFF000000)
-                            | (rgb[0] << 16)
-                            | (rgb[1] << 8)
-                            | rgb[2];
+            ByteBuffer meta =
+                    ByteBuffer.wrap(header);
 
-            if (byteIndex >= data.length)
-                break;
+            byte[] magic = new byte[6];
+            meta.get(magic);
+
+            int payloadLen = meta.getInt();
+
+            int nameLen = meta.getShort();
+
+            int seed = meta.getInt();
+
+            byte[] fullHeader =
+                    revealSequential(
+                            bmp,
+                            HEADER_SIZE + nameLen
+                    );
+
+            ByteBuffer meta2 =
+                    ByteBuffer.wrap(fullHeader);
+
+            meta2.position(HEADER_SIZE);
+
+            byte[] nameBytes =
+                    new byte[nameLen];
+
+            meta2.get(nameBytes);
+
+            String fileName =
+                    new String(nameBytes,
+                            StandardCharsets.UTF_8);
+
+            byte[] payload =
+                    revealRandom(
+                            bmp,
+                            payloadLen,
+                            seed,
+                            HEADER_SIZE + nameLen
+                    );
+
+            return new ExtractedData(payload, fileName);
+
+        } catch (Exception e) {
+
+            Log.e(TAG, "Extract failed", e);
+            throw e;
         }
-
-        bmp.setPixels(px, 0, w, 0, 0, w, h);
     }
 
-    /* ------------------------------------------------ */
-    /* RANDOM PAYLOAD EMBED                             */
-    /* ------------------------------------------------ */
+    // =============================
+    // SEQUENTIAL EMBED
+    // =============================
+
+    private static void embedSequential(
+            Bitmap bmp,
+            byte[] data
+    ) {
+
+        try {
+
+            int width = bmp.getWidth();
+
+            int bitIndex = 0;
+
+            for (int i = 0; i < data.length * 8; i++) {
+
+                int bit =
+                        (data[i / 8] >> (7 - (i % 8))) & 1;
+
+                int pixel =
+                        i / (3 * LSB);
+
+                int x = pixel % width;
+                int y = pixel / width;
+
+                int color =
+                        bmp.getPixel(x, y);
+
+                int r = Color.red(color);
+                int g = Color.green(color);
+                int b = Color.blue(color);
+
+                int channel =
+                        (i / LSB) % 3;
+
+                if (channel == 0)
+                    r = writeLSB(r, bit);
+
+                else if (channel == 1)
+                    g = writeLSB(g, bit);
+
+                else
+                    b = writeLSB(b, bit);
+
+                bmp.setPixel(
+                        x,
+                        y,
+                        Color.rgb(r, g, b)
+                );
+            }
+
+        } catch (Exception e) {
+
+            Log.e(TAG, "Sequential embed error", e);
+        }
+    }
+
+    // =============================
+    // RANDOM EMBED
+    // =============================
 
     private static void embedRandom(
             Bitmap bmp,
             byte[] data,
-            long seed,
+            int seed,
             int headerBytes
     ) {
 
-        int w = bmp.getWidth();
-        int h = bmp.getHeight();
+        try {
 
-        int total = w * h;
+            int width = bmp.getWidth();
+            int height = bmp.getHeight();
 
-        int[] px = new int[total];
-        bmp.getPixels(px, 0, w, 0, 0, w, h);
+            int total = width * height;
 
-        int headerPixels =
-                (headerBytes * 8 + (3 * LSB - 1)) / (3 * LSB);
+            int headerPixels =
+                    (headerBytes * 8 + (3 * LSB - 1))
+                            / (3 * LSB);
 
-        int step = stepFromSeed(seed, total);
+            Random rand =
+                    new Random(seed);
 
-        int pos = (int) (seed % total);
-        if (pos < headerPixels) pos += headerPixels;
+            for (int i = 0; i < data.length * 8; i++) {
 
-        int byteIndex = 0;
-        int bitIndex = 0;
+                int bit =
+                        (data[i / 8] >> (7 - (i % 8))) & 1;
 
-        int maskClear = ~((1 << LSB) - 1);
+                int pixel =
+                        headerPixels +
+                                rand.nextInt(
+                                        total - headerPixels
+                                );
 
-        for (int i = 0; i < total; i++) {
+                int x = pixel % width;
+                int y = pixel / width;
 
-            if (pos < headerPixels) {
+                int color =
+                        bmp.getPixel(x, y);
 
-                pos += step;
-                if (pos >= total) pos -= total;
+                int r = Color.red(color);
+                int g = Color.green(color);
+                int b = Color.blue(color);
 
-                continue;
+                int channel = rand.nextInt(3);
+
+                if (channel == 0)
+                    r = writeLSB(r, bit);
+
+                else if (channel == 1)
+                    g = writeLSB(g, bit);
+
+                else
+                    b = writeLSB(b, bit);
+
+                bmp.setPixel(
+                        x,
+                        y,
+                        Color.rgb(r, g, b)
+                );
             }
 
-            int p = px[pos];
+        } catch (Exception e) {
 
-            int r = (p >> 16) & 255;
-            int g = (p >> 8) & 255;
-            int b = p & 255;
-
-            int[] rgb = {r, g, b};
-
-            for (int c = 0; c < 3; c++) {
-
-                if (byteIndex >= data.length)
-                    break;
-
-                int bits = 0;
-
-                for (int bit = 0; bit < LSB; bit++) {
-
-                    bits <<= 1;
-
-                    bits |= ((data[byteIndex] >> (7 - bitIndex)) & 1);
-
-                    bitIndex++;
-
-                    if (bitIndex == 8) {
-
-                        bitIndex = 0;
-                        byteIndex++;
-
-                        if (byteIndex >= data.length)
-                            break;
-                    }
-                }
-
-                rgb[c] = (rgb[c] & maskClear) | bits;
-            }
-
-            px[pos] =
-                    (p & 0xFF000000)
-                            | (rgb[0] << 16)
-                            | (rgb[1] << 8)
-                            | rgb[2];
-
-            if (byteIndex >= data.length)
-                break;
-
-            pos += step;
-
-            if (pos >= total)
-                pos -= total;
+            Log.e(TAG, "Random embed error", e);
         }
-
-        bmp.setPixels(px, 0, w, 0, 0, w, h);
     }
 
-    /* ------------------------------------------------ */
-    /* REVEAL                                           */
-    /* ------------------------------------------------ */
+    // =============================
+    // SEQUENTIAL REVEAL
+    // =============================
 
-    private static byte[] revealSequential(Bitmap bmp) {
+    private static byte[] revealSequential(
+            Bitmap bmp,
+            int length
+    ) {
 
-        int w = bmp.getWidth();
-        int h = bmp.getHeight();
+        try {
 
-        int[] px = new int[w * h];
-        bmp.getPixels(px, 0, w, 0, 0, w, h);
+            int width = bmp.getWidth();
 
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
+            byte[] out =
+                    new byte[length];
 
-        int cur = 0;
-        int bits = 0;
+            for (int i = 0; i < length * 8; i++) {
 
-        for (int p : px) {
+                int pixel =
+                        i / (3 * LSB);
 
-            int r = (p >> 16) & 255;
-            int g = (p >> 8) & 255;
-            int b = p & 255;
+                int x = pixel % width;
+                int y = pixel / width;
 
-            int[] rgb = {r, g, b};
+                int color =
+                        bmp.getPixel(x, y);
 
-            for (int c : rgb) {
+                int channel =
+                        (i / LSB) % 3;
 
-                for (int k = LSB - 1; k >= 0; k--) {
+                int val;
 
-                    cur = (cur << 1) | ((c >> k) & 1);
+                if (channel == 0)
+                    val = Color.red(color);
 
-                    bits++;
+                else if (channel == 1)
+                    val = Color.green(color);
 
-                    if (bits == 8) {
+                else
+                    val = Color.blue(color);
 
-                        out.write(cur);
-                        cur = 0;
-                        bits = 0;
-                    }
-                }
+                int bit =
+                        val & 1;
+
+                out[i / 8] |=
+                        bit << (7 - (i % 8));
             }
-        }
 
-        return out.toByteArray();
+            return out;
+
+        } catch (Exception e) {
+
+            Log.e(TAG, "Sequential reveal error", e);
+
+            return new byte[0];
+        }
     }
+
+    // =============================
+    // RANDOM REVEAL
+    // =============================
 
     private static byte[] revealRandom(
             Bitmap bmp,
-            long seed,
-            int payloadLen,
+            int length,
+            int seed,
             int headerBytes
     ) {
 
-        int w = bmp.getWidth();
-        int h = bmp.getHeight();
+        try {
 
-        int total = w * h;
+            int width = bmp.getWidth();
+            int height = bmp.getHeight();
 
-        int[] px = new int[total];
-        bmp.getPixels(px, 0, w, 0, 0, w, h);
+            int total = width * height;
 
-        int headerPixels =
-                (headerBytes * 8 + (3 * LSB - 1)) / (3 * LSB);
+            int headerPixels =
+                    (headerBytes * 8 + (3 * LSB - 1))
+                            / (3 * LSB);
 
-        int step = stepFromSeed(seed, total);
+            Random rand =
+                    new Random(seed);
 
-        int pos = (int) (seed % total);
-        if (pos < headerPixels) pos += headerPixels;
+            byte[] out =
+                    new byte[length];
 
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
+            for (int i = 0; i < length * 8; i++) {
 
-        int cur = 0;
-        int bits = 0;
+                int pixel =
+                        headerPixels +
+                                rand.nextInt(
+                                        total - headerPixels
+                                );
 
-        for (int i = 0; i < total && out.size() < payloadLen; i++) {
+                int x = pixel % width;
+                int y = pixel / width;
 
-            if (pos < headerPixels) {
+                int color =
+                        bmp.getPixel(x, y);
 
-                pos += step;
-                if (pos >= total) pos -= total;
+                int channel =
+                        rand.nextInt(3);
 
-                continue;
+                int val;
+
+                if (channel == 0)
+                    val = Color.red(color);
+
+                else if (channel == 1)
+                    val = Color.green(color);
+
+                else
+                    val = Color.blue(color);
+
+                int bit =
+                        val & 1;
+
+                out[i / 8] |=
+                        bit << (7 - (i % 8));
             }
 
-            int p = px[pos];
+            return out;
 
-            int r = (p >> 16) & 255;
-            int g = (p >> 8) & 255;
-            int b = p & 255;
+        } catch (Exception e) {
 
-            int[] rgb = {r, g, b};
+            Log.e(TAG, "Random reveal error", e);
 
-            for (int c : rgb) {
-
-                for (int k = LSB - 1; k >= 0; k--) {
-
-                    cur = (cur << 1) | ((c >> k) & 1);
-
-                    bits++;
-
-                    if (bits == 8) {
-
-                        out.write(cur);
-
-                        if (out.size() == payloadLen)
-                            return out.toByteArray();
-
-                        cur = 0;
-                        bits = 0;
-                    }
-                }
-            }
-
-            pos += step;
-
-            if (pos >= total)
-                pos -= total;
-        }
-
-        return out.toByteArray();
-    }
-
-    /* ------------------------------------------------ */
-    /* HEADER                                           */
-    /* ------------------------------------------------ */
-
-    private static byte[] packHeader(
-            String name,
-            int payloadLen,
-            boolean enc,
-            byte[] hash
-    ) throws IOException {
-
-        byte[] nameBytes = name.getBytes(StandardCharsets.UTF_8);
-
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-
-        out.write(MAGIC);
-        out.write(VERSION);
-        out.write(enc ? 1 : 0);
-
-        out.write(ByteBuffer.allocate(2)
-                .putShort((short) nameBytes.length)
-                .array());
-
-        out.write(nameBytes);
-
-        out.write(ByteBuffer.allocate(4)
-                .putInt(payloadLen)
-                .array());
-
-        out.write(hash);
-
-        return out.toByteArray();
-    }
-
-    private static Header unpackHeader(byte[] raw)
-            throws IOException {
-
-        ByteArrayInputStream in =
-                new ByteArrayInputStream(raw);
-
-        byte[] magic = in.readNBytes(MAGIC.length);
-
-        if (!Arrays.equals(magic, MAGIC))
-            throw new SecurityException("Not a Stegora image");
-
-        in.read();
-
-        boolean enc = in.read() == 1;
-
-        int nameLen =
-                ByteBuffer.wrap(in.readNBytes(2))
-                        .getShort() & 0xFFFF;
-
-        String name =
-                new String(
-                        in.readNBytes(nameLen),
-                        StandardCharsets.UTF_8);
-
-        int payloadLen =
-                ByteBuffer.wrap(in.readNBytes(4))
-                        .getInt();
-
-        byte[] hash =
-                in.readNBytes(HASH_LEN);
-
-        int headerBytes =
-                MAGIC.length + 1 + 1 + 2 +
-                        nameLen + 4 + HASH_LEN;
-
-        return new Header(name, payloadLen, enc, hash, headerBytes);
-    }
-
-    /* ------------------------------------------------ */
-    /* CRYPTO                                           */
-    /* ------------------------------------------------ */
-
-    private static byte[] encrypt(byte[] data, String password)
-            throws Exception {
-
-        byte[] salt = random(SALT_LEN);
-        byte[] iv = random(IV_LEN);
-
-        Cipher c =
-                Cipher.getInstance("AES/CBC/PKCS5Padding");
-
-        c.init(Cipher.ENCRYPT_MODE,
-                key(password, salt),
-                new IvParameterSpec(iv));
-
-        return concat(salt, iv, c.doFinal(data));
-    }
-
-    private static byte[] decrypt(byte[] data, String password)
-            throws Exception {
-
-        byte[] salt =
-                Arrays.copyOfRange(data, 0, SALT_LEN);
-
-        byte[] iv =
-                Arrays.copyOfRange(data, SALT_LEN, SALT_LEN + IV_LEN);
-
-        byte[] enc =
-                Arrays.copyOfRange(data, SALT_LEN + IV_LEN, data.length);
-
-        Cipher c =
-                Cipher.getInstance("AES/CBC/PKCS5Padding");
-
-        c.init(Cipher.DECRYPT_MODE,
-                key(password, salt),
-                new IvParameterSpec(iv));
-
-        return c.doFinal(enc);
-    }
-
-    private static SecretKey key(String pw, byte[] salt)
-            throws Exception {
-
-        KeySpec spec =
-                new PBEKeySpec(pw.toCharArray(), salt, PBKDF2_ITER, 256);
-
-        byte[] k =
-                SecretKeyFactory
-                        .getInstance("PBKDF2WithHmacSHA256")
-                        .generateSecret(spec)
-                        .getEncoded();
-
-        return new SecretKeySpec(k, "AES");
-    }
-
-    private static byte[] sha256(byte[] data)
-            throws Exception {
-
-        return MessageDigest
-                .getInstance("SHA-256")
-                .digest(data);
-    }
-
-    private static byte[] random(int n) {
-
-        byte[] b = new byte[n];
-        RAND.nextBytes(b);
-        return b;
-    }
-
-    private static byte[] concat(byte[]... arr)
-            throws IOException {
-
-        ByteArrayOutputStream out =
-                new ByteArrayOutputStream();
-
-        for (byte[] a : arr)
-            out.write(a);
-
-        return out.toByteArray();
-    }
-
-    private static long makeSeed(String password, byte[] hash)
-            throws Exception {
-
-        MessageDigest md =
-                MessageDigest.getInstance("SHA-256");
-
-        if (password != null && !password.isEmpty())
-            md.update(password.getBytes(StandardCharsets.UTF_8));
-        else
-            md.update(hash);
-
-        return ByteBuffer.wrap(md.digest()).getLong();
-    }
-
-    private static int stepFromSeed(long seed, int n) {
-
-        int step = (int) (Math.abs(seed) % n);
-
-        if (step == 0) step = 1;
-
-        while (gcd(step, n) != 1)
-            step++;
-
-        return step;
-    }
-
-    private static int gcd(int a, int b) {
-
-        while (b != 0) {
-
-            int t = b;
-            b = a % b;
-            a = t;
-        }
-
-        return a;
-    }
-
-    /* ------------------------------------------------ */
-
-    public static class ExtractedData {
-
-        public final String fileName;
-        public final byte[] data;
-
-        public ExtractedData(String n, byte[] d) {
-
-            fileName = n;
-            data = d;
+            return new byte[0];
         }
     }
 
-    private static class Header {
+    // =============================
+    // LSB WRITE
+    // =============================
 
-        final String fileName;
-        final int payloadLen;
-        final boolean encrypted;
-        final byte[] hash;
-        final int headerBytes;
+    private static int writeLSB(
+            int value,
+            int bit
+    ) {
 
-        Header(String n, int len, boolean e, byte[] h, int hb) {
+        try {
 
-            fileName = n;
-            payloadLen = len;
-            encrypted = e;
-            hash = h;
-            headerBytes = hb;
+            value &= ~1;
+            value |= bit;
+
+            return value;
+
+        } catch (Exception e) {
+
+            return value;
+        }
+    }
+
+    // =============================
+    // PASSWORD SEED
+    // =============================
+
+    private static int deriveSeed(
+            String password
+    ) {
+
+        try {
+
+            if (password == null ||
+                    password.isEmpty())
+                return 1337;
+
+            MessageDigest md =
+                    MessageDigest.getInstance("SHA-256");
+
+            byte[] hash =
+                    md.digest(
+                            password.getBytes(
+                                    StandardCharsets.UTF_8
+                            )
+                    );
+
+            ByteBuffer bb =
+                    ByteBuffer.wrap(hash);
+
+            return bb.getInt();
+
+        } catch (Exception e) {
+
+            return password.hashCode();
         }
     }
 }
