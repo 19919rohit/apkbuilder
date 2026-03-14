@@ -223,7 +223,7 @@ public class ExtractActivity extends AppCompatActivity {
 
                 File outFile = Utils.getTimestampedFile(
                         this,
-                        payload.fileName,
+                        payload.filename,
                         Utils.DIR_EXTRACTED
                 );
 
