@@ -53,6 +53,10 @@ public final class StegEngineCore {
         return Math.max(0, (bits / 8) - header);
     }
 
+    public static int getMaxPayloadSize(Bitmap bmp) {
+        return getMaxPayloadSize(bmp, "");
+    }
+
     /* ------------------------------------------------ */
     /* EMBED                                            */
     /* ------------------------------------------------ */
@@ -159,7 +163,6 @@ public final class StegEngineCore {
             data = decrypt(p.payload, password);
 
         } else {
-
             data = p.payload;
         }
 
@@ -295,7 +298,7 @@ public final class StegEngineCore {
     }
 
     /* ------------------------------------------------ */
-    /* RANDOM HIDE (FISHER-YATES)                       */
+    /* RANDOM HIDE / REVEAL                             */
     /* ------------------------------------------------ */
 
     private static Bitmap hideRandom(
