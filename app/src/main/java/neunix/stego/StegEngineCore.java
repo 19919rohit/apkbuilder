@@ -3,128 +3,202 @@ package neunix.stego;
 import android.graphics.Bitmap;
 import android.util.Log;
 
+import java.io.FileOutputStream;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.security.SecureRandom;
+import java.security.spec.KeySpec;
 import java.util.Arrays;
 import java.util.Random;
 import java.util.zip.Deflater;
 import java.util.zip.Inflater;
 
+import javax.crypto.Cipher;
+import javax.crypto.SecretKey;
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.GCMParameterSpec;
+import javax.crypto.spec.PBEKeySpec;
+import javax.crypto.spec.SecretKeySpec;
+
+/*
+=========================================================
+ STEG ENGINE CORE
+---------------------------------------------------------
+ Features
+ - LSB steganography
+ - Random pixel distribution
+ - AES-256 encryption (GCM)
+ - PBKDF2 key derivation
+ - Compression
+ - SHA-256 integrity
+ - Filename metadata
+=========================================================
+*/
+
 public class StegEngineCore {
 
     private static final String TAG = "StegEngine";
 
+    /* =========================================================
+       FILE IDENTIFICATION
+       ========================================================= */
+
     private static final byte[] MAGIC = new byte[]{'S','T','G','O'};
     private static final byte VERSION = 1;
 
+    /* =========================================================
+       HEADER CONSTANTS
+       ========================================================= */
+
     private static final int HASH_SIZE = 32;
-    private static final int HEADER_PREFIX = 44;
+    private static final int SALT_SIZE = 16;
+    private static final int IV_SIZE = 12;
+
+    private static final int HEADER_PREFIX =
+            4 + 1 + 1 + 2 + 4 + HASH_SIZE + SALT_SIZE + IV_SIZE;
+
+    /* =========================================================
+       ENCRYPTION SETTINGS
+       ========================================================= */
+
+    private static final int PBKDF2_ITER = 100000;
+    private static final int AES_KEY_BITS = 256;
 
     /* =========================================================
        PUBLIC EMBED
        ========================================================= */
 
-    public static Bitmap embed(Bitmap bmp, byte[] payload, String filename, String password) throws Exception {
+    public static Bitmap embed(Bitmap bmp,
+                               byte[] payload,
+                               String filename,
+                               String password) throws Exception {
 
-        try {
+        log("Embed started");
 
-            log("Embed started");
+        int width = bmp.getWidth();
+        int height = bmp.getHeight();
 
-            int width = bmp.getWidth();
-            int height = bmp.getHeight();
+        int[] pixels = getPixels(bmp);
 
-            int[] pixels = getPixels(bmp);
+        /* compress payload */
 
-            byte[] compressed = compress(payload);
+        byte[] compressed = compress(payload);
 
-            byte[] encrypted = encrypt(compressed,password);
+        /* generate crypto material */
 
-            byte[] hash = sha256(encrypted);
+        byte[] salt = randomBytes(SALT_SIZE);
+        byte[] iv = randomBytes(IV_SIZE);
 
-            byte[] header = buildHeader(filename,encrypted.length,hash);
+        byte[] encrypted = encrypt(compressed,password,salt,iv);
 
-            int capacity = capacityBytes(width,height);
+        byte[] hash = sha256(encrypted);
 
-            if(header.length + encrypted.length > capacity)
-                throw new RuntimeException("Carrier too small");
+        byte[] header = buildHeader(filename,
+                encrypted.length,
+                hash,
+                salt,
+                iv);
 
-            int headerPixels = pixelsForBytes(header.length);
+        int capacity = capacityBytes(width,height);
 
-            embedSequential(pixels,header);
+        if(header.length + encrypted.length > capacity)
+            throw new RuntimeException("Carrier too small");
 
-            embedRandom(pixels,encrypted,headerPixels,password);
+        int headerPixels = pixelsForBytes(header.length);
 
-            Bitmap out = Bitmap.createBitmap(width,height, Bitmap.Config.ARGB_8888);
-            setPixels(out,pixels);
+        embedSequential(pixels,header);
 
-            log("Embed complete");
+        embedRandom(pixels,encrypted,headerPixels,password);
 
-            return out;
+        Bitmap out = Bitmap.createBitmap(width,height, Bitmap.Config.ARGB_8888);
+        setPixels(out,pixels);
 
-        } catch(Exception e){
+        log("Embed finished");
 
-            log("Embed failed: "+e.getMessage());
+        return out;
+    }
 
-            throw e;
-        }
+    /* wrapper used by Activities */
+
+    public static void embed(Bitmap bmp,
+                             byte[] payload,
+                             String filename,
+                             String password,
+                             FileOutputStream out) throws Exception {
+
+        Bitmap encoded = embed(bmp,payload,filename,password);
+
+        encoded.compress(Bitmap.CompressFormat.PNG,100,out);
+
+        out.flush();
+        out.close();
     }
 
     /* =========================================================
-       PUBLIC EXTRACT
+       EXTRACT
        ========================================================= */
 
-    public static ExtractedPayload extract(Bitmap bmp,String password) throws Exception {
+    public static ExtractedData extract(Bitmap bmp,String password) throws Exception {
 
-        try {
+        log("Extract started");
 
-            log("Extraction started");
+        int[] pixels = getPixels(bmp);
 
-            int[] pixels = getPixels(bmp);
+        byte[] prefix = revealSequential(pixels,HEADER_PREFIX);
 
-            byte[] prefix = revealSequential(pixels,HEADER_PREFIX);
+        if(!checkMagic(prefix))
+            throw new RuntimeException("Not a steg image");
 
-            if(!checkMagic(prefix))
-                throw new RuntimeException("Not a stegora image");
+        Header header = parseHeader(prefix,pixels);
 
-            Header header = parseHeader(prefix,pixels);
+        int headerPixels = pixelsForBytes(header.totalHeaderSize);
 
-            int headerPixels = pixelsForBytes(header.totalHeaderSize);
+        byte[] encrypted = extractRandom(
+                pixels,
+                header.payloadSize,
+                headerPixels,
+                password
+        );
 
-            byte[] encrypted = extractRandom(
-                    pixels,
-                    header.payloadSize,
-                    headerPixels,
-                    password
-            );
+        if(!Arrays.equals(header.hash,sha256(encrypted)))
+            throw new RuntimeException("Integrity failure");
 
-            if(!Arrays.equals(header.hash,sha256(encrypted)))
-                throw new RuntimeException("Integrity check failed");
+        byte[] decrypted = decrypt(encrypted,password,header.salt,header.iv);
 
-            byte[] decrypted = decrypt(encrypted,password);
+        byte[] payload = decompress(decrypted);
 
-            byte[] payload = decompress(decrypted);
+        log("Extract finished");
 
-            log("Extraction complete");
+        return new ExtractedData(header.filename,payload);
+    }
 
-            return new ExtractedPayload(header.filename,payload);
+    /* =========================================================
+       CAPACITY FOR UI
+       ========================================================= */
 
-        } catch(Exception e){
+    public static int getMaxPayloadSize(Bitmap bmp){
 
-            log("Extract failed: "+e.getMessage());
-            throw e;
-        }
+        int w=bmp.getWidth();
+        int h=bmp.getHeight();
+
+        return capacityBytes(w,h) - HEADER_PREFIX;
     }
 
     /* =========================================================
        HEADER BUILD
        ========================================================= */
 
-    private static byte[] buildHeader(String filename,int payloadLen,byte[] hash){
+    private static byte[] buildHeader(String filename,
+                                      int payloadLen,
+                                      byte[] hash,
+                                      byte[] salt,
+                                      byte[] iv){
 
         byte[] nameBytes = filename.getBytes(StandardCharsets.UTF_8);
 
-        ByteBuffer buf = ByteBuffer.allocate(HEADER_PREFIX + nameBytes.length);
+        ByteBuffer buf = ByteBuffer.allocate(
+                HEADER_PREFIX + nameBytes.length);
 
         buf.put(MAGIC);
         buf.put(VERSION);
@@ -134,6 +208,8 @@ public class StegEngineCore {
         buf.putInt(payloadLen);
 
         buf.put(hash);
+        buf.put(salt);
+        buf.put(iv);
 
         buf.put(nameBytes);
 
@@ -158,6 +234,12 @@ public class StegEngineCore {
         byte[] hash = new byte[HASH_SIZE];
         pb.get(hash);
 
+        byte[] salt = new byte[SALT_SIZE];
+        pb.get(salt);
+
+        byte[] iv = new byte[IV_SIZE];
+        pb.get(iv);
+
         int fullHeaderSize = HEADER_PREFIX + nameLen;
 
         byte[] header = revealSequential(pixels,fullHeaderSize);
@@ -171,7 +253,7 @@ public class StegEngineCore {
 
         String filename = new String(nameBytes,StandardCharsets.UTF_8);
 
-        return new Header(filename,payloadSize,hash,fullHeaderSize);
+        return new Header(filename,payloadSize,hash,fullHeaderSize,salt,iv);
     }
 
     /* =========================================================
@@ -180,7 +262,7 @@ public class StegEngineCore {
 
     private static void embedSequential(int[] pixels,byte[] data){
 
-        int bitIndex = 0;
+        int bitIndex=0;
 
         for(int i=0;i<pixels.length;i++){
 
@@ -199,14 +281,14 @@ public class StegEngineCore {
     }
 
     /* =========================================================
-       EMBED RANDOM
+       RANDOM EMBED
        ========================================================= */
 
     private static void embedRandom(int[] pixels,byte[] data,int skip,String password) throws Exception{
 
         int[] idx = buildIndex(pixels.length,skip,password);
 
-        int bitIndex = 0;
+        int bitIndex=0;
 
         for(int p:idx){
 
@@ -225,12 +307,12 @@ public class StegEngineCore {
     }
 
     /* =========================================================
-       REVEAL SEQUENTIAL
+       REVEAL
        ========================================================= */
 
     private static byte[] revealSequential(int[] pixels,int bytes){
 
-        byte[] out = new byte[bytes];
+        byte[] out=new byte[bytes];
 
         int bitIndex=0;
 
@@ -248,10 +330,6 @@ public class StegEngineCore {
 
         return out;
     }
-
-    /* =========================================================
-       RANDOM EXTRACT
-       ========================================================= */
 
     private static byte[] extractRandom(int[] pixels,int bytes,int skip,String password) throws Exception{
 
@@ -277,7 +355,7 @@ public class StegEngineCore {
     }
 
     /* =========================================================
-       PIXEL UTILITIES
+       PIXELS
        ========================================================= */
 
     private static int[] getPixels(Bitmap bmp){
@@ -301,7 +379,7 @@ public class StegEngineCore {
     }
 
     /* =========================================================
-       INDEX GENERATION
+       INDEX
        ========================================================= */
 
     private static int[] buildIndex(int total,int skip,String password) throws Exception{
@@ -320,7 +398,7 @@ public class StegEngineCore {
 
         long seed = ByteBuffer.wrap(sha256(password.getBytes())).getLong();
 
-        Random r = new Random(seed);
+        Random r=new Random(seed);
 
         for(int i=arr.length-1;i>0;i--){
 
@@ -333,7 +411,7 @@ public class StegEngineCore {
     }
 
     /* =========================================================
-       BIT OPERATIONS
+       BIT OPS
        ========================================================= */
 
     private static int setLSB(int v,int bit){ return (v&0xfe)|bit; }
@@ -378,41 +456,70 @@ public class StegEngineCore {
 
     private static byte[] compress(byte[] data) throws Exception{
 
-        Deflater def = new Deflater();
+        Deflater def=new Deflater();
 
         def.setInput(data);
         def.finish();
 
-        byte[] buf = new byte[data.length];
+        byte[] buf=new byte[data.length+200];
 
-        int len = def.deflate(buf);
+        int len=def.deflate(buf);
 
         return Arrays.copyOf(buf,len);
     }
 
     private static byte[] decompress(byte[] data) throws Exception{
 
-        Inflater inf = new Inflater();
+        Inflater inf=new Inflater();
 
         inf.setInput(data);
 
-        byte[] buf = new byte[data.length*4];
+        byte[] buf=new byte[data.length*4+200];
 
-        int len = inf.inflate(buf);
+        int len=inf.inflate(buf);
 
         return Arrays.copyOf(buf,len);
     }
 
     /* =========================================================
-       ENCRYPTION (placeholder)
+       ENCRYPTION AES-256
        ========================================================= */
 
-    private static byte[] encrypt(byte[] data,String password){
-        return data;
+    private static byte[] encrypt(byte[] data,String password,byte[] salt,byte[] iv) throws Exception{
+
+        SecretKey key = deriveKey(password,salt);
+
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+
+        GCMParameterSpec spec = new GCMParameterSpec(128,iv);
+
+        cipher.init(Cipher.ENCRYPT_MODE,key,spec);
+
+        return cipher.doFinal(data);
     }
 
-    private static byte[] decrypt(byte[] data,String password){
-        return data;
+    private static byte[] decrypt(byte[] data,String password,byte[] salt,byte[] iv) throws Exception{
+
+        SecretKey key = deriveKey(password,salt);
+
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+
+        GCMParameterSpec spec = new GCMParameterSpec(128,iv);
+
+        cipher.init(Cipher.DECRYPT_MODE,key,spec);
+
+        return cipher.doFinal(data);
+    }
+
+    private static SecretKey deriveKey(String password,byte[] salt) throws Exception{
+
+        SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
+
+        KeySpec spec = new PBEKeySpec(password.toCharArray(),salt,PBKDF2_ITER,AES_KEY_BITS);
+
+        SecretKey tmp = factory.generateSecret(spec);
+
+        return new SecretKeySpec(tmp.getEncoded(),"AES");
     }
 
     /* =========================================================
@@ -424,7 +531,7 @@ public class StegEngineCore {
     }
 
     /* =========================================================
-       MAGIC CHECK
+       UTIL
        ========================================================= */
 
     private static boolean checkMagic(byte[] p){
@@ -436,12 +543,13 @@ public class StegEngineCore {
         return true;
     }
 
-    /* =========================================================
-       DEBUG LOG
-       ========================================================= */
+    private static byte[] randomBytes(int n){
 
-    private static void log(String m){
-        Log.d(TAG,m);
+        byte[] b=new byte[n];
+
+        new SecureRandom().nextBytes(b);
+
+        return b;
     }
 
     /* =========================================================
@@ -454,29 +562,37 @@ public class StegEngineCore {
         int payloadSize;
         byte[] hash;
         int totalHeaderSize;
+        byte[] salt;
+        byte[] iv;
 
-        Header(String f,int p,byte[] h,int s){
+        Header(String f,int p,byte[] h,int s,byte[] salt,byte[] iv){
 
             filename=f;
             payloadSize=p;
             hash=h;
             totalHeaderSize=s;
+            this.salt=salt;
+            this.iv=iv;
         }
     }
 
     /* =========================================================
-       PAYLOAD CLASS
+       RESULT CLASS
        ========================================================= */
 
-    public static class ExtractedPayload{
+    public static class ExtractedData{
 
         public final String filename;
         public final byte[] data;
 
-        public ExtractedPayload(String f,byte[] d){
+        public ExtractedData(String f,byte[] d){
 
             filename=f;
             data=d;
         }
+    }
+
+    private static void log(String m){
+        Log.d(TAG,m);
     }
 }
