@@ -2,65 +2,168 @@ package neunix.stego;
 
 import android.graphics.Bitmap;
 
+/*
+=========================================================
+ CONTENT AWARE EXPANDER
+---------------------------------------------------------
+ Expands carrier images when payload exceeds capacity.
+
+ Features
+ - API compatible with EmbedActivity.expand()
+ - RAM efficient tile processing
+ - Safe pixel limit protection
+ - Center expansion
+=========================================================
+*/
+
 public class ContentAwareExpander {
 
-    private ContentAwareExpander() {}
+    private ContentAwareExpander(){}
 
-    /**
-     * Expands the image canvas while keeping the original image centered.
-     * Extra area is filled using replicated edge pixels so pixel statistics remain natural.
-     *
-     * factor:
-     * 0 = no expansion
-     * 1 = 25%
-     * 2 = 50%
-     * 4 = 100%
-     */
-    public static Bitmap expand(Bitmap original, int factor) {
+    /* =====================================================
+       SAFETY LIMIT
+       ===================================================== */
 
-        if (original == null || factor <= 0) {
+    private static final long MAX_PIXELS = 20_000_000; // 20MP limit
+
+    /* tile processing height to reduce memory spikes */
+    private static final int TILE_HEIGHT = 256;
+
+
+    /* =====================================================
+       MAIN API USED BY EmbedActivity
+       ===================================================== */
+
+    public static Bitmap expand(Bitmap original, int factor){
+
+        if(original == null) return null;
+
+        if(factor <= 0){
             return original;
         }
 
-        // Ensure safe pixel format
-        Bitmap src = original.copy(Bitmap.Config.ARGB_8888, false);
+        int w = original.getWidth();
+        int h = original.getHeight();
 
-        int origW = src.getWidth();
-        int origH = src.getHeight();
+        int newW = w;
+        int newH = h;
 
-        int newW = origW * (factor + 1);
-        int newH = origH * (factor + 1);
+        switch(factor){
 
-        Bitmap expanded = Bitmap.createBitmap(newW, newH, Bitmap.Config.ARGB_8888);
+            case 1: // Expand 25%
+                newW = (int)(w * 1.25);
+                newH = (int)(h * 1.25);
+                break;
 
-        int[] srcPixels = new int[origW * origH];
-        src.getPixels(srcPixels, 0, origW, 0, 0, origW, origH);
+            case 2: // Expand 50%
+                newW = (int)(w * 1.5);
+                newH = (int)(h * 1.5);
+                break;
 
-        int[] outPixels = new int[newW * newH];
+            case 4: // Expand 100%
+                newW = w * 2;
+                newH = h * 2;
+                break;
 
-        int offsetX = (newW - origW) / 2;
-        int offsetY = (newH - origH) / 2;
-
-        for (int y = 0; y < newH; y++) {
-
-            int srcY = clamp(y - offsetY, 0, origH - 1);
-
-            for (int x = 0; x < newW; x++) {
-
-                int srcX = clamp(x - offsetX, 0, origW - 1);
-
-                outPixels[y * newW + x] = srcPixels[srcY * origW + srcX];
-            }
+            default:
+                return original;
         }
 
-        expanded.setPixels(outPixels, 0, newW, 0, 0, newW, newH);
+        return expandToSize(original,newW,newH);
+    }
+
+
+    /* =====================================================
+       AUTO EXPAND BASED ON PAYLOAD SIZE
+       ===================================================== */
+
+    public static Bitmap expandToFitPayload(Bitmap original, int payloadBytes){
+
+        int w = original.getWidth();
+        int h = original.getHeight();
+
+        long payloadBits = (long)payloadBytes * 8;
+        long capacityBits = (long)w * h * 3;
+
+        if(payloadBits <= capacityBits){
+            return original;
+        }
+
+        double scale = Math.sqrt((double)payloadBits / capacityBits);
+
+        int newW = (int)Math.ceil(w * scale);
+        int newH = (int)Math.ceil(h * scale);
+
+        if((long)newW * newH > MAX_PIXELS){
+            throw new RuntimeException("Payload too large for expansion");
+        }
+
+        return expandToSize(original,newW,newH);
+    }
+
+
+    /* =====================================================
+       EXPAND BITMAP TO SPECIFIC SIZE
+       ===================================================== */
+
+    public static Bitmap expandToSize(Bitmap original, int newW, int newH){
+
+        int origW = original.getWidth();
+        int origH = original.getHeight();
+
+        if(newW <= origW && newH <= origH){
+            return original;
+        }
+
+        if((long)newW * newH > MAX_PIXELS){
+            throw new RuntimeException("Expansion exceeds safe pixel limit");
+        }
+
+        Bitmap expanded =
+                Bitmap.createBitmap(newW,newH,Bitmap.Config.ARGB_8888);
+
+        int offsetX = (newW - origW)/2;
+        int offsetY = (newH - origH)/2;
+
+        int[] srcRow = new int[origW];
+        int[] dstRow = new int[newW];
+
+        for(int tileY = 0; tileY < newH; tileY += TILE_HEIGHT){
+
+            int endY = Math.min(tileY + TILE_HEIGHT,newH);
+
+            for(int y = tileY; y < endY; y++){
+
+                int srcY = clamp(y-offsetY,0,origH-1);
+
+                original.getPixels(srcRow,0,origW,0,srcY,origW,1);
+
+                for(int x = 0; x < newW; x++){
+
+                    int srcX = clamp(x-offsetX,0,origW-1);
+
+                    dstRow[x] = srcRow[srcX];
+                }
+
+                expanded.setPixels(dstRow,0,newW,0,y,newW,1);
+            }
+        }
 
         return expanded;
     }
 
-    private static int clamp(int v, int min, int max) {
-        if (v < min) return min;
-        if (v > max) return max;
-        return v;
+
+    /* =====================================================
+       CLAMP HELPER
+       ===================================================== */
+
+    private static int clamp(int value,int min,int max){
+
+        if(value < min) return min;
+
+        if(value > max) return max;
+
+        return value;
     }
+
 }
