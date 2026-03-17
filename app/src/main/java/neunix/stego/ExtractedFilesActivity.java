@@ -1,8 +1,9 @@
 package neunix.stego;
 
 import android.os.Bundle;
-import android.widget.TextView;
+import android.view.View;
 import android.widget.ImageView;
+import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -23,9 +24,11 @@ public class ExtractedFilesActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_extracted_files);
 
+        // Bind views
         recyclerView = findViewById(R.id.recyclerExtractedFiles);
         emptyText = findViewById(R.id.emptyText);
         ImageView back = findViewById(R.id.backButton);
+
         back.setOnClickListener(v -> finish());
 
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
@@ -44,7 +47,9 @@ public class ExtractedFilesActivity extends AppCompatActivity {
 
         List<File> fileList = new ArrayList<>(Arrays.asList(filesArr));
 
-        ExtractedFilesAdapter adapter = new ExtractedFilesAdapter(this, fileList, () -> emptyText.setVisibility(View.VISIBLE));
+        ExtractedFilesAdapter adapter = new ExtractedFilesAdapter(this, fileList, 
+            () -> emptyText.setVisibility(View.VISIBLE)
+        );
         recyclerView.setAdapter(adapter);
         emptyText.setVisibility(View.GONE);
     }

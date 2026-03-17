@@ -17,13 +17,13 @@ import androidx.recyclerview.widget.RecyclerView;
 import java.io.File;
 import java.util.List;
 
-public class ExtractedFilesAdapter extends RecyclerView.Adapter<ExtractedFilesAdapter.VH> {
+public class EmbeddedFilesAdapter extends RecyclerView.Adapter<EmbeddedFilesAdapter.VH> {
 
     private final Context context;
     private final List<File> files;
     private final Runnable onListEmpty;
 
-    public ExtractedFilesAdapter(Context ctx, List<File> files, Runnable onListEmpty) {
+    public EmbeddedFilesAdapter(Context ctx, List<File> files, Runnable onListEmpty) {
         this.context = ctx;
         this.files = files;
         this.onListEmpty = onListEmpty;
@@ -42,9 +42,8 @@ public class ExtractedFilesAdapter extends RecyclerView.Adapter<ExtractedFilesAd
         File file = files.get(position);
 
         holder.fileName.setText(file.getName());
-        holder.icon.setImageResource(R.drawable.ic_file); // fixed drawable
+        holder.icon.setImageResource(R.drawable.ic_file);
 
-        // Share file
         holder.btnShare.setOnClickListener(v -> {
             try {
                 Uri uri = Uri.fromFile(file);
@@ -57,7 +56,6 @@ public class ExtractedFilesAdapter extends RecyclerView.Adapter<ExtractedFilesAd
             }
         });
 
-        // Delete file
         holder.btnDelete.setOnClickListener(v -> {
             if (file.delete()) {
                 files.remove(file);
