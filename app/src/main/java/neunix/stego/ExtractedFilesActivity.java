@@ -1,6 +1,7 @@
 package neunix.stego;
 
 import android.os.Bundle;
+import android.view.View;
 import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.TextView;
@@ -42,13 +43,17 @@ public class ExtractedFilesActivity extends AppCompatActivity {
         File[] files = dir.listFiles();
 
         if (files == null || files.length == 0) {
-            emptyText.setVisibility(TextView.VISIBLE);
+            emptyText.setVisibility(View.VISIBLE);
             return;
         }
 
         List<File> fileList = new ArrayList<>(Arrays.asList(files));
 
-        FileAdapter adapter = new FileAdapter(this, fileList);
+        FileAdapter adapter = new FileAdapter(this, fileList, () -> {
+            if (fileList.isEmpty()) {
+                emptyText.setVisibility(View.VISIBLE);
+            }
+        });
 
         listView.setAdapter(adapter);
     }
