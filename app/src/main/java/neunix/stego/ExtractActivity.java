@@ -1,9 +1,12 @@
 package neunix.stego;
 
 import android.content.Intent;
+import android.database.Cursor;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
+import android.provider.OpenableColumns;
 import android.view.View;
 import android.widget.*;
 
@@ -12,198 +15,172 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
-import java.io.File;
-import java.io.FileOutputStream;
+import java.io.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class ExtractActivity extends AppCompatActivity {
 
-    // ===== URI =====
     private Uri carrierUri;
-
-    // ===== Bitmap =====
     private Bitmap carrierBitmap;
 
-    // ===== UI =====
     private ImageView carrierPreview;
-    private ImageView backButton;
     private TextView tvCarrierInfo;
     private EditText etPassword;
     private ProgressBar progressBar;
     private Button btnExtract;
-    private Button pickCarrierBtn;
 
-    // ===== Executor =====
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
-
-    // ===== Picker =====
-    private ActivityResultLauncher<Intent> externalPicker;
+    private ActivityResultLauncher<Intent> picker;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_extract);
 
-        bindViews();
-        setupPickers();
-        setupListeners();
-    }
+        bind();
+        setupPicker();
 
-    // ================= BIND VIEWS =================
-    private void bindViews() {
-
-        carrierPreview = findViewById(R.id.carrierPreview);
-        backButton = findViewById(R.id.backButton);
-        tvCarrierInfo = findViewById(R.id.tvCarrierInfo);
-
-        etPassword = findViewById(R.id.etPassword);
-
-        progressBar = findViewById(R.id.progressBar);
-        btnExtract = findViewById(R.id.btnExtract);
-        pickCarrierBtn = findViewById(R.id.pickCarrierBtn);
-    }
-
-    // ================= LISTENERS =================
-    private void setupListeners() {
-
-        pickCarrierBtn.setOnClickListener(v -> showPickerDialog());
+        findViewById(R.id.pickCarrierBtn)
+                .setOnClickListener(v -> pick());
 
         btnExtract.setOnClickListener(v -> extract());
 
-        if (backButton != null)
-            backButton.setOnClickListener(v -> onBackPressed());
+        findViewById(R.id.backButton).setOnClickListener(v -> finish());
     }
 
-    // ================= PICKERS =================
-    private void setupPickers() {
+    // ================= UI =================
 
-        externalPicker =
-                registerForActivityResult(
-                        new ActivityResultContracts.StartActivityForResult(),
-                        result -> {
-
-                            if (result.getResultCode() == RESULT_OK &&
-                                    result.getData() != null) {
-
-                                carrierUri = result.getData().getData();
-
-                                executor.submit(this::loadCarrier);
-                            }
-                        });
+    private void bind() {
+        carrierPreview = findViewById(R.id.carrierPreview);
+        tvCarrierInfo = findViewById(R.id.tvCarrierInfo);
+        etPassword = findViewById(R.id.etPassword);
+        progressBar = findViewById(R.id.progressBar);
+        btnExtract = findViewById(R.id.btnExtract);
     }
 
-    // ================= PICKER DIALOG =================
-    private void showPickerDialog() {
+    // ================= PICKER =================
 
-        String[] options = {"App Files", "Other Apps / Gallery"};
-
-        new AlertDialog.Builder(this)
-                .setTitle("Select Stego Image")
-                .setItems(options, (dialog, which) -> {
-
-                    if (which == 0) {
-
-                        pickInternalFile(Utils.DIR_EMBEDDED, file -> {
-
-                            carrierUri = Uri.fromFile(file);
-
-                            executor.submit(this::loadCarrier);
-                        });
-
-                    } else {
-
-                        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-                        i.addCategory(Intent.CATEGORY_OPENABLE);
-                        i.setType("image/*");
-                        i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-
-                        externalPicker.launch(i);
+    private void setupPicker() {
+        picker = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                r -> {
+                    if (r.getResultCode() == RESULT_OK && r.getData() != null) {
+                        carrierUri = r.getData().getData();
+                        executor.execute(this::loadImage);
                     }
-
-                })
-                .show();
+                });
     }
 
-    // ================= INTERNAL FILE PICKER =================
-    private void pickInternalFile(String subFolder, InternalFileCallback callback) {
+    private void pick() {
+        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        i.addCategory(Intent.CATEGORY_OPENABLE);
+        i.setType("image/*");
+        i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        picker.launch(i);
+    }
 
+    // ================= IMAGE LOAD =================
+
+    private void loadImage() {
         try {
+            String name = getName(carrierUri).toLowerCase();
 
-            File dir = Utils.getBaseDir(this, Utils.DIR_EMBEDDED);
+            if (name.endsWith(".jpg") || name.endsWith(".jpeg")) {
+                carrierBitmap = sanitize(JPGtoPNG.convert(this, carrierUri));
+            } else {
+                BitmapFactory.Options opts = new BitmapFactory.Options();
+                opts.inPreferredConfig = Bitmap.Config.ARGB_8888;
 
-            File[] files = dir.listFiles(f ->
-                    f.isFile() &&
-                            (f.getName().endsWith(".png") ||
-                                    f.getName().endsWith(".jpg")));
-
-            if (files == null || files.length == 0) {
-
-                toast("No internal files found");
-                return;
-            }
-
-            String[] names = new String[files.length];
-
-            for (int i = 0; i < files.length; i++)
-                names[i] = files[i].getName();
-
-            new AlertDialog.Builder(this)
-                    .setTitle("Select File")
-                    .setItems(names, (dialog, which) ->
-                            callback.onFileSelected(files[which]))
-                    .show();
-
-        } catch (Exception e) {
-
-            toast("Error accessing internal files");
-        }
-    }
-
-    private interface InternalFileCallback {
-        void onFileSelected(File file);
-    }
-
-    // ================= LOAD IMAGE =================
-    private void loadCarrier() {
-
-        try {
-
-            if (carrierUri == null) {
-                toast("Invalid image");
-                return;
-            }
-
-            carrierBitmap = JPGtoPNG.convert(this, carrierUri);
-
-            if (carrierBitmap == null) {
-                toast("Unsupported image");
-                return;
+                try (InputStream in = getContentResolver().openInputStream(carrierUri)) {
+                    carrierBitmap = sanitize(BitmapFactory.decodeStream(in, null, opts));
+                }
             }
 
             runOnUiThread(() -> {
-
                 carrierPreview.setImageBitmap(carrierBitmap);
-
                 tvCarrierInfo.setText(
-                        "Resolution: "
-                                + carrierBitmap.getWidth()
-                                + " x "
-                                + carrierBitmap.getHeight()
+                        "Resolution: " +
+                                carrierBitmap.getWidth() + " x " +
+                                carrierBitmap.getHeight()
                 );
             });
 
         } catch (Exception e) {
-
-            toast("Image load error");
+            e.printStackTrace();
+            toast("Failed to load image");
         }
     }
 
-    // ================= EXTRACTION =================
+    // ================= SANITIZE =================
+
+    private Bitmap sanitize(Bitmap input) {
+        if (input == null) throw new RuntimeException("Bitmap null");
+
+        if (input.getConfig() != Bitmap.Config.ARGB_8888) {
+            input = input.copy(Bitmap.Config.ARGB_8888, true);
+        }
+
+        if (!input.isMutable()) {
+            input = input.copy(Bitmap.Config.ARGB_8888, true);
+        }
+
+        return input;
+    }
+
+    // ================= SAFE EXTRACT =================
+
+    private static class ExtractResult {
+        boolean success;
+        String error;
+        StegEngineCore.ExtractedData data;
+    }
+
+    private ExtractResult safeExtract(Bitmap bmp, String password) {
+
+        ExtractResult r = new ExtractResult();
+
+        try {
+            StegEngineCore.ExtractedData data =
+                    StegEngineCore.extract(bmp, password);
+
+            if (data == null || data.data == null || data.data.length == 0) {
+                r.error = "Not a Stegora image";
+                return r;
+            }
+
+            r.success = true;
+            r.data = data;
+            return r;
+
+        } catch (Exception e) {
+
+            String msg = e.getMessage() == null ? "" : e.getMessage().toLowerCase();
+
+            if (msg.contains("password") || msg.contains("decrypt")) {
+                r.error = "Wrong password";
+            } else if (msg.contains("header") || msg.contains("magic")) {
+                r.error = "Not a Stegora image";
+            } else if (msg.contains("integrity") || msg.contains("corrupt")) {
+                r.error = "Wrong password";
+            } else {
+                r.error = "Not a Stegora image";
+            }
+
+            return r;
+        }
+    }
+
+    private boolean isPasswordMissing(String password, String error) {
+        return (password == null || password.isEmpty())
+                && error.equals("Wrong password");
+    }
+
+    // ================= EXTRACT =================
+
     private void extract() {
 
         if (carrierBitmap == null) {
-
             toast("Select stego image first");
             return;
         }
@@ -211,50 +188,72 @@ public class ExtractActivity extends AppCompatActivity {
         progressBar.setVisibility(View.VISIBLE);
         btnExtract.setEnabled(false);
 
-        executor.submit(() -> {
+        executor.execute(() -> {
 
             try {
 
-                StegEngineCore.ExtractedData payload =
-                        StegEngineCore.extract(
-                                carrierBitmap,
-                                etPassword.getText().toString()
-                        );
+                Bitmap bmp = sanitize(carrierBitmap);
+                String password = etPassword.getText().toString();
+
+                ExtractResult result = safeExtract(bmp, password);
+
+                if (!result.success) {
+
+                    String error = result.error;
+
+                    if (isPasswordMissing(password, error)) {
+                        error = "This image is password protected";
+                    }
+
+                    String finalError = error;
+
+                    runOnUiThread(() -> toast(finalError));
+                    return;
+                }
 
                 File outFile = Utils.getTimestampedFile(
                         this,
-                        payload.filename,
+                        result.data.filename,
                         Utils.DIR_EXTRACTED
                 );
 
                 try (FileOutputStream out = new FileOutputStream(outFile)) {
-
-                    out.write(payload.data);
+                    out.write(result.data.data);
                 }
 
                 runOnUiThread(() ->
-                        toast("Extracted and saved to Files"));
+                        toast("Extracted successfully"));
 
             } catch (Exception e) {
 
+                e.printStackTrace();
+
                 runOnUiThread(() ->
-                        toast(e.getMessage()));
+                        toast("Not a Stegora image"));
+
             } finally {
 
                 runOnUiThread(() -> {
-
                     progressBar.setVisibility(View.GONE);
                     btnExtract.setEnabled(true);
-
                 });
             }
-
         });
     }
 
     // ================= HELPERS =================
-    private void toast(String s) {
 
+    private String getName(Uri uri) {
+        try (Cursor c = getContentResolver().query(uri, null, null, null, null)) {
+            if (c != null && c.moveToFirst()) {
+                int i = c.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+                if (i >= 0) return c.getString(i);
+            }
+        } catch (Exception ignored) {}
+        return "file";
+    }
+
+    private void toast(String s) {
         runOnUiThread(() ->
                 Toast.makeText(this, s, Toast.LENGTH_SHORT).show());
     }

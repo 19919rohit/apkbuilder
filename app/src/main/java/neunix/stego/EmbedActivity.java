@@ -26,8 +26,7 @@ import java.util.concurrent.Executors;
 
 public class EmbedActivity extends AppCompatActivity {
 
-    private Uri carrierUri;
-    private Uri payloadUri;
+    private Uri carrierUri, payloadUri;
     private Bitmap carrierBitmap;
 
     private ImageView carrierPreview;
@@ -41,10 +40,10 @@ public class EmbedActivity extends AppCompatActivity {
     private Spinner spinnerExpansionMode;
 
     private final Map<Integer, Bitmap> expansionCache = new HashMap<>();
-    private final ExecutorService executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+    private final ExecutorService executor =
+            Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 
-    private ActivityResultLauncher<Intent> carrierPicker;
-    private ActivityResultLauncher<Intent> payloadPicker;
+    private ActivityResultLauncher<Intent> carrierPicker, payloadPicker;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -58,10 +57,10 @@ public class EmbedActivity extends AppCompatActivity {
         setupValidation();
 
         btnEmbed.setOnClickListener(v -> embed());
-
-        ImageView backButton = findViewById(R.id.backButton);
-        backButton.setOnClickListener(v -> finish());
+        findViewById(R.id.backButton).setOnClickListener(v -> finish());
     }
+
+    // ================= UI SETUP =================
 
     private void bindViews() {
         carrierPreview = findViewById(R.id.carrierPreview);
@@ -76,11 +75,11 @@ public class EmbedActivity extends AppCompatActivity {
         layoutText = findViewById(R.id.layoutText);
         spinnerExpansionMode = findViewById(R.id.spinnerExpand);
 
-        Button pickCarrierBtn = findViewById(R.id.pickCarrierBtn);
-        Button pickPayloadBtn = findViewById(R.id.pickPayloadBtn);
+        findViewById(R.id.pickCarrierBtn)
+                .setOnClickListener(v -> pick(carrierPicker, "image/*"));
 
-        pickCarrierBtn.setOnClickListener(v -> pick(carrierPicker, "image/*"));
-        pickPayloadBtn.setOnClickListener(v -> pick(payloadPicker, "*/*"));
+        findViewById(R.id.pickPayloadBtn)
+                .setOnClickListener(v -> pick(payloadPicker, "*/*"));
     }
 
     private void setupDropdown() {
@@ -92,54 +91,54 @@ public class EmbedActivity extends AppCompatActivity {
         adapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
         spinnerExpansionMode.setAdapter(adapter);
 
-        spinnerExpansionMode.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            public void onItemSelected(AdapterView<?> parent, View view, int pos, long id) {
-                refreshCapacity();
-            }
-            public void onNothingSelected(AdapterView<?> parent) {}
-        });
+        spinnerExpansionMode.setOnItemSelectedListener(
+                new AdapterView.OnItemSelectedListener() {
+                    public void onItemSelected(AdapterView<?> p, View v, int pos, long id) {
+                        refreshCapacity();
+                    }
+                    public void onNothingSelected(AdapterView<?> p) {}
+                });
     }
 
     private void setupPayloadSwitch() {
         radioPayloadType.setOnCheckedChangeListener((g, id) -> {
-            if (id == R.id.radioText) {
-                layoutText.setVisibility(View.VISIBLE);
-                layoutFile.setVisibility(View.GONE);
+            boolean isText = id == R.id.radioText;
+
+            layoutText.setVisibility(isText ? View.VISIBLE : View.GONE);
+            layoutFile.setVisibility(isText ? View.GONE : View.VISIBLE);
+
+            if (isText) {
                 payloadUri = null;
                 tvFilePayloadInfo.setText("No file selected");
-            } else {
-                layoutText.setVisibility(View.GONE);
-                layoutFile.setVisibility(View.VISIBLE);
             }
+
             refreshCapacity();
             validateReady();
         });
     }
 
     private void setupPickers() {
-        carrierPicker =
-                registerForActivityResult(
-                        new ActivityResultContracts.StartActivityForResult(),
-                        r -> {
-                            if (r.getResultCode() == RESULT_OK && r.getData() != null) {
-                                carrierUri = r.getData().getData();
-                                expansionCache.clear();
-                                executor.execute(this::loadCarrier);
-                                validateReady();
-                            }
-                        });
+        carrierPicker = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                r -> {
+                    if (r.getResultCode() == RESULT_OK && r.getData() != null) {
+                        carrierUri = r.getData().getData();
+                        expansionCache.clear();
+                        executor.execute(this::loadCarrier);
+                        validateReady();
+                    }
+                });
 
-        payloadPicker =
-                registerForActivityResult(
-                        new ActivityResultContracts.StartActivityForResult(),
-                        r -> {
-                            if (r.getResultCode() == RESULT_OK && r.getData() != null) {
-                                payloadUri = r.getData().getData();
-                                tvFilePayloadInfo.setText(fileName(payloadUri));
-                                refreshCapacity();
-                                validateReady();
-                            }
-                        });
+        payloadPicker = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                r -> {
+                    if (r.getResultCode() == RESULT_OK && r.getData() != null) {
+                        payloadUri = r.getData().getData();
+                        tvFilePayloadInfo.setText(fileName(payloadUri));
+                        refreshCapacity();
+                        validateReady();
+                    }
+                });
     }
 
     private void setupValidation() {
@@ -166,70 +165,89 @@ public class EmbedActivity extends AppCompatActivity {
         btnEmbed.setAlpha(ready ? 1f : 0.5f);
     }
 
-    private void refreshCapacity() {
-        int mode = spinnerExpansionMode.getSelectedItemPosition();
-        updatePreviewAndCapacity(mode);
+    // ================= CORE FIXES =================
+
+    private Bitmap sanitize(Bitmap input) {
+        if (input == null) throw new RuntimeException("Bitmap null");
+
+        if (input.getConfig() != Bitmap.Config.ARGB_8888) {
+            input = input.copy(Bitmap.Config.ARGB_8888, true);
+        }
+
+        if (!input.isMutable()) {
+            input = input.copy(Bitmap.Config.ARGB_8888, true);
+        }
+
+        return input;
     }
 
-    private void updatePreviewAndCapacity(int modeIndex) {
+    private void refreshCapacity() {
         if (carrierBitmap == null) return;
+
+        int mode = spinnerExpansionMode.getSelectedItemPosition();
 
         executor.execute(() -> {
             Bitmap bmp;
+
             synchronized (expansionCache) {
-                bmp = expansionCache.get(modeIndex);
+                bmp = expansionCache.get(mode);
             }
+
             if (bmp == null) {
-                int factor = mapModeToFactor(modeIndex);
-                bmp = ContentAwareExpander.expand(carrierBitmap, factor);
+                int factor = mapModeToFactor(mode);
+
+                bmp = (factor == 0)
+                        ? carrierBitmap
+                        : ContentAwareExpander.expand(carrierBitmap, factor);
+
+                bmp = sanitize(bmp);
+
                 synchronized (expansionCache) {
-                    expansionCache.put(modeIndex, bmp);
+                    expansionCache.put(mode, bmp);
                 }
             }
 
-            String name = radioPayloadType.getCheckedRadioButtonId() == R.id.radioText
-                    ? "message.txt"
-                    : payloadUri == null ? "payload" : fileName(payloadUri);
-
             int max = StegEngineCore.getMaxPayloadSize(bmp);
+
             int current = radioPayloadType.getCheckedRadioButtonId() == R.id.radioText
                     ? etTextMessage.getText().toString().getBytes(StandardCharsets.UTF_8).length
                     : payloadUri == null ? 0 : getFileSize(payloadUri);
 
-            final int finalCurrent = current;
             final Bitmap finalBmp = bmp;
+            final int finalCurrent = current;
 
             runOnUiThread(() -> {
                 carrierPreview.setImageBitmap(finalBmp);
+
                 tvCarrierInfo.setText(
-                        "Payload size: " + Utils.formatSize(finalCurrent) +
-                                "\nAvailable capacity: " + Utils.formatSize(max)
+                        "Payload: " + Utils.formatSize(finalCurrent) +
+                                "\nCapacity: " + Utils.formatSize(max)
                 );
-                tvCarrierInfo.setTextColor(getColor(finalCurrent > max ? R.color.red : R.color.green));
+
+                tvCarrierInfo.setTextColor(
+                        getColor(finalCurrent > max ? R.color.red : R.color.green)
+                );
             });
         });
-    }
-
-    private int mapModeToFactor(int index) {
-        switch (index) {
-            case 1: return 1;
-            case 2: return 2;
-            case 3: return 4;
-            default: return 0;
-        }
     }
 
     private void loadCarrier() {
         try {
             String name = fileName(carrierUri).toLowerCase();
+
             if (name.endsWith(".jpg") || name.endsWith(".jpeg")) {
-                carrierBitmap = JPGtoPNG.convert(this, carrierUri);
+                carrierBitmap = sanitize(JPGtoPNG.convert(this, carrierUri));
             } else {
+                BitmapFactory.Options opts = new BitmapFactory.Options();
+                opts.inPreferredConfig = Bitmap.Config.ARGB_8888;
+
                 try (InputStream in = getContentResolver().openInputStream(carrierUri)) {
-                    carrierBitmap = BitmapFactory.decodeStream(in);
+                    carrierBitmap = sanitize(BitmapFactory.decodeStream(in, null, opts));
                 }
             }
+
             refreshCapacity();
+
         } catch (Exception e) {
             e.printStackTrace();
             toast("Carrier load failed");
@@ -237,63 +255,73 @@ public class EmbedActivity extends AppCompatActivity {
     }
 
     private void embed() {
-        if (carrierBitmap == null) {
-            toast("Select carrier first");
-            return;
-        }
-
         progress.setVisibility(View.VISIBLE);
         btnEmbed.setEnabled(false);
 
         executor.execute(() -> {
             try {
                 int mode = spinnerExpansionMode.getSelectedItemPosition();
+
                 Bitmap bmp = expansionCache.get(mode);
                 if (bmp == null) bmp = carrierBitmap;
 
+                bmp = sanitize(bmp);
+
                 byte[] payloadBytes;
-                String originalName;
+                String name;
 
                 if (radioPayloadType.getCheckedRadioButtonId() == R.id.radioText) {
-                    String text = etTextMessage.getText().toString();
-                    payloadBytes = text.getBytes(StandardCharsets.UTF_8);
-                    originalName = "message.txt";
+                    payloadBytes = etTextMessage.getText().toString()
+                            .getBytes(StandardCharsets.UTF_8);
+                    name = "message.txt";
                 } else {
-                    originalName = fileName(payloadUri);
+                    name = fileName(payloadUri);
+
                     try (InputStream in = getContentResolver().openInputStream(payloadUri);
                          ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+
                         byte[] buf = new byte[8192];
                         int n;
-                        while ((n = in.read(buf)) != -1) baos.write(buf, 0, n);
+                        while ((n = in.read(buf)) != -1) {
+                            baos.write(buf, 0, n);
+                        }
+
                         payloadBytes = baos.toByteArray();
                     }
                 }
 
-                final int finalPayloadSize = payloadBytes.length;
-                final int maxCapacity = StegEngineCore.getMaxPayloadSize(bmp);
+                int max = StegEngineCore.getMaxPayloadSize(bmp);
 
-                if (finalPayloadSize > maxCapacity) {
+                if (payloadBytes.length > max) {
+                    int finalMax = max;
                     runOnUiThread(() -> new AlertDialog.Builder(this)
-                            .setTitle("Payload Too Large")
+                            .setTitle("Too Large")
                             .setMessage(
-                                    "Payload: " + Utils.formatSize(finalPayloadSize) +
-                                            "\nCapacity: " + Utils.formatSize(maxCapacity)
+                                    "Payload: " + Utils.formatSize(payloadBytes.length) +
+                                            "\nCapacity: " + Utils.formatSize(finalMax)
                             )
                             .setPositiveButton("OK", null)
                             .show());
                     return;
                 }
 
-                File outFile = Utils.getTimestampedFile(this, "stego.png", Utils.DIR_EMBEDDED);
-                try (FileOutputStream out = new FileOutputStream(outFile)) {
-                    StegEngineCore.embed(bmp, payloadBytes, originalName, etPassword.getText().toString(), out);
+                File out = Utils.getTimestampedFile(this, "stego.png", Utils.DIR_EMBEDDED);
+
+                try (FileOutputStream fos = new FileOutputStream(out)) {
+                    StegEngineCore.embed(
+                            bmp,
+                            payloadBytes,
+                            name,
+                            etPassword.getText().toString(),
+                            fos
+                    );
                 }
 
                 runOnUiThread(() -> toast("Embedded successfully"));
 
             } catch (Exception e) {
                 e.printStackTrace();
-                runOnUiThread(() -> toast("Embed failed"));
+                runOnUiThread(() -> toast("Embed failed: " + e.getMessage()));
             } finally {
                 runOnUiThread(() -> {
                     progress.setVisibility(View.GONE);
@@ -301,6 +329,12 @@ public class EmbedActivity extends AppCompatActivity {
                 });
             }
         });
+    }
+
+    // ================= HELPERS =================
+
+    private int mapModeToFactor(int i) {
+        return i == 1 ? 1 : i == 2 ? 2 : i == 3 ? 4 : 0;
     }
 
     private int getFileSize(Uri uri) {
@@ -332,6 +366,7 @@ public class EmbedActivity extends AppCompatActivity {
     }
 
     private void toast(String s) {
-        runOnUiThread(() -> Toast.makeText(this, s, Toast.LENGTH_SHORT).show());
+        runOnUiThread(() ->
+                Toast.makeText(this, s, Toast.LENGTH_SHORT).show());
     }
 }
