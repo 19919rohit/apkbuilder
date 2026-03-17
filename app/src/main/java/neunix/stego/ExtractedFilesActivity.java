@@ -1,84 +1,51 @@
 package neunix.stego;
 
-import android.content.Context;
-import android.content.Intent;
-import android.net.Uri;
-import android.view.LayoutInflater;
-import android.view.View;
-import android.view.ViewGroup;
-import android.widget.ImageButton;
-import android.widget.ImageView;
+import android.os.Bundle;
 import android.widget.TextView;
+import android.widget.ImageView;
 
-import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
-public class ExtractedFilesAdapter extends RecyclerView.Adapter<ExtractedFilesAdapter.VH> {
+public class ExtractedFilesActivity extends AppCompatActivity {
 
-    private final List<File> files;
-    private final Context context;
-    private final Runnable onListEmpty;
+    private RecyclerView recyclerView;
+    private TextView emptyText;
 
-    public ExtractedFilesAdapter(Context ctx, List<File> list, Runnable onEmpty) {
-        this.context = ctx;
-        this.files = list;
-        this.onListEmpty = onEmpty;
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_extracted_files);
+
+        recyclerView = findViewById(R.id.recyclerExtractedFiles);
+        emptyText = findViewById(R.id.emptyText);
+        ImageView back = findViewById(R.id.backButton);
+        back.setOnClickListener(v -> finish());
+
+        recyclerView.setLayoutManager(new LinearLayoutManager(this));
+        loadFiles();
     }
 
-    static class VH extends RecyclerView.ViewHolder {
-        ImageView icon;
-        TextView name;
-        ImageButton share, delete;
+    private void loadFiles() {
+        File dir = new File(getExternalFilesDir(null), "Extracted");
+        if (!dir.exists()) dir.mkdirs();
 
-        VH(View v) {
-            super(v);
-            icon = v.findViewById(R.id.imagePreview);
-            name = v.findViewById(R.id.tvFileName);
-            share = v.findViewById(R.id.btnShare);
-            delete = v.findViewById(R.id.btnDelete);
+        File[] filesArr = dir.listFiles();
+        if (filesArr == null || filesArr.length == 0) {
+            emptyText.setVisibility(View.VISIBLE);
+            return;
         }
-    }
 
-    @NonNull
-    @Override
-    public VH onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        View v = LayoutInflater.from(parent.getContext())
-                .inflate(R.layout.item_file, parent, false);
-        return new VH(v);
-    }
+        List<File> fileList = new ArrayList<>(Arrays.asList(filesArr));
 
-    @Override
-    public void onBindViewHolder(@NonNull VH holder, int position) {
-        File file = files.get(position);
-
-        holder.name.setText(file.getName());
-        // Set generic document icon
-        holder.icon.setImageResource(R.drawable.ic_file_generic); // add a simple file icon in drawable
-
-        holder.share.setOnClickListener(v -> {
-            Uri uri = Uri.fromFile(file);
-            Intent intent = new Intent(Intent.ACTION_SEND);
-            intent.setType("*/*"); // always as document
-            intent.putExtra(Intent.EXTRA_STREAM, uri);
-            context.startActivity(Intent.createChooser(intent, "Share"));
-        });
-
-        holder.delete.setOnClickListener(v -> {
-            if (file.delete()) {
-                int pos = holder.getAdapterPosition();
-                files.remove(pos);
-                notifyItemRemoved(pos);
-                notifyItemRangeChanged(pos, files.size());
-                if (files.isEmpty() && onListEmpty != null) onListEmpty.run();
-            }
-        });
-    }
-
-    @Override
-    public int getItemCount() {
-        return files.size();
+        ExtractedFilesAdapter adapter = new ExtractedFilesAdapter(this, fileList, () -> emptyText.setVisibility(View.VISIBLE));
+        recyclerView.setAdapter(adapter);
+        emptyText.setVisibility(View.GONE);
     }
 }

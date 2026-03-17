@@ -1,50 +1,39 @@
 <?xml version="1.0" encoding="utf-8"?>
-
-<LinearLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:background="@color/background"
-    android:padding="16dp">
+    android:padding="12dp"
+    android:background="@android:color/white">
 
+    <!-- Back Button -->
     <ImageView
         android:id="@+id/backButton"
         android:layout_width="40dp"
         android:layout_height="40dp"
-        android:padding="6dp"
-        android:background="?attr/selectableItemBackgroundBorderless"
         android:src="@drawable/ic_back"
-        android:tint="@color/text_primary"
-        android:contentDescription="Back"/>
+        android:contentDescription="Back"
+        android:padding="8dp"
+        android:layout_gravity="start"/>
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Extracted Files"
-        android:textSize="22sp"
-        android:textStyle="bold"
-        android:textColor="@color/text_primary"
-        android:layout_marginTop="8dp"
-        android:layout_marginBottom="12dp"/>
-
+    <!-- Empty Text -->
     <TextView
         android:id="@+id/emptyText"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="No extracted files found"
-        android:textSize="14sp"
-        android:textColor="@color/text_secondary"
+        android:text="No files found"
+        android:textSize="16sp"
         android:gravity="center"
         android:visibility="gone"
-        android:layout_marginBottom="10dp"/>
+        android:layout_marginTop="20dp"/>
 
-    <ListView
-        android:id="@+id/listExtractedFiles"
+    <!-- RecyclerView -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerExtractedFiles"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:divider="@color/input_border"
-        android:dividerHeight="8dp"
-        android:background="@color/surface"/>
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:paddingTop="8dp"
+        android:clipToPadding="false"/>
 
 </LinearLayout>
