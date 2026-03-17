@@ -5,14 +5,8 @@ import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
-import android.view.LayoutInflater;
-import android.view.View;
-import android.view.ViewGroup;
-import android.widget.ArrayAdapter;
-import android.widget.ImageButton;
-import android.widget.ImageView;
-import android.widget.TextView;
-import android.widget.Toast;
+import android.view.*;
+import android.widget.*;
 
 import androidx.core.content.FileProvider;
 
@@ -23,47 +17,73 @@ public class FileAdapter extends ArrayAdapter<File> {
 
     private final Context context;
     private final List<File> files;
+    private final Runnable onDeleteCallback;
 
-    public FileAdapter(Context context, List<File> files) {
+    public FileAdapter(Context context, List<File> files, Runnable onDeleteCallback) {
         super(context, 0, files);
         this.context = context;
         this.files = files;
+        this.onDeleteCallback = onDeleteCallback;
     }
 
     @Override
     public View getView(int position, View convertView, ViewGroup parent) {
 
+        ViewHolder holder;
+
         if (convertView == null) {
             convertView = LayoutInflater.from(context)
                     .inflate(R.layout.item_file, parent, false);
+
+            holder = new ViewHolder();
+            holder.fileName = convertView.findViewById(R.id.tvFileName);
+            holder.preview = convertView.findViewById(R.id.imagePreview);
+            holder.shareBtn = convertView.findViewById(R.id.btnShare);
+            holder.deleteBtn = convertView.findViewById(R.id.btnDelete);
+
+            convertView.setTag(holder);
+        } else {
+            holder = (ViewHolder) convertView.getTag();
         }
 
         File file = files.get(position);
 
-        TextView fileName = convertView.findViewById(R.id.tvFileName);
-        ImageView preview = convertView.findViewById(R.id.imagePreview);
-        ImageButton shareBtn = convertView.findViewById(R.id.btnShare);
-        ImageButton deleteBtn = convertView.findViewById(R.id.btnDelete);
+        holder.fileName.setText(file.getName());
 
-        fileName.setText(file.getName());
+        loadThumbnail(file, holder.preview);
 
-        loadPreview(file, preview);
-
-        shareBtn.setOnClickListener(v -> shareFile(file));
-
-        deleteBtn.setOnClickListener(v -> deleteFile(file));
+        holder.shareBtn.setOnClickListener(v -> shareFile(file));
+        holder.deleteBtn.setOnClickListener(v -> deleteFile(file));
 
         return convertView;
     }
 
-    // ================= IMAGE PREVIEW =================
-    private void loadPreview(File file, ImageView preview) {
-        String name = file.getName().toLowerCase();
+    // ================= VIEW HOLDER =================
+    static class ViewHolder {
+        TextView fileName;
+        ImageView preview;
+        ImageButton shareBtn;
+        ImageButton deleteBtn;
+    }
 
-        if (name.endsWith(".png") || name.endsWith(".jpg") || name.endsWith(".jpeg")) {
+    // ================= THUMBNAIL =================
+    private void loadThumbnail(File file, ImageView preview) {
 
+        try {
             BitmapFactory.Options opts = new BitmapFactory.Options();
-            opts.inSampleSize = 4; // Downscale for memory
+
+            // Step 1: get bounds
+            opts.inJustDecodeBounds = true;
+            BitmapFactory.decodeFile(file.getAbsolutePath(), opts);
+
+            int scale = 1;
+            while (opts.outWidth / scale > 200 || opts.outHeight / scale > 200) {
+                scale *= 2;
+            }
+
+            // Step 2: decode thumbnail
+            opts.inJustDecodeBounds = false;
+            opts.inSampleSize = scale;
 
             Bitmap bmp = BitmapFactory.decodeFile(file.getAbsolutePath(), opts);
 
@@ -74,22 +94,23 @@ public class FileAdapter extends ArrayAdapter<File> {
                 preview.setVisibility(View.GONE);
             }
 
-        } else {
+        } catch (Exception e) {
             preview.setVisibility(View.GONE);
         }
     }
 
-    // ================= SHARE FILE =================
+    // ================= SHARE =================
     private void shareFile(File file) {
+
         try {
             Uri uri = FileProvider.getUriForFile(
                     context,
-                    "neunix.stego.provider", // Must match your manifest & file_paths.xml
+                    "neunix.stego.provider",
                     file
             );
 
             Intent intent = new Intent(Intent.ACTION_SEND);
-            intent.setType("application/octet-stream"); // Always share as document
+            intent.setType("application/octet-stream");
             intent.putExtra(Intent.EXTRA_STREAM, uri);
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
 
@@ -97,18 +118,22 @@ public class FileAdapter extends ArrayAdapter<File> {
 
         } catch (Exception e) {
             Toast.makeText(context, "Share failed", Toast.LENGTH_SHORT).show();
-            e.printStackTrace();
         }
     }
 
-    // ================= DELETE FILE =================
+    // ================= DELETE =================
     private void deleteFile(File file) {
-        boolean deleted = file.delete();
 
-        if (deleted) {
+        if (file.delete()) {
             files.remove(file);
             notifyDataSetChanged();
-            Toast.makeText(context, "File deleted", Toast.LENGTH_SHORT).show();
+
+            if (onDeleteCallback != null) {
+                onDeleteCallback.run();
+            }
+
+            Toast.makeText(context, "Deleted", Toast.LENGTH_SHORT).show();
+
         } else {
             Toast.makeText(context, "Delete failed", Toast.LENGTH_SHORT).show();
         }

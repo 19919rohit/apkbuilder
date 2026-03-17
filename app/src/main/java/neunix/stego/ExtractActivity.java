@@ -7,7 +7,7 @@ import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.OpenableColumns;
-import android.view.View;
+import android.view.*;
 import android.widget.*;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -16,6 +16,7 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import java.io.*;
+import java.util.Arrays;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -41,11 +42,8 @@ public class ExtractActivity extends AppCompatActivity {
         bind();
         setupPicker();
 
-        findViewById(R.id.pickCarrierBtn)
-                .setOnClickListener(v -> pick());
-
+        findViewById(R.id.pickCarrierBtn).setOnClickListener(v -> pick());
         btnExtract.setOnClickListener(v -> extract());
-
         findViewById(R.id.backButton).setOnClickListener(v -> finish());
     }
 
@@ -57,6 +55,134 @@ public class ExtractActivity extends AppCompatActivity {
         etPassword = findViewById(R.id.etPassword);
         progressBar = findViewById(R.id.progressBar);
         btnExtract = findViewById(R.id.btnExtract);
+    }
+
+    // ================= PICK =================
+
+    private void pick() {
+
+        String[] options = {
+                "Stegora Images",
+                "Gallery / Other Apps"
+        };
+
+        new AlertDialog.Builder(this)
+                .setTitle("Select Image Source")
+                .setItems(options, (d, which) -> {
+                    if (which == 0) pickInternal();
+                    else pickExternal();
+                })
+                .show();
+    }
+
+    private void pickExternal() {
+        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        i.addCategory(Intent.CATEGORY_OPENABLE);
+        i.setType("image/*");
+        i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        picker.launch(i);
+    }
+
+    // ================= INTERNAL PICK =================
+
+    private void pickInternal() {
+
+        try {
+
+            File dir = Utils.getBaseDir(this, Utils.DIR_EMBEDDED);
+
+            File[] files = dir.listFiles(f ->
+                    f.isFile() &&
+                            (f.getName().endsWith(".png") ||
+                             f.getName().endsWith(".jpg"))
+            );
+
+            if (files == null || files.length == 0) {
+                toast("No Stegora images found");
+                return;
+            }
+
+            // ✅ SORT latest → oldest
+            Arrays.sort(files, (f1, f2) ->
+                    Long.compare(f2.lastModified(), f1.lastModified()));
+
+            ListView listView = new ListView(this);
+            FileAdapter adapter = new FileAdapter(files);
+            listView.setAdapter(adapter);
+
+            AlertDialog dialog = new AlertDialog.Builder(this)
+                    .setTitle("Stegora Images")
+                    .setView(listView)
+                    .create();
+
+            listView.setOnItemClickListener((p, v, pos, id) -> {
+                carrierUri = Uri.fromFile(files[pos]);
+                executor.execute(this::loadImage);
+                dialog.dismiss();
+            });
+
+            dialog.show();
+
+        } catch (Exception e) {
+            toast("Failed to load files");
+        }
+    }
+
+    // ================= ADAPTER =================
+
+    private class FileAdapter extends ArrayAdapter<File> {
+
+        public FileAdapter(File[] files) {
+            super(ExtractActivity.this, 0, files);
+        }
+
+        @Override
+        public View getView(int pos, View convertView, ViewGroup parent) {
+
+            if (convertView == null) {
+                convertView = LayoutInflater.from(getContext())
+                        .inflate(R.layout.item_file, parent, false);
+            }
+
+            File file = getItem(pos);
+
+            ImageView preview = convertView.findViewById(R.id.imagePreview);
+            TextView name = convertView.findViewById(R.id.tvFileName);
+            ImageButton share = convertView.findViewById(R.id.btnShare);
+            ImageButton delete = convertView.findViewById(R.id.btnDelete);
+
+            name.setText(file.getName());
+
+            // ✅ MEMORY SAFE THUMBNAIL
+            BitmapFactory.Options opts = new BitmapFactory.Options();
+            opts.inSampleSize = 8;
+
+            Bitmap bmp = BitmapFactory.decodeFile(file.getAbsolutePath(), opts);
+            preview.setImageBitmap(bmp);
+            preview.setVisibility(View.VISIBLE);
+
+            // 🔗 SHARE
+            share.setOnClickListener(v -> {
+                Uri uri = Uri.fromFile(file);
+
+                Intent intent = new Intent(Intent.ACTION_SEND);
+                intent.setType("image/png");
+                intent.putExtra(Intent.EXTRA_STREAM, uri);
+
+                startActivity(Intent.createChooser(intent, "Share"));
+            });
+
+            // 🗑 DELETE
+            delete.setOnClickListener(v -> {
+                if (file.delete()) {
+                    remove(file);
+                    notifyDataSetChanged();
+                    toast("Deleted");
+                }
+            });
+
+            return convertView;
+        }
     }
 
     // ================= PICKER =================
@@ -72,18 +198,11 @@ public class ExtractActivity extends AppCompatActivity {
                 });
     }
 
-    private void pick() {
-        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-        i.addCategory(Intent.CATEGORY_OPENABLE);
-        i.setType("image/*");
-        i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        picker.launch(i);
-    }
-
-    // ================= IMAGE LOAD =================
+    // ================= LOAD =================
 
     private void loadImage() {
         try {
+
             String name = getName(carrierUri).toLowerCase();
 
             if (name.endsWith(".jpg") || name.endsWith(".jpeg")) {
@@ -107,7 +226,6 @@ public class ExtractActivity extends AppCompatActivity {
             });
 
         } catch (Exception e) {
-            e.printStackTrace();
             toast("Failed to load image");
         }
     }
@@ -117,63 +235,13 @@ public class ExtractActivity extends AppCompatActivity {
     private Bitmap sanitize(Bitmap input) {
         if (input == null) throw new RuntimeException("Bitmap null");
 
-        if (input.getConfig() != Bitmap.Config.ARGB_8888) {
+        if (input.getConfig() != Bitmap.Config.ARGB_8888)
             input = input.copy(Bitmap.Config.ARGB_8888, true);
-        }
 
-        if (!input.isMutable()) {
+        if (!input.isMutable())
             input = input.copy(Bitmap.Config.ARGB_8888, true);
-        }
 
         return input;
-    }
-
-    // ================= SAFE EXTRACT =================
-
-    private static class ExtractResult {
-        boolean success;
-        String error;
-        StegEngineCore.ExtractedData data;
-    }
-
-    private ExtractResult safeExtract(Bitmap bmp, String password) {
-
-        ExtractResult r = new ExtractResult();
-
-        try {
-            StegEngineCore.ExtractedData data =
-                    StegEngineCore.extract(bmp, password);
-
-            if (data == null || data.data == null || data.data.length == 0) {
-                r.error = "Not a Stegora image";
-                return r;
-            }
-
-            r.success = true;
-            r.data = data;
-            return r;
-
-        } catch (Exception e) {
-
-            String msg = e.getMessage() == null ? "" : e.getMessage().toLowerCase();
-
-            if (msg.contains("password") || msg.contains("decrypt")) {
-                r.error = "Wrong password";
-            } else if (msg.contains("header") || msg.contains("magic")) {
-                r.error = "Not a Stegora image";
-            } else if (msg.contains("integrity") || msg.contains("corrupt")) {
-                r.error = "Wrong password";
-            } else {
-                r.error = "Not a Stegora image";
-            }
-
-            return r;
-        }
-    }
-
-    private boolean isPasswordMissing(String password, String error) {
-        return (password == null || password.isEmpty())
-                && error.equals("Wrong password");
     }
 
     // ================= EXTRACT =================
@@ -192,53 +260,55 @@ public class ExtractActivity extends AppCompatActivity {
 
             try {
 
-                Bitmap bmp = sanitize(carrierBitmap);
                 String password = etPassword.getText().toString();
 
-                ExtractResult result = safeExtract(bmp, password);
+                StegEngineCore.ExtractedData data =
+                        StegEngineCore.extract(carrierBitmap, password);
 
-                if (!result.success) {
-
-                    String error = result.error;
-
-                    if (isPasswordMissing(password, error)) {
-                        error = "This image is password protected";
-                    }
-
-                    String finalError = error;
-
-                    runOnUiThread(() -> toast(finalError));
+                if (data == null || data.data == null) {
+                    showError(password, "Not a Stegora image");
                     return;
                 }
 
                 File outFile = Utils.getTimestampedFile(
                         this,
-                        result.data.filename,
+                        data.filename,
                         Utils.DIR_EXTRACTED
                 );
 
                 try (FileOutputStream out = new FileOutputStream(outFile)) {
-                    out.write(result.data.data);
+                    out.write(data.data);
                 }
 
                 runOnUiThread(() ->
-                        toast("Extracted successfully"));
+                        toast("Saved to Stegora/Extracted"));
 
             } catch (Exception e) {
 
-                e.printStackTrace();
+                String msg = e.getMessage() == null ? "" : e.getMessage().toLowerCase();
 
-                runOnUiThread(() ->
-                        toast("Not a Stegora image"));
+                if (msg.contains("password") || msg.contains("decrypt") || msg.contains("integrity")) {
+                    showError(etPassword.getText().toString(), "Wrong password");
+                } else {
+                    showError("", "Not a Stegora made image");
+                }
 
             } finally {
-
                 runOnUiThread(() -> {
                     progressBar.setVisibility(View.GONE);
                     btnExtract.setEnabled(true);
                 });
             }
         });
+    }
+
+    private void showError(String password, String error) {
+        if ((password == null || password.isEmpty()) && error.equals("Wrong password")) {
+            error = "This image is password protected";
+        }
+
+        String finalError = error;
+        runOnUiThread(() -> toast(finalError));
     }
 
     // ================= HELPERS =================
