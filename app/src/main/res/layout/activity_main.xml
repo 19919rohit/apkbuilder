@@ -61,13 +61,20 @@
 
         <!-- Embed -->
         <Button
-            android:id="@+id/btnGoEmbed"
+          android:id="@+id/btnGoEmbed"
             android:layout_width="match_parent"
             android:layout_height="60dp"
             android:text="Embed Secret"
             android:textSize="18sp"
+            android:textColor="@android:color/white"
             android:layout_marginBottom="16dp"
-            android:backgroundTint="@color/green"/>
+            android:backgroundTint="@color/green"
+            android:drawableStart="@drawable/ic_embed"
+            android:drawableTint="@android:color/white"
+            android:drawablePadding="12dp"
+            android:gravity="center"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"/>
 
         <!-- Extract -->
         <Button
@@ -76,8 +83,16 @@
             android:layout_height="60dp"
             android:text="Extract Secret"
             android:textSize="18sp"
+            android:textColor="@android:color/white"
             android:layout_marginBottom="16dp"
-            android:backgroundTint="@color/red"/>
+            android:backgroundTint="@color/red"
+
+            android:drawableStart="@drawable/ic_extract"
+            android:drawablePadding="12dp"
+            android:gravity="center"
+            android:paddingStart="16dp"
+            android:drawableTint="@android:color/white"
+            android:paddingEnd="16dp"/>
 
         <!-- Files -->
         <Button
@@ -86,6 +101,8 @@
             android:layout_height="60dp"
             android:text="Files"
             android:textSize="18sp"
+            android:drawableTint="@android:color/white"
+            android:drawableStart="@drawable/ic_file"
             android:backgroundTint="#0000FF"/>
 
     </LinearLayout>
