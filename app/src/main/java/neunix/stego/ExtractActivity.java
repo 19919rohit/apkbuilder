@@ -14,9 +14,11 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import java.io.*;
-import java.util.Arrays;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -47,8 +49,6 @@ public class ExtractActivity extends AppCompatActivity {
         findViewById(R.id.backButton).setOnClickListener(v -> finish());
     }
 
-    // ================= UI =================
-
     private void bind() {
         carrierPreview = findViewById(R.id.carrierPreview);
         tvCarrierInfo = findViewById(R.id.tvCarrierInfo);
@@ -60,11 +60,7 @@ public class ExtractActivity extends AppCompatActivity {
     // ================= PICK =================
 
     private void pick() {
-
-        String[] options = {
-                "Stegora Images",
-                "Gallery / Other Apps"
-        };
+        String[] options = {"Stegora Images", "Gallery / Other Apps"};
 
         new AlertDialog.Builder(this)
                 .setTitle("Select Image Source")
@@ -83,18 +79,16 @@ public class ExtractActivity extends AppCompatActivity {
         picker.launch(i);
     }
 
-    // ================= INTERNAL PICK =================
+    // ================= INTERNAL PICK (RecyclerView) =================
 
     private void pickInternal() {
 
         try {
-
             File dir = Utils.getBaseDir(this, Utils.DIR_EMBEDDED);
 
             File[] files = dir.listFiles(f ->
                     f.isFile() &&
-                            (f.getName().endsWith(".png") ||
-                             f.getName().endsWith(".jpg"))
+                    (f.getName().endsWith(".png") || f.getName().endsWith(".jpg"))
             );
 
             if (files == null || files.length == 0) {
@@ -102,25 +96,23 @@ public class ExtractActivity extends AppCompatActivity {
                 return;
             }
 
-            // ✅ SORT latest → oldest
-            Arrays.sort(files, (f1, f2) ->
-                    Long.compare(f2.lastModified(), f1.lastModified()));
+            Arrays.sort(files, (a, b) -> Long.compare(b.lastModified(), a.lastModified()));
 
-            ListView listView = new ListView(this);
-            FileAdapter adapter = new FileAdapter(files);
-            listView.setAdapter(adapter);
+            RecyclerView rv = new RecyclerView(this);
+            rv.setLayoutManager(new LinearLayoutManager(this));
 
             AlertDialog dialog = new AlertDialog.Builder(this)
                     .setTitle("Stegora Images")
-                    .setView(listView)
+                    .setView(rv)
                     .create();
 
-            listView.setOnItemClickListener((p, v, pos, id) -> {
-                carrierUri = Uri.fromFile(files[pos]);
+            InternalAdapter adapter = new InternalAdapter(files, file -> {
+                carrierUri = Uri.fromFile(file);
                 executor.execute(this::loadImage);
                 dialog.dismiss();
             });
 
+            rv.setAdapter(adapter);
             dialog.show();
 
         } catch (Exception e) {
@@ -130,58 +122,54 @@ public class ExtractActivity extends AppCompatActivity {
 
     // ================= ADAPTER =================
 
-    private class FileAdapter extends ArrayAdapter<File> {
+    private static class InternalAdapter extends RecyclerView.Adapter<InternalAdapter.VH> {
 
-        public FileAdapter(File[] files) {
-            super(ExtractActivity.this, 0, files);
+        interface ClickListener { void onClick(File file); }
+
+        private final File[] files;
+        private final ClickListener listener;
+
+        InternalAdapter(File[] files, ClickListener l) {
+            this.files = files;
+            this.listener = l;
         }
 
         @Override
-        public View getView(int pos, View convertView, ViewGroup parent) {
+        public VH onCreateViewHolder(ViewGroup parent, int viewType) {
+            View v = LayoutInflater.from(parent.getContext())
+                    .inflate(R.layout.item_extracted_img_file, parent, false);
+            return new VH(v);
+        }
 
-            if (convertView == null) {
-                convertView = LayoutInflater.from(getContext())
-                        .inflate(R.layout.item_file, parent, false);
-            }
+        @Override
+        public void onBindViewHolder(VH h, int pos) {
 
-            File file = getItem(pos);
+            File file = files[pos];
+            h.name.setText(file.getName());
 
-            ImageView preview = convertView.findViewById(R.id.imagePreview);
-            TextView name = convertView.findViewById(R.id.tvFileName);
-            ImageButton share = convertView.findViewById(R.id.btnShare);
-            ImageButton delete = convertView.findViewById(R.id.btnDelete);
-
-            name.setText(file.getName());
-
-            // ✅ MEMORY SAFE THUMBNAIL
             BitmapFactory.Options opts = new BitmapFactory.Options();
             opts.inSampleSize = 8;
 
             Bitmap bmp = BitmapFactory.decodeFile(file.getAbsolutePath(), opts);
-            preview.setImageBitmap(bmp);
-            preview.setVisibility(View.VISIBLE);
+            h.preview.setImageBitmap(bmp);
 
-            // 🔗 SHARE
-            share.setOnClickListener(v -> {
-                Uri uri = Uri.fromFile(file);
+            h.itemView.setOnClickListener(v -> listener.onClick(file));
+        }
 
-                Intent intent = new Intent(Intent.ACTION_SEND);
-                intent.setType("image/png");
-                intent.putExtra(Intent.EXTRA_STREAM, uri);
+        @Override
+        public int getItemCount() {
+            return files.length;
+        }
 
-                startActivity(Intent.createChooser(intent, "Share"));
-            });
+        static class VH extends RecyclerView.ViewHolder {
+            ImageView preview;
+            TextView name;
 
-            // 🗑 DELETE
-            delete.setOnClickListener(v -> {
-                if (file.delete()) {
-                    remove(file);
-                    notifyDataSetChanged();
-                    toast("Deleted");
-                }
-            });
-
-            return convertView;
+            VH(View v) {
+                super(v);
+                preview = v.findViewById(R.id.imagePreview);
+                name = v.findViewById(R.id.tvFileName);
+            }
         }
     }
 
@@ -208,11 +196,8 @@ public class ExtractActivity extends AppCompatActivity {
             if (name.endsWith(".jpg") || name.endsWith(".jpeg")) {
                 carrierBitmap = sanitize(JPGtoPNG.convert(this, carrierUri));
             } else {
-                BitmapFactory.Options opts = new BitmapFactory.Options();
-                opts.inPreferredConfig = Bitmap.Config.ARGB_8888;
-
                 try (InputStream in = getContentResolver().openInputStream(carrierUri)) {
-                    carrierBitmap = sanitize(BitmapFactory.decodeStream(in, null, opts));
+                    carrierBitmap = sanitize(BitmapFactory.decodeStream(in));
                 }
             }
 
@@ -229,8 +214,6 @@ public class ExtractActivity extends AppCompatActivity {
             toast("Failed to load image");
         }
     }
-
-    // ================= SANITIZE =================
 
     private Bitmap sanitize(Bitmap input) {
         if (input == null) throw new RuntimeException("Bitmap null");
@@ -257,7 +240,6 @@ public class ExtractActivity extends AppCompatActivity {
         btnExtract.setEnabled(false);
 
         executor.execute(() -> {
-
             try {
 
                 String password = etPassword.getText().toString();
@@ -287,10 +269,10 @@ public class ExtractActivity extends AppCompatActivity {
 
                 String msg = e.getMessage() == null ? "" : e.getMessage().toLowerCase();
 
-                if (msg.contains("password") || msg.contains("decrypt") || msg.contains("integrity")) {
+                if (msg.contains("password")) {
                     showError(etPassword.getText().toString(), "Wrong password");
                 } else {
-                    showError("", "Not a Stegora made image");
+                    showError("", "Not a Stegora image");
                 }
 
             } finally {
@@ -310,8 +292,6 @@ public class ExtractActivity extends AppCompatActivity {
         String finalError = error;
         runOnUiThread(() -> toast(finalError));
     }
-
-    // ================= HELPERS =================
 
     private String getName(Uri uri) {
         try (Cursor c = getContentResolver().query(uri, null, null, null, null)) {

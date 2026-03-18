@@ -4,7 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:padding="12dp"
-    android:background="@android:color/white">
+    android:background="@color/background">
 
     <!-- Back Button -->
     <ImageView
@@ -14,7 +14,9 @@
         android:src="@drawable/ic_back"
         android:contentDescription="Back"
         android:padding="8dp"
-        android:layout_gravity="start"/>
+        android:layout_gravity="start"
+        android:tint="@color/text_primary"
+        android:background="?attr/selectableItemBackgroundBorderless" />
 
     <!-- Empty Text -->
     <TextView
@@ -23,6 +25,7 @@
         android:layout_height="wrap_content"
         android:text="No files found"
         android:textSize="16sp"
+        android:textColor="@color/text_secondary"
         android:gravity="center"
         android:visibility="gone"
         android:layout_marginTop="20dp"/>
@@ -35,5 +38,4 @@
         android:layout_weight="1"
         android:paddingTop="8dp"
         android:clipToPadding="false"/>
-
 </LinearLayout>

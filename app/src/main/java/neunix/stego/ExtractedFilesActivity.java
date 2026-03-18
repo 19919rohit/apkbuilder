@@ -4,15 +4,14 @@ import android.os.Bundle;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
 public class ExtractedFilesActivity extends AppCompatActivity {
 
@@ -24,7 +23,6 @@ public class ExtractedFilesActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_extracted_files);
 
-        // Bind views
         recyclerView = findViewById(R.id.recyclerExtractedFiles);
         emptyText = findViewById(R.id.emptyText);
         ImageView back = findViewById(R.id.backButton);
@@ -32,25 +30,66 @@ public class ExtractedFilesActivity extends AppCompatActivity {
         back.setOnClickListener(v -> finish());
 
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
-        loadFiles();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        loadFiles(); // 🔥 always refresh when coming back
     }
 
     private void loadFiles() {
-        File dir = new File(getExternalFilesDir(null), "Extracted");
-        if (!dir.exists()) dir.mkdirs();
+        try {
+            File base = getExternalFilesDir(null);
 
-        File[] filesArr = dir.listFiles();
-        if (filesArr == null || filesArr.length == 0) {
-            emptyText.setVisibility(View.VISIBLE);
-            return;
+            if (base == null) {
+                showEmpty("Storage not available");
+                return;
+            }
+
+            File dir = new File(base, "Extracted");
+            if (!dir.exists()) dir.mkdirs();
+
+            File[] filesArr = dir.listFiles();
+
+            if (filesArr == null || filesArr.length == 0) {
+                showEmpty("No files found");
+                return;
+            }
+
+            List<File> fileList = new ArrayList<>(Arrays.asList(filesArr));
+
+            // 🔥 Sort latest first
+            Collections.sort(fileList, (a, b) ->
+                    Long.compare(b.lastModified(), a.lastModified())
+            );
+
+            ExtractedFilesAdapter adapter = new ExtractedFilesAdapter(
+                    this,
+                    fileList,
+                    () -> {
+                        if (fileList.isEmpty()) {
+                            showEmpty("No files left");
+                        }
+                    }
+            );
+
+            recyclerView.setAdapter(adapter);
+            recyclerView.setVisibility(View.VISIBLE);
+            emptyText.setVisibility(View.GONE);
+
+        } catch (Exception e) {
+            showEmpty("Failed to load files");
         }
+    }
 
-        List<File> fileList = new ArrayList<>(Arrays.asList(filesArr));
+    private void showEmpty(String message) {
+        emptyText.setText(message);
+        emptyText.setVisibility(View.VISIBLE);
+        recyclerView.setVisibility(View.GONE);
+    }
 
-        ExtractedFilesAdapter adapter = new ExtractedFilesAdapter(this, fileList, 
-            () -> emptyText.setVisibility(View.VISIBLE)
-        );
-        recyclerView.setAdapter(adapter);
-        emptyText.setVisibility(View.GONE);
+    private void toast(String msg) {
+        Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
     }
 }
