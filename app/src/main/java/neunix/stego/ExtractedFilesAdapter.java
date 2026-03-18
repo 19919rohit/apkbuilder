@@ -3,16 +3,14 @@ package neunix.stego;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
-import android.view.LayoutInflater;
-import android.view.View;
-import android.view.ViewGroup;
-import android.widget.ImageButton;
-import android.widget.ImageView;
-import android.widget.TextView;
-import android.widget.Toast;
+import android.view.*;
+import android.widget.*;
 
 import androidx.annotation.NonNull;
+import androidx.core.content.FileProvider;
 import androidx.recyclerview.widget.RecyclerView;
+
+import com.bumptech.glide.Glide;
 
 import java.io.File;
 import java.util.List;
@@ -39,36 +37,66 @@ public class ExtractedFilesAdapter extends RecyclerView.Adapter<ExtractedFilesAd
 
     @Override
     public void onBindViewHolder(@NonNull VH holder, int position) {
+
         File file = files.get(position);
-
         holder.fileName.setText(file.getName());
-        holder.icon.setImageResource(R.drawable.ic_file); // fixed drawable
 
-        // Share file
+        // 🔥 Thumbnail if image
+        if (isImage(file)) {
+            Glide.with(context)
+                    .load(file)
+                    .centerCrop()
+                    .into(holder.icon);
+        } else {
+            holder.icon.setImageResource(R.drawable.ic_file);
+        }
+
+        // 🔗 SHARE AS DOCUMENT (NO COMPRESSION)
         holder.btnShare.setOnClickListener(v -> {
             try {
-                Uri uri = Uri.fromFile(file);
+                Uri uri = FileProvider.getUriForFile(
+                        context,
+                        context.getPackageName() + ".provider",
+                        file
+                );
+
                 Intent intent = new Intent(Intent.ACTION_SEND);
-                intent.setType("*/*");
+                intent.setType("application/octet-stream"); // 🔥 FORCE DOCUMENT
                 intent.putExtra(Intent.EXTRA_STREAM, uri);
-                context.startActivity(Intent.createChooser(intent, "Share file"));
+                intent.putExtra(Intent.EXTRA_TITLE, file.getName());
+                intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+                context.startActivity(Intent.createChooser(intent, "Send as document"));
+
             } catch (Exception e) {
-                Toast.makeText(context, "Failed to share file", Toast.LENGTH_SHORT).show();
+                Toast.makeText(context, "Share failed", Toast.LENGTH_SHORT).show();
             }
         });
 
-        // Delete file
+        // 🗑 DELETE (SAFE)
         holder.btnDelete.setOnClickListener(v -> {
-            if (file.delete()) {
-                files.remove(file);
-                notifyItemRemoved(position);
-                notifyItemRangeChanged(position, files.size());
+            int pos = holder.getAdapterPosition();
+            if (pos == RecyclerView.NO_POSITION) return;
+
+            File f = files.get(pos);
+
+            if (f.delete()) {
+                files.remove(pos);
+                notifyItemRemoved(pos);
+
                 Toast.makeText(context, "Deleted", Toast.LENGTH_SHORT).show();
-                if (files.isEmpty() && onListEmpty != null) onListEmpty.run();
+
+                if (files.isEmpty() && onListEmpty != null) {
+                    onListEmpty.run();
+                }
+
             } else {
                 Toast.makeText(context, "Delete failed", Toast.LENGTH_SHORT).show();
             }
         });
+
+        // 👆 OPTIONAL: click entire item → preview/share
+        holder.itemView.setOnClickListener(v -> holder.btnShare.performClick());
     }
 
     @Override
@@ -76,7 +104,18 @@ public class ExtractedFilesAdapter extends RecyclerView.Adapter<ExtractedFilesAd
         return files.size();
     }
 
+    // 🔍 Detect image
+    private boolean isImage(File file) {
+        String n = file.getName().toLowerCase();
+        return n.endsWith(".png") ||
+               n.endsWith(".jpg") ||
+               n.endsWith(".jpeg") ||
+               n.endsWith(".webp");
+    }
+
+    // 📦 ViewHolder
     static class VH extends RecyclerView.ViewHolder {
+
         ImageView icon;
         TextView fileName;
         ImageButton btnShare, btnDelete;

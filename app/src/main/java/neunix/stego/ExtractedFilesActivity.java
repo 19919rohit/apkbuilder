@@ -4,7 +4,6 @@ import android.os.Bundle;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -35,61 +34,48 @@ public class ExtractedFilesActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        loadFiles(); // 🔥 always refresh when coming back
+        loadFiles();
     }
 
     private void loadFiles() {
-        try {
-            File base = getExternalFilesDir(null);
 
-            if (base == null) {
-                showEmpty("Storage not available");
-                return;
-            }
-
-            File dir = new File(base, "Extracted");
-            if (!dir.exists()) dir.mkdirs();
-
-            File[] filesArr = dir.listFiles();
-
-            if (filesArr == null || filesArr.length == 0) {
-                showEmpty("No files found");
-                return;
-            }
-
-            List<File> fileList = new ArrayList<>(Arrays.asList(filesArr));
-
-            // 🔥 Sort latest first
-            Collections.sort(fileList, (a, b) ->
-                    Long.compare(b.lastModified(), a.lastModified())
-            );
-
-            ExtractedFilesAdapter adapter = new ExtractedFilesAdapter(
-                    this,
-                    fileList,
-                    () -> {
-                        if (fileList.isEmpty()) {
-                            showEmpty("No files left");
-                        }
-                    }
-            );
-
-            recyclerView.setAdapter(adapter);
-            recyclerView.setVisibility(View.VISIBLE);
-            emptyText.setVisibility(View.GONE);
-
-        } catch (Exception e) {
-            showEmpty("Failed to load files");
+        File base = getExternalFilesDir(null);
+        if (base == null) {
+            showEmpty("Storage not available");
+            return;
         }
+
+        File dir = new File(base, "Extracted");
+        if (!dir.exists()) dir.mkdirs();
+
+        File[] filesArr = dir.listFiles();
+
+        if (filesArr == null || filesArr.length == 0) {
+            showEmpty("No files found");
+            return;
+        }
+
+        List<File> fileList = new ArrayList<>(Arrays.asList(filesArr));
+
+        // 🔥 sort latest first
+        Collections.sort(fileList, (a, b) ->
+                Long.compare(b.lastModified(), a.lastModified())
+        );
+
+        ExtractedFilesAdapter adapter = new ExtractedFilesAdapter(
+                this,
+                fileList,
+                () -> showEmpty("No files left")
+        );
+
+        recyclerView.setAdapter(adapter);
+        recyclerView.setVisibility(View.VISIBLE);
+        emptyText.setVisibility(View.GONE);
     }
 
-    private void showEmpty(String message) {
-        emptyText.setText(message);
+    private void showEmpty(String msg) {
+        emptyText.setText(msg);
         emptyText.setVisibility(View.VISIBLE);
         recyclerView.setVisibility(View.GONE);
-    }
-
-    private void toast(String msg) {
-        Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
     }
 }
