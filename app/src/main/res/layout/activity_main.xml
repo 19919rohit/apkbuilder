@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-
 <androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -45,7 +44,6 @@
 
     </LinearLayout>
 
-
     <!-- BUTTON SECTION -->
     <LinearLayout
         android:id="@+id/buttonsContainer"
@@ -59,54 +57,57 @@
         app:layout_constraintEnd_toEndOf="parent"
         android:layout_marginTop="40dp">
 
-        <!-- Embed -->
-        <Button
-          android:id="@+id/btnGoEmbed"
+        <!-- Embed Button -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnGoEmbed"
             android:layout_width="match_parent"
             android:layout_height="60dp"
             android:text="Embed Secret"
             android:textSize="18sp"
-            android:textColor="@android:color/white"
+            android:textColor="@color/text_on_primary"
             android:layout_marginBottom="16dp"
+            app:icon="@drawable/ic_embed"
+            app:iconGravity="textStart"
+            app:iconPadding="12dp"
+            app:iconTint="@android:color/white"
             android:backgroundTint="@color/green"
-            android:drawableStart="@drawable/ic_embed"
-            android:drawableTint="@android:color/white"
-            android:drawablePadding="12dp"
-            android:gravity="center"
-            android:paddingStart="16dp"
-            android:paddingEnd="16dp"/>
+            app:cornerRadius="12dp"
+            android:foreground="?attr/selectableItemBackground"/>
 
-        <!-- Extract -->
-        <Button
+        <!-- Extract Button -->
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/btnGoExtract"
             android:layout_width="match_parent"
             android:layout_height="60dp"
             android:text="Extract Secret"
             android:textSize="18sp"
-            android:textColor="@android:color/white"
+            android:textColor="@color/text_on_primary"
             android:layout_marginBottom="16dp"
+            app:icon="@drawable/ic_extract"
+            app:iconGravity="textStart"
+            app:iconPadding="12dp"
+            app:iconTint="@android:color/white"
             android:backgroundTint="@color/red"
+            app:cornerRadius="12dp"
+            android:foreground="?attr/selectableItemBackground"/>
 
-            android:drawableStart="@drawable/ic_extract"
-            android:drawablePadding="12dp"
-            android:gravity="center"
-            android:paddingStart="16dp"
-            android:drawableTint="@android:color/white"
-            android:paddingEnd="16dp"/>
-
-        <!-- Files -->
-        <Button
+        <!-- Files Button -->
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/btnGoFiles"
             android:layout_width="match_parent"
             android:layout_height="60dp"
             android:text="Files"
             android:textSize="18sp"
-            android:drawableTint="@android:color/white"
-            android:drawableStart="@drawable/ic_file"
-            android:backgroundTint="#0000FF"/>
+            android:textColor="@color/text_on_primary"
+            app:icon="@drawable/ic_file"
+            app:iconGravity="textStart"
+            app:iconPadding="12dp"
+            app:iconTint="@android:color/white"
+            android:backgroundTint="#0000FF"
+            app:cornerRadius="12dp"
+            android:foreground="?attr/selectableItemBackground"/>
 
     </LinearLayout>
-
 
     <!-- FOOTER -->
     <TextView
