@@ -137,7 +137,7 @@ public class ExtractActivity extends AppCompatActivity {
         @Override
         public VH onCreateViewHolder(ViewGroup parent, int viewType) {
             View v = LayoutInflater.from(parent.getContext())
-                    .inflate(R.layout.item_extracted_img_file, parent, false);
+                    .inflate(R.layout.item_extract_img_file, parent, false);
             return new VH(v);
         }
 
