@@ -10,9 +10,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
 public class EmbeddedFilesActivity extends AppCompatActivity {
 
@@ -24,32 +22,64 @@ public class EmbeddedFilesActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_embedded_files);
 
-        // Bind views
         recyclerView = findViewById(R.id.recyclerEmbeddedFiles);
         emptyText = findViewById(R.id.emptyText);
         ImageView back = findViewById(R.id.backButton);
+
         back.setOnClickListener(v -> finish());
 
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
-        loadFiles();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        loadFiles(); // 🔥 refresh every time
     }
 
     private void loadFiles() {
-        File dir = new File(getExternalFilesDir(null), "Embedded");
+        File base = getExternalFilesDir(null);
+
+        if (base == null) {
+            showEmpty("Storage not available");
+            return;
+        }
+
+        File dir = new File(base, "Embedded");
         if (!dir.exists()) dir.mkdirs();
 
         File[] filesArr = dir.listFiles();
+
         if (filesArr == null || filesArr.length == 0) {
-            emptyText.setVisibility(View.VISIBLE);
+            showEmpty("No embedded images");
             return;
         }
 
         List<File> fileList = new ArrayList<>(Arrays.asList(filesArr));
 
-        EmbeddedFilesAdapter adapter = new EmbeddedFilesAdapter(this, fileList,
-            () -> emptyText.setVisibility(View.VISIBLE)
+        // 🔥 Sort latest first
+        Collections.sort(fileList, (a, b) ->
+                Long.compare(b.lastModified(), a.lastModified())
         );
+
+        EmbeddedFilesAdapter adapter = new EmbeddedFilesAdapter(
+                this,
+                fileList,
+                () -> {
+                    if (fileList.isEmpty()) {
+                        showEmpty("No files left");
+                    }
+                }
+        );
+
         recyclerView.setAdapter(adapter);
+        recyclerView.setVisibility(View.VISIBLE);
         emptyText.setVisibility(View.GONE);
+    }
+
+    private void showEmpty(String msg) {
+        emptyText.setText(msg);
+        emptyText.setVisibility(View.VISIBLE);
+        recyclerView.setVisibility(View.GONE);
     }
 }
