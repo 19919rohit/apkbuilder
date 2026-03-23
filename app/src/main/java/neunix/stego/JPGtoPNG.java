@@ -11,60 +11,66 @@ import java.io.InputStream;
 
 public class JPGtoPNG {
 
+    private JPGtoPNG() {}
+
+    // ================= MAIN =================
+
     public static Bitmap convert(Context context, Uri uri) throws Exception {
 
-        Bitmap bitmap = decodeOptimized(context, uri);
+        Bitmap bitmap = decodeRaw(context, uri);
 
-        if (bitmap == null)
+        if (bitmap == null) {
             throw new Exception("Failed to decode image");
-
-        // 🔥 CRITICAL: enforce correct config
-        bitmap = sanitize(bitmap);
-
-        return bitmap;
-    }
-
-    private static Bitmap decodeOptimized(Context context, Uri uri) throws Exception {
-
-        BitmapFactory.Options bounds = new BitmapFactory.Options();
-        bounds.inJustDecodeBounds = true;
-
-        try (InputStream in = context.getContentResolver().openInputStream(uri)) {
-            BitmapFactory.decodeStream(in, null, bounds);
         }
 
-        int scale = 1;
-        int maxDim = Math.max(bounds.outWidth, bounds.outHeight);
+        return sanitize(bitmap);
+    }
 
-        // ⚠️ OPTIONAL: keep or remove depending on your strategy
-        while (maxDim / scale > 1600) scale *= 2;
+    // ================= RAW DECODE (NO SCALING) =================
+
+    private static Bitmap decodeRaw(Context context, Uri uri) throws Exception {
 
         BitmapFactory.Options opts = new BitmapFactory.Options();
-        opts.inSampleSize = scale;
 
-        // 🔥 FORCE SAFE FORMAT
+        // 🔥 CRITICAL FLAGS
         opts.inPreferredConfig = Bitmap.Config.ARGB_8888;
+        opts.inDither = false;
+        opts.inScaled = false;          // 🚫 prevent auto scaling
+        opts.inMutable = true;
 
         try (InputStream in = context.getContentResolver().openInputStream(uri)) {
             return BitmapFactory.decodeStream(in, null, opts);
         }
     }
 
-    // 🔥 SAME SANITIZER AS EVERYWHERE
+    // ================= SANITIZE (ONLY ONCE) =================
+
     private static Bitmap sanitize(Bitmap input) {
 
+        if (input == null) {
+            throw new RuntimeException("Bitmap null");
+        }
+
+        // force ARGB_8888
         if (input.getConfig() != Bitmap.Config.ARGB_8888) {
             input = input.copy(Bitmap.Config.ARGB_8888, true);
         }
 
+        // ensure mutable
         if (!input.isMutable()) {
             input = input.copy(Bitmap.Config.ARGB_8888, true);
         }
 
+        // 🔥 stability hint for some OEMs
+        input.setHasAlpha(true);
+
         return input;
     }
 
+    // ================= FILE NAME =================
+
     public static String getFileName(Context context, Uri uri) {
+
         String name = "file";
 
         try (Cursor c = context.getContentResolver().query(uri, null, null, null, null)) {
