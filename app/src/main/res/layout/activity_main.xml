@@ -62,7 +62,7 @@
             android:id="@+id/btnGoEmbed"
             android:layout_width="match_parent"
             android:layout_height="60dp"
-            android:text="Embed Secret"
+            android:text="Hide Secret"
             android:textSize="18sp"
             android:textColor="@color/text_on_primary"
             android:layout_marginBottom="16dp"

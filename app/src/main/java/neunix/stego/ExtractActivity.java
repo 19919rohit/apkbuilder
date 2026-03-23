@@ -22,8 +22,6 @@ import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import javax.crypto.AEADBadTagException;
-
 public class ExtractActivity extends AppCompatActivity {
 
     private Uri carrierUri;
@@ -94,7 +92,7 @@ public class ExtractActivity extends AppCompatActivity {
 
             File[] files = dir.listFiles(f ->
                     f.isFile() &&
-                    (f.getName().endsWith(".png") || f.getName().endsWith(".jpg"))
+                            (f.getName().endsWith(".png") || f.getName().endsWith(".jpg"))
             );
 
             if (files == null || files.length == 0) {
@@ -244,7 +242,6 @@ public class ExtractActivity extends AppCompatActivity {
                 StegEngineCore.ExtractedData data =
                         StegEngineCore.extract(carrierBitmap, password);
 
-                // 🔥 Smart success messages
                 if (data.passwordProtected && password.isEmpty()) {
                     toast("This image is password protected");
                     return;
@@ -270,20 +267,25 @@ public class ExtractActivity extends AppCompatActivity {
 
                 String msg = e.getMessage() == null ? "" : e.getMessage();
 
-                if (msg.contains("NOT_STEGO")) {
-                    toast("Not a Stegora image");
+                switch (msg) {
+                    case "NOT_STEGO":
+                        toast("Not a Stegora image");
+                        break;
 
-                } else if (msg.contains("PASSWORD_REQUIRED")) {
-                    toast("This image is password protected");
+                    case "PASSWORD_REQUIRED":
+                        toast("This image is password protected");
+                        break;
 
-                } else if (msg.contains("WRONG_PASSWORD")) {
-                    toast("Wrong password");
+                    case "WRONG_PASSWORD":
+                        toast("Wrong password");
+                        break;
 
-                } else if (msg.contains("CORRUPTED")) {
-                    toast("Image modified or corrupted");
+                    case "CORRUPTED":
+                        toast("Image modified or corrupted");
+                        break;
 
-                } else {
-                    toast("Extraction failed");
+                    default:
+                        toast("Extraction failed");
                 }
 
             } catch (Exception e) {
