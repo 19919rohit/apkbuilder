@@ -22,8 +22,6 @@ import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import javax.crypto.AEADBadTagException;
-
 public class ExtractActivity extends AppCompatActivity {
 
     private Uri carrierUri;
@@ -37,6 +35,12 @@ public class ExtractActivity extends AppCompatActivity {
 
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private ActivityResultLauncher<Intent> picker;
+
+    // 🔥 Smart toast control
+    private final Map<String, Integer> toastCount = new HashMap<>();
+    private final Map<String, Long> toastTime = new HashMap<>();
+    private static final long TOAST_COOLDOWN = 1500;
+    private static final int MAX_REPEAT = 2;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -84,13 +88,12 @@ public class ExtractActivity extends AppCompatActivity {
     // ================= INTERNAL =================
 
     private void pickInternal() {
-
         try {
             File dir = Utils.getBaseDir(this, Utils.DIR_EMBEDDED);
 
             File[] files = dir.listFiles(f ->
                     f.isFile() &&
-                    (f.getName().endsWith(".png") || f.getName().endsWith(".jpg"))
+                            (f.getName().endsWith(".png") || f.getName().endsWith(".jpg"))
             );
 
             if (files == null || files.length == 0) {
@@ -250,25 +253,47 @@ public class ExtractActivity extends AppCompatActivity {
                     out.write(data.data);
                 }
 
-                toast("Extracted successfully");
-
-            } catch (AEADBadTagException e) {
-                toast("Wrong password");
+                // ✅ Smart success message
+                if (data.passwordProtected) {
+                    toast("Extraction successful");
+                } else {
+                    if (!password.isEmpty()) {
+                        toast("Extraction successful (password not required)");
+                    } else {
+                        toast("Extraction successful");
+                    }
+                }
 
             } catch (RuntimeException e) {
 
-                String msg = e.getMessage() == null ? "" : e.getMessage();
+                String code = e.getMessage();
 
-                if (msg.contains("Not a steg image")) {
-                    toast("Not a Stegora image");
-                } else if (msg.contains("Integrity")) {
-                    toast("Image modified or corrupted");
-                } else {
-                    toast("Extraction failed");
+                switch (code) {
+
+                    case "NOT_STEGO":
+                        toast("Not a Stegora image");
+                        break;
+
+                    case "PASSWORD_REQUIRED":
+                        toast("This image is password protected");
+                        break;
+
+                    case "WRONG_PASSWORD":
+                        toast("Wrong password");
+                        break;
+
+                    case "CORRUPTED":
+                        toast("Image modified or corrupted");
+                        break;
+
+                    default:
+                        toast("Extraction failed");
+                        break;
                 }
 
             } catch (Exception e) {
                 toast("Extraction failed");
+
             } finally {
                 runOnUiThread(() -> {
                     progressBar.setVisibility(View.GONE);
@@ -290,8 +315,26 @@ public class ExtractActivity extends AppCompatActivity {
         return "file";
     }
 
-    private void toast(String s) {
+    // ================= SMART TOAST =================
+
+    private void toast(String msg) {
+
+        long now = System.currentTimeMillis();
+
+        int count = toastCount.getOrDefault(msg, 0);
+        long lastTime = toastTime.getOrDefault(msg, 0L);
+
+        if (now - lastTime > TOAST_COOLDOWN) {
+            count = 0;
+        }
+
+        if (count >= MAX_REPEAT) return;
+
+        toastCount.put(msg, count + 1);
+        toastTime.put(msg, now);
+
         runOnUiThread(() ->
-                Toast.makeText(this, s, Toast.LENGTH_SHORT).show());
+                Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+        );
     }
 }
