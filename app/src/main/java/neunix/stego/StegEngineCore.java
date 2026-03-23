@@ -224,7 +224,18 @@ public class StegEngineCore {
     /* =========================================================
        RANDOM SEED
        ========================================================= */
+    /* =========================================================
+   CAPACITY FOR UI
+   ========================================================= */
 
+    public static int getMaxPayloadSize(Bitmap bmp) {
+
+        int w = bmp.getWidth();
+        int h = bmp.getHeight();
+
+        // total capacity minus header overhead
+        return capacityBytes(w, h) - HEADER_PREFIX;
+    }
     private static String seedOf(String password) {
         return (password == null || password.isEmpty()) ? "default" : password;
     }

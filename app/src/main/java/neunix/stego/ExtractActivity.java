@@ -22,6 +22,8 @@ import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import javax.crypto.AEADBadTagException;
+
 public class ExtractActivity extends AppCompatActivity {
 
     private Uri carrierUri;
@@ -36,11 +38,9 @@ public class ExtractActivity extends AppCompatActivity {
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private ActivityResultLauncher<Intent> picker;
 
-    // 🔥 Smart toast control
+    // 🔥 Toast control (anti-spam)
     private final Map<String, Integer> toastCount = new HashMap<>();
-    private final Map<String, Long> toastTime = new HashMap<>();
-    private static final long TOAST_COOLDOWN = 1500;
-    private static final int MAX_REPEAT = 2;
+    private long lastToastTime = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -88,12 +88,13 @@ public class ExtractActivity extends AppCompatActivity {
     // ================= INTERNAL =================
 
     private void pickInternal() {
+
         try {
             File dir = Utils.getBaseDir(this, Utils.DIR_EMBEDDED);
 
             File[] files = dir.listFiles(f ->
                     f.isFile() &&
-                            (f.getName().endsWith(".png") || f.getName().endsWith(".jpg"))
+                    (f.getName().endsWith(".png") || f.getName().endsWith(".jpg"))
             );
 
             if (files == null || files.length == 0) {
@@ -243,6 +244,18 @@ public class ExtractActivity extends AppCompatActivity {
                 StegEngineCore.ExtractedData data =
                         StegEngineCore.extract(carrierBitmap, password);
 
+                // 🔥 Smart success messages
+                if (data.passwordProtected && password.isEmpty()) {
+                    toast("This image is password protected");
+                    return;
+                }
+
+                if (!data.passwordProtected && !password.isEmpty()) {
+                    toast("Extraction successful (password was not required :)");
+                } else {
+                    toast("Extraction successful");
+                }
+
                 File outFile = Utils.getTimestampedFile(
                         this,
                         data.filename,
@@ -253,42 +266,24 @@ public class ExtractActivity extends AppCompatActivity {
                     out.write(data.data);
                 }
 
-                // ✅ Smart success message
-                if (data.passwordProtected) {
-                    toast("Extraction successful");
-                } else {
-                    if (!password.isEmpty()) {
-                        toast("Extraction successful (password not required)");
-                    } else {
-                        toast("Extraction successful");
-                    }
-                }
-
             } catch (RuntimeException e) {
 
-                String code = e.getMessage();
+                String msg = e.getMessage() == null ? "" : e.getMessage();
 
-                switch (code) {
+                if (msg.contains("NOT_STEGO")) {
+                    toast("Not a Stegora image");
 
-                    case "NOT_STEGO":
-                        toast("Not a Stegora image");
-                        break;
+                } else if (msg.contains("PASSWORD_REQUIRED")) {
+                    toast("This image is password protected");
 
-                    case "PASSWORD_REQUIRED":
-                        toast("This image is password protected");
-                        break;
+                } else if (msg.contains("WRONG_PASSWORD")) {
+                    toast("Wrong password");
 
-                    case "WRONG_PASSWORD":
-                        toast("Wrong password");
-                        break;
+                } else if (msg.contains("CORRUPTED")) {
+                    toast("Image modified or corrupted");
 
-                    case "CORRUPTED":
-                        toast("Image modified or corrupted");
-                        break;
-
-                    default:
-                        toast("Extraction failed");
-                        break;
+                } else {
+                    toast("Extraction failed");
                 }
 
             } catch (Exception e) {
@@ -315,26 +310,26 @@ public class ExtractActivity extends AppCompatActivity {
         return "file";
     }
 
-    // ================= SMART TOAST =================
-
+    // 🔥 Smart Toast (limit duplicates)
     private void toast(String msg) {
+        runOnUiThread(() -> {
 
-        long now = System.currentTimeMillis();
+            long now = System.currentTimeMillis();
 
-        int count = toastCount.getOrDefault(msg, 0);
-        long lastTime = toastTime.getOrDefault(msg, 0L);
+            int count = toastCount.getOrDefault(msg, 0);
 
-        if (now - lastTime > TOAST_COOLDOWN) {
-            count = 0;
-        }
+            // reset after 2 sec
+            if (now - lastToastTime > 2000) {
+                toastCount.clear();
+                count = 0;
+            }
 
-        if (count >= MAX_REPEAT) return;
+            if (count < 2) {
+                Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
+                toastCount.put(msg, count + 1);
+            }
 
-        toastCount.put(msg, count + 1);
-        toastTime.put(msg, now);
-
-        runOnUiThread(() ->
-                Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
-        );
+            lastToastTime = now;
+        });
     }
 }
