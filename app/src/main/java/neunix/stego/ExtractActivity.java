@@ -22,6 +22,8 @@ import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import javax.crypto.AEADBadTagException;
+
 public class ExtractActivity extends AppCompatActivity {
 
     private Uri carrierUri;
@@ -79,7 +81,7 @@ public class ExtractActivity extends AppCompatActivity {
         picker.launch(i);
     }
 
-    // ================= INTERNAL PICK (RecyclerView) =================
+    // ================= INTERNAL =================
 
     private void pickInternal() {
 
@@ -106,21 +108,18 @@ public class ExtractActivity extends AppCompatActivity {
                     .setView(rv)
                     .create();
 
-            InternalAdapter adapter = new InternalAdapter(files, file -> {
+            rv.setAdapter(new InternalAdapter(files, file -> {
                 carrierUri = Uri.fromFile(file);
                 executor.execute(this::loadImage);
                 dialog.dismiss();
-            });
+            }));
 
-            rv.setAdapter(adapter);
             dialog.show();
 
         } catch (Exception e) {
             toast("Failed to load files");
         }
     }
-
-    // ================= ADAPTER =================
 
     private static class InternalAdapter extends RecyclerView.Adapter<InternalAdapter.VH> {
 
@@ -143,15 +142,15 @@ public class ExtractActivity extends AppCompatActivity {
 
         @Override
         public void onBindViewHolder(VH h, int pos) {
-
             File file = files[pos];
             h.name.setText(file.getName());
 
             BitmapFactory.Options opts = new BitmapFactory.Options();
             opts.inSampleSize = 8;
 
-            Bitmap bmp = BitmapFactory.decodeFile(file.getAbsolutePath(), opts);
-            h.preview.setImageBitmap(bmp);
+            h.preview.setImageBitmap(
+                    BitmapFactory.decodeFile(file.getAbsolutePath(), opts)
+            );
 
             h.itemView.setOnClickListener(v -> listener.onClick(file));
         }
@@ -190,15 +189,8 @@ public class ExtractActivity extends AppCompatActivity {
 
     private void loadImage() {
         try {
-
-            String name = getName(carrierUri).toLowerCase();
-
-            if (name.endsWith(".jpg") || name.endsWith(".jpeg")) {
-                carrierBitmap = sanitize(JPGtoPNG.convert(this, carrierUri));
-            } else {
-                try (InputStream in = getContentResolver().openInputStream(carrierUri)) {
-                    carrierBitmap = sanitize(BitmapFactory.decodeStream(in));
-                }
+            try (InputStream in = getContentResolver().openInputStream(carrierUri)) {
+                carrierBitmap = sanitize(BitmapFactory.decodeStream(in));
             }
 
             runOnUiThread(() -> {
@@ -232,7 +224,7 @@ public class ExtractActivity extends AppCompatActivity {
     private void extract() {
 
         if (carrierBitmap == null) {
-            toast("Select stego image first");
+            toast("Select image first");
             return;
         }
 
@@ -243,14 +235,10 @@ public class ExtractActivity extends AppCompatActivity {
             try {
 
                 String password = etPassword.getText().toString();
+                if (password == null) password = "";
 
                 StegEngineCore.ExtractedData data =
                         StegEngineCore.extract(carrierBitmap, password);
-
-                if (data == null || data.data == null) {
-                    showError(password, "Not a Stegora image");
-                    return;
-                }
 
                 File outFile = Utils.getTimestampedFile(
                         this,
@@ -262,19 +250,25 @@ public class ExtractActivity extends AppCompatActivity {
                     out.write(data.data);
                 }
 
-                runOnUiThread(() ->
-                        toast("Saved to Stegora/Extracted"));
+                toast("Extracted successfully");
 
-            } catch (Exception e) {
+            } catch (AEADBadTagException e) {
+                toast("Wrong password");
 
-                String msg = e.getMessage() == null ? "" : e.getMessage().toLowerCase();
+            } catch (RuntimeException e) {
 
-                if (msg.contains("password")) {
-                    showError(etPassword.getText().toString(), "Wrong password");
+                String msg = e.getMessage() == null ? "" : e.getMessage();
+
+                if (msg.contains("Not a steg image")) {
+                    toast("Not a Stegora image");
+                } else if (msg.contains("Integrity")) {
+                    toast("Image modified or corrupted");
                 } else {
-                    showError("", "Not a Stegora image");
+                    toast("Extraction failed");
                 }
 
+            } catch (Exception e) {
+                toast("Extraction failed");
             } finally {
                 runOnUiThread(() -> {
                     progressBar.setVisibility(View.GONE);
@@ -284,14 +278,7 @@ public class ExtractActivity extends AppCompatActivity {
         });
     }
 
-    private void showError(String password, String error) {
-        if ((password == null || password.isEmpty()) && error.equals("Wrong password")) {
-            error = "This image is password protected";
-        }
-
-        String finalError = error;
-        runOnUiThread(() -> toast(finalError));
-    }
+    // ================= UTILS =================
 
     private String getName(Uri uri) {
         try (Cursor c = getContentResolver().query(uri, null, null, null, null)) {
