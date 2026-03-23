@@ -82,7 +82,7 @@ public class StegEngineCore {
         int headerPixels = pixelsForBytes(header.length);
 
         embedSequential(pixels, header);
-        embedRandom(pixels, encrypted, headerPixels, seedOf(password, salt));
+        embedRandom(pixels, encrypted, headerPixels, seedOf(password));
 
         Bitmap out = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
         setPixels(out, pixels);
@@ -128,7 +128,7 @@ public class StegEngineCore {
                 pixels,
                 header.payloadSize,
                 headerPixels,
-                seedOf(password, header. salt)
+                seedOf(password)
         );
 
         if (!Arrays.equals(header.hash, sha256(encrypted)))
@@ -236,10 +236,9 @@ public class StegEngineCore {
         // total capacity minus header overhead
         return capacityBytes(w, h) - HEADER_PREFIX;
     }
-    private static String seedOf(String password, byte[] salt) {
-        if (password == null) password = "";
-        return password + Arrays.toString(salt);
-}
+    private static String seedOf(String password) {
+        return (password == null || password.isEmpty()) ? "default" : password;
+    }
 
     private static int[] buildIndex(int total,int skip,String seed) throws Exception{
 
