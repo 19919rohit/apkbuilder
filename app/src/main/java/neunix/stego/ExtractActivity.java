@@ -87,7 +87,7 @@ public class ExtractActivity extends AppCompatActivity {
 
             File[] files = dir.listFiles(f ->
                     f.isFile() &&
-                    (f.getName().endsWith(".png") || f.getName().endsWith(".jpg"))
+                            (f.getName().endsWith(".png") || f.getName().endsWith(".jpg"))
             );
 
             if (files == null || files.length == 0) {
@@ -114,7 +114,7 @@ public class ExtractActivity extends AppCompatActivity {
             dialog.show();
 
         } catch (Exception e) {
-            Toaster.error(this, "Failed to load files");
+            Toaster.show(this, "Failed to load files");
         }
     }
 
@@ -200,7 +200,7 @@ public class ExtractActivity extends AppCompatActivity {
             });
 
         } catch (Exception e) {
-            Toaster.error(this, "Failed to load image");
+            Toaster.show(this, "Failed to load image");
         }
     }
 
@@ -225,8 +225,8 @@ public class ExtractActivity extends AppCompatActivity {
             return;
         }
 
-        String password = etPassword.getText().toString();
-        if (password == null) password = "";
+        final String password = etPassword.getText().toString();
+        final Bitmap bmpFinal = carrierBitmap;
 
         progressBar.setVisibility(View.VISIBLE);
         btnExtract.setEnabled(false);
@@ -234,52 +234,56 @@ public class ExtractActivity extends AppCompatActivity {
         executor.execute(() -> {
             try {
 
-                StegEngineCore.ExtractedData data =
-                        StegEngineCore.extract(carrierBitmap, password);
+                final StegEngineCore.ExtractedData data =
+                        StegEngineCore.extract(bmpFinal, password);
 
-                if (!data.passwordProtected && !password.isEmpty()) {
-                    Toaster.show(this, "No password needed for this image");
-                } else {
-                    Toaster.show(this, "Extraction successful");
-                }
+                runOnUiThread(() -> {
+                    if (!data.passwordProtected && !password.isEmpty()) {
+                        Toaster.show(this, "No password needed for this image");
+                    } else {
+                        Toaster.show(this, "Extraction successful");
+                    }
 
-                File outFile = Utils.getTimestampedFile(
-                        this,
-                        data.filename,
-                        Utils.DIR_EXTRACTED
-                );
+                    try {
+                        File outFile = Utils.getTimestampedFile(
+                                this,
+                                data.filename,
+                                Utils.DIR_EXTRACTED
+                        );
 
-                try (FileOutputStream out = new FileOutputStream(outFile)) {
-                    out.write(data.data);
-                }
+                        try (FileOutputStream out = new FileOutputStream(outFile)) {
+                            out.write(data.data);
+                        }
+
+                    } catch (Exception e) {
+                        Toaster.show(this, "Failed to save extracted file");
+                    }
+                });
 
             } catch (RuntimeException e) {
-
                 String msg = e.getMessage() == null ? "" : e.getMessage();
 
-                switch (msg) {
-                    case "NOT_STEGO":
-                        Toaster.show(this, "Not a Stegora image");
-                        break;
-
-                    case "PASSWORD_REQUIRED":
-                        Toaster.show(this, "This image is password protected");
-                        break;
-
-                    case "WRONG_PASSWORD":
-                        Toaster.show(this, "Wrong password");
-                        break;
-
-                    case "CORRUPTED":
-                        Toaster.error(this, "Image modified or corrupted");
-                        break;
-
-                    default:
-                        Toaster.error(this, "Extraction failed");
-                }
+                runOnUiThread(() -> {
+                    switch (msg) {
+                        case "NOT_STEGO":
+                            Toaster.show(this, "Not a Stegora image");
+                            break;
+                        case "PASSWORD_REQUIRED":
+                            Toaster.show(this, "This image is password protected");
+                            break;
+                        case "WRONG_PASSWORD":
+                            Toaster.show(this, "Wrong password");
+                            break;
+                        case "CORRUPTED":
+                            Toaster.show(this, "Image modified or corrupted");
+                            break;
+                        default:
+                            Toaster.show(this, "Extraction failed");
+                    }
+                });
 
             } catch (Exception e) {
-                Toaster.error(this, "Extraction failed");
+                runOnUiThread(() -> Toaster.show(this, "Extraction failed"));
 
             } finally {
                 runOnUiThread(() -> {
