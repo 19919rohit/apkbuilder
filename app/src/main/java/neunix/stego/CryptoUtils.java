@@ -1,21 +1,24 @@
 package neunix.stego;
 
-import org.bouncycastle.crypto.generators.Argon2BytesGenerator;
-import org.bouncycastle.crypto.params.Argon2Parameters;
-
 import java.security.SecureRandom;
+import java.security.spec.KeySpec;
 
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
+import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.GCMParameterSpec;
+import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
 
 public class CryptoUtils {
 
-    private static final int KEY_LENGTH = 32; // 256-bit AES
+    private static final int KEY_LENGTH = 256; // bits
     private static final int GCM_TAG_BITS = 128;
     private static final int IV_SIZE = 12;
     private static final int SALT_SIZE = 16;
+
+    // 🔥 Tuned for mobile (fast + strong)
+    private static final int PBKDF2_ITER = 200000;
 
     // ================= RANDOM =================
 
@@ -33,34 +36,32 @@ public class CryptoUtils {
         return randomBytes(IV_SIZE);
     }
 
-    // ================= ARGON2 KEY DERIVATION =================
+    // ================= KEY DERIVATION =================
 
-    public static SecretKey deriveKey(String password, byte[] salt) {
+    public static SecretKey deriveKey(String password, byte[] salt) throws Exception {
 
         if (password == null) password = "";
 
-        Argon2Parameters.Builder builder =
-                new Argon2Parameters.Builder(Argon2Parameters.ARGON2_id)
-                        .withSalt(salt)
-                        .withIterations(3)        // time cost
-                        .withMemoryAsKB(65536)    // 64 MB
-                        .withParallelism(1);
+        SecretKeyFactory factory =
+                SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
 
-        Argon2BytesGenerator generator = new Argon2BytesGenerator();
-        generator.init(builder.build());
+        KeySpec spec = new PBEKeySpec(
+                password.toCharArray(),
+                salt,
+                PBKDF2_ITER,
+                KEY_LENGTH
+        );
 
-        byte[] key = new byte[KEY_LENGTH];
-        generator.generateBytes(password.toCharArray(), key);
-
-        return new SecretKeySpec(key, "AES");
+        byte[] keyBytes = factory.generateSecret(spec).getEncoded();
+        return new SecretKeySpec(keyBytes, "AES");
     }
 
     // ================= ENCRYPT =================
 
     public static byte[] encrypt(byte[] data,
-                                 String password,
-                                 byte[] salt,
-                                 byte[] iv) throws Exception {
+                                String password,
+                                byte[] salt,
+                                byte[] iv) throws Exception {
 
         SecretKey key = deriveKey(password, salt);
 
@@ -77,9 +78,9 @@ public class CryptoUtils {
     // ================= DECRYPT =================
 
     public static byte[] decrypt(byte[] data,
-                                 String password,
-                                 byte[] salt,
-                                 byte[] iv) throws Exception {
+                                String password,
+                                byte[] salt,
+                                byte[] iv) throws Exception {
 
         SecretKey key = deriveKey(password, salt);
 
@@ -96,25 +97,25 @@ public class CryptoUtils {
     // ================= SAFE WRAPPERS =================
 
     public static byte[] encryptIfNeeded(byte[] data,
-                                          String password,
-                                          byte[] salt,
-                                          byte[] iv) throws Exception {
+                                         String password,
+                                         byte[] salt,
+                                         byte[] iv) throws Exception {
 
         if (password == null || password.isEmpty()) {
-            return data; // no encryption
+            return data;
         }
 
         return encrypt(data, password, salt, iv);
     }
 
     public static byte[] decryptIfNeeded(byte[] data,
-                                          String password,
-                                          byte[] salt,
-                                          byte[] iv,
-                                          boolean passwordProtected) throws Exception {
+                                         String password,
+                                         byte[] salt,
+                                         byte[] iv,
+                                         boolean passwordProtected) throws Exception {
 
         if (!passwordProtected) {
-            return data; // no decryption
+            return data;
         }
 
         return decrypt(data, password, salt, iv);
