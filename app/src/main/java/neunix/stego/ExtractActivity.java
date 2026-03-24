@@ -22,6 +22,8 @@ import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import javax.crypto.AEADBadTagException;
+
 public class ExtractActivity extends AppCompatActivity {
 
     private Uri carrierUri;
@@ -57,8 +59,6 @@ public class ExtractActivity extends AppCompatActivity {
         btnExtract = findViewById(R.id.btnExtract);
     }
 
-    // ================= PICK =================
-
     private void pick() {
         String[] options = {"Stegora Images", "Gallery / Other Apps"};
 
@@ -79,12 +79,9 @@ public class ExtractActivity extends AppCompatActivity {
         picker.launch(i);
     }
 
-    // ================= INTERNAL =================
-
     private void pickInternal() {
         try {
             File dir = Utils.getBaseDir(this, Utils.DIR_EMBEDDED);
-
             File[] files = dir.listFiles(f ->
                     f.isFile() &&
                             (f.getName().endsWith(".png") || f.getName().endsWith(".jpg"))
@@ -169,8 +166,6 @@ public class ExtractActivity extends AppCompatActivity {
         }
     }
 
-    // ================= PICKER =================
-
     private void setupPicker() {
         picker = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
@@ -182,11 +177,8 @@ public class ExtractActivity extends AppCompatActivity {
                 });
     }
 
-    // ================= LOAD =================
-
     private void loadImage() {
         try (InputStream in = getContentResolver().openInputStream(carrierUri)) {
-
             Bitmap bmp = BitmapFactory.decodeStream(in);
             carrierBitmap = sanitize(bmp);
 
@@ -206,17 +198,12 @@ public class ExtractActivity extends AppCompatActivity {
 
     private Bitmap sanitize(Bitmap input) {
         if (input == null) throw new RuntimeException("Bitmap null");
-
         if (input.getConfig() != Bitmap.Config.ARGB_8888)
             input = input.copy(Bitmap.Config.ARGB_8888, true);
-
         if (!input.isMutable())
             input = input.copy(Bitmap.Config.ARGB_8888, true);
-
         return input;
     }
-
-    // ================= EXTRACT =================
 
     private void extract() {
 
@@ -261,24 +248,21 @@ public class ExtractActivity extends AppCompatActivity {
                 });
 
             } catch (RuntimeException e) {
-                String msg = e.getMessage() == null ? "" : e.getMessage();
 
                 runOnUiThread(() -> {
-                    switch (msg) {
-                        case "NOT_STEGO":
-                            Toaster.show(this, "Not a Stegora image");
-                            break;
-                        case "PASSWORD_REQUIRED":
-                            Toaster.show(this, "This image is password protected");
-                            break;
-                        case "WRONG_PASSWORD":
-                            Toaster.show(this, "Wrong password");
-                            break;
-                        case "CORRUPTED":
-                            Toaster.show(this, "Image modified or corrupted");
-                            break;
-                        default:
-                            Toaster.show(this, "Extraction failed");
+                    Throwable cause = e.getCause();
+                    String msg = e.getMessage() == null ? "" : e.getMessage();
+
+                    if ("NOT_STEGO".equals(msg)) {
+                        Toaster.show(this, "Not a Stegora image");
+                    } else if ("PASSWORD_REQUIRED".equals(msg)) {
+                        Toaster.show(this, "This image is password protected");
+                    } else if ("WRONG_PASSWORD".equals(msg) || (cause instanceof AEADBadTagException)) {
+                        Toaster.show(this, "Wrong password"); // fixed
+                    } else if ("CORRUPTED".equals(msg)) {
+                        Toaster.show(this, "Image modified or corrupted");
+                    } else {
+                        Toaster.show(this, "Extraction failed");
                     }
                 });
 
@@ -293,8 +277,6 @@ public class ExtractActivity extends AppCompatActivity {
             }
         });
     }
-
-    // ================= UTILS =================
 
     private String getName(Uri uri) {
         try (Cursor c = getContentResolver().query(uri, null, null, null, null)) {
