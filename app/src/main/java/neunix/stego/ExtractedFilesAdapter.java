@@ -51,7 +51,7 @@ public class ExtractedFilesAdapter extends RecyclerView.Adapter<ExtractedFilesAd
             holder.icon.setImageResource(R.drawable.ic_file);
         }
 
-        // 🔗 SHARE AS DOCUMENT (NO COMPRESSION)
+        // 🔗 SHARE AS DOCUMENT
         holder.btnShare.setOnClickListener(v -> {
             try {
                 Uri uri = FileProvider.getUriForFile(
@@ -61,7 +61,7 @@ public class ExtractedFilesAdapter extends RecyclerView.Adapter<ExtractedFilesAd
                 );
 
                 Intent intent = new Intent(Intent.ACTION_SEND);
-                intent.setType("application/octet-stream"); // 🔥 FORCE DOCUMENT
+                intent.setType("application/octet-stream");
                 intent.putExtra(Intent.EXTRA_STREAM, uri);
                 intent.putExtra(Intent.EXTRA_TITLE, file.getName());
                 intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
@@ -69,11 +69,11 @@ public class ExtractedFilesAdapter extends RecyclerView.Adapter<ExtractedFilesAd
                 context.startActivity(Intent.createChooser(intent, "Send as document"));
 
             } catch (Exception e) {
-                Toast.makeText(context, "Share failed", Toast.LENGTH_SHORT).show();
+                Toaster.show(context, "Share failed");
             }
         });
 
-        // 🗑 DELETE (SAFE)
+        // 🗑 DELETE
         holder.btnDelete.setOnClickListener(v -> {
             int pos = holder.getAdapterPosition();
             if (pos == RecyclerView.NO_POSITION) return;
@@ -84,18 +84,18 @@ public class ExtractedFilesAdapter extends RecyclerView.Adapter<ExtractedFilesAd
                 files.remove(pos);
                 notifyItemRemoved(pos);
 
-                Toast.makeText(context, "Deleted", Toast.LENGTH_SHORT).show();
+                Toaster.show(context, "Deleted");
 
                 if (files.isEmpty() && onListEmpty != null) {
                     onListEmpty.run();
                 }
 
             } else {
-                Toast.makeText(context, "Delete failed", Toast.LENGTH_SHORT).show();
+                Toaster.show(context, "Delete failed");
             }
         });
 
-        // 👆 OPTIONAL: click entire item → preview/share
+        // 👆 click item → share
         holder.itemView.setOnClickListener(v -> holder.btnShare.performClick());
     }
 

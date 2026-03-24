@@ -60,8 +60,6 @@ public class EmbedActivity extends AppCompatActivity {
         findViewById(R.id.backButton).setOnClickListener(v -> finish());
     }
 
-    // ================= UI SETUP =================
-
     private void bindViews() {
         carrierPreview = findViewById(R.id.carrierPreview);
         tvCarrierInfo = findViewById(R.id.tvCarrierInfo);
@@ -164,8 +162,6 @@ public class EmbedActivity extends AppCompatActivity {
         btnEmbed.setEnabled(ready);
         btnEmbed.setAlpha(ready ? 1f : 0.5f);
     }
-
-    // ================= CORE FIXES =================
 
     private Bitmap sanitize(Bitmap input) {
         if (input == null) throw new RuntimeException("Bitmap null");
@@ -331,8 +327,6 @@ public class EmbedActivity extends AppCompatActivity {
         });
     }
 
-    // ================= HELPERS =================
-
     private int mapModeToFactor(int i) {
         return i == 1 ? 1 : i == 2 ? 2 : i == 3 ? 4 : 0;
     }
@@ -365,8 +359,10 @@ public class EmbedActivity extends AppCompatActivity {
         l.launch(i);
     }
 
+    // ✅ ONLY CHANGE: using Toaster
     private void toast(String s) {
         runOnUiThread(() ->
-                Toast.makeText(this, s, Toast.LENGTH_SHORT).show());
+                Toaster.show(this, s)
+        );
     }
 }

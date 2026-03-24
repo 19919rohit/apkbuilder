@@ -51,7 +51,7 @@ public class EmbeddedFilesAdapter extends RecyclerView.Adapter<EmbeddedFilesAdap
             holder.icon.setImageResource(R.drawable.ic_file);
         }
 
-        // 🔗 SHARE (FIXED)
+        // 🔗 SHARE
         holder.btnShare.setOnClickListener(v -> {
             try {
                 Uri uri = FileProvider.getUriForFile(
@@ -68,11 +68,11 @@ public class EmbeddedFilesAdapter extends RecyclerView.Adapter<EmbeddedFilesAdap
                 context.startActivity(Intent.createChooser(intent, "Share file"));
 
             } catch (Exception e) {
-                Toast.makeText(context, "Share failed", Toast.LENGTH_SHORT).show();
+                Toaster.show(context, "Share failed");
             }
         });
 
-        // 🗑 DELETE (SAFE POSITION)
+        // 🗑 DELETE
         holder.btnDelete.setOnClickListener(v -> {
             int pos = holder.getAdapterPosition();
             if (pos == RecyclerView.NO_POSITION) return;
@@ -83,14 +83,14 @@ public class EmbeddedFilesAdapter extends RecyclerView.Adapter<EmbeddedFilesAdap
                 files.remove(pos);
                 notifyItemRemoved(pos);
 
-                Toast.makeText(context, "Deleted", Toast.LENGTH_SHORT).show();
+                Toaster.show(context, "Deleted");
 
                 if (files.isEmpty() && onListEmpty != null) {
                     onListEmpty.run();
                 }
 
             } else {
-                Toast.makeText(context, "Delete failed", Toast.LENGTH_SHORT).show();
+                Toaster.show(context, "Delete failed");
             }
         });
     }

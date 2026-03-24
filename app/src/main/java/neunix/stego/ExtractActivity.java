@@ -36,10 +36,6 @@ public class ExtractActivity extends AppCompatActivity {
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private ActivityResultLauncher<Intent> picker;
 
-    // 🔥 Toast control (anti-spam)
-    private final Map<String, Integer> toastCount = new HashMap<>();
-    private long lastToastTime = 0;
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -86,17 +82,16 @@ public class ExtractActivity extends AppCompatActivity {
     // ================= INTERNAL =================
 
     private void pickInternal() {
-
         try {
             File dir = Utils.getBaseDir(this, Utils.DIR_EMBEDDED);
 
             File[] files = dir.listFiles(f ->
                     f.isFile() &&
-                            (f.getName().endsWith(".png") || f.getName().endsWith(".jpg"))
+                    (f.getName().endsWith(".png") || f.getName().endsWith(".jpg"))
             );
 
             if (files == null || files.length == 0) {
-                toast("No Stegora images found");
+                Toaster.show(this, "No Stegora images found");
                 return;
             }
 
@@ -119,7 +114,7 @@ public class ExtractActivity extends AppCompatActivity {
             dialog.show();
 
         } catch (Exception e) {
-            toast("Failed to load files");
+            Toaster.error(this, "Failed to load files");
         }
     }
 
@@ -190,10 +185,10 @@ public class ExtractActivity extends AppCompatActivity {
     // ================= LOAD =================
 
     private void loadImage() {
-        try {
-            try (InputStream in = getContentResolver().openInputStream(carrierUri)) {
-                carrierBitmap = sanitize(BitmapFactory.decodeStream(in));
-            }
+        try (InputStream in = getContentResolver().openInputStream(carrierUri)) {
+
+            Bitmap bmp = BitmapFactory.decodeStream(in);
+            carrierBitmap = sanitize(bmp);
 
             runOnUiThread(() -> {
                 carrierPreview.setImageBitmap(carrierBitmap);
@@ -205,7 +200,7 @@ public class ExtractActivity extends AppCompatActivity {
             });
 
         } catch (Exception e) {
-            toast("Failed to load image");
+            Toaster.error(this, "Failed to load image");
         }
     }
 
@@ -226,9 +221,12 @@ public class ExtractActivity extends AppCompatActivity {
     private void extract() {
 
         if (carrierBitmap == null) {
-            toast("Select image first");
+            Toaster.show(this, "Select image first");
             return;
         }
+
+        String password = etPassword.getText().toString();
+        if (password == null) password = "";
 
         progressBar.setVisibility(View.VISIBLE);
         btnExtract.setEnabled(false);
@@ -236,21 +234,13 @@ public class ExtractActivity extends AppCompatActivity {
         executor.execute(() -> {
             try {
 
-                String password = etPassword.getText().toString();
-                if (password == null) password = "";
-
                 StegEngineCore.ExtractedData data =
                         StegEngineCore.extract(carrierBitmap, password);
 
-                if (data.passwordProtected && password.isEmpty()) {
-                    toast("This image is password protected");
-                    return;
-                }
-
                 if (!data.passwordProtected && !password.isEmpty()) {
-                    toast("Extraction successful (password was not required :)");
+                    Toaster.show(this, "No password needed for this image");
                 } else {
-                    toast("Extraction successful");
+                    Toaster.show(this, "Extraction successful");
                 }
 
                 File outFile = Utils.getTimestampedFile(
@@ -269,27 +259,27 @@ public class ExtractActivity extends AppCompatActivity {
 
                 switch (msg) {
                     case "NOT_STEGO":
-                        toast("Not a Stegora image");
+                        Toaster.show(this, "Not a Stegora image");
                         break;
 
                     case "PASSWORD_REQUIRED":
-                        toast("This image is password protected");
+                        Toaster.show(this, "This image is password protected");
                         break;
 
                     case "WRONG_PASSWORD":
-                        toast("Wrong password");
+                        Toaster.show(this, "Wrong password");
                         break;
 
                     case "CORRUPTED":
-                        toast("Image modified or corrupted");
+                        Toaster.error(this, "Image modified or corrupted");
                         break;
 
                     default:
-                        toast("Extraction failed");
+                        Toaster.error(this, "Extraction failed");
                 }
 
             } catch (Exception e) {
-                toast("Extraction failed");
+                Toaster.error(this, "Extraction failed");
 
             } finally {
                 runOnUiThread(() -> {
@@ -310,28 +300,5 @@ public class ExtractActivity extends AppCompatActivity {
             }
         } catch (Exception ignored) {}
         return "file";
-    }
-
-    // 🔥 Smart Toast (limit duplicates)
-    private void toast(String msg) {
-        runOnUiThread(() -> {
-
-            long now = System.currentTimeMillis();
-
-            int count = toastCount.getOrDefault(msg, 0);
-
-            // reset after 2 sec
-            if (now - lastToastTime > 2000) {
-                toastCount.clear();
-                count = 0;
-            }
-
-            if (count < 2) {
-                Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
-                toastCount.put(msg, count + 1);
-            }
-
-            lastToastTime = now;
-        });
     }
 }
