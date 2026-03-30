@@ -76,9 +76,7 @@ public class StegEngineCore {
 
         embedSequential(pixels, header);
 
-        String seed = hasPassword
-        ? seedOf(password, salt)
-        : seedOf("", salt);
+        String seed = seedOf("", salt);
 
         embedRandom(pixels, encrypted, headerPixels, seed);
 
@@ -122,32 +120,34 @@ public class StegEngineCore {
 
         int headerPixels = pixelsForBytes(header.totalHeaderSize);
 
-        String seed = header.passwordProtected
-                ? seedOf(password, header.salt)
-                : seedOf("", header.salt);
+        String seed = seedOf("", header.salt);
 
         byte[] encrypted = extractRandom(
-                pixels,
-                header.payloadSize,
-                headerPixels,
-                seed
-        );
+        pixels,
+        header.payloadSize,
+        headerPixels,
+        seed
+);
 
-        // 🔥 FIRST validate integrity
-        if (!Arrays.equals(header.hash, sha256(encrypted)))
-            throw new RuntimeException("CORRUPTED");
+byte[] decrypted;
 
-        byte[] decrypted;
+if (header.passwordProtected) {
+    try {
+        decrypted = CryptoUtils.decrypt(encrypted, password, header.salt, header.iv);
+    } catch (AEADBadTagException e) {
+        throw new RuntimeException("WRONG_PASSWORD"); // ✅ correct trigger
+    }
 
-        if (header.passwordProtected) {
-            try {
-                decrypted = CryptoUtils.decrypt(encrypted, password, header.salt, header.iv);
-            } catch (AEADBadTagException e) {
-                throw new RuntimeException("WRONG_PASSWORD");
-            }
-        } else {
-            decrypted = encrypted;
-        }
+    // ✅ NOW check integrity AFTER successful decrypt
+    if (!Arrays.equals(header.hash, sha256(encrypted)))
+        throw new RuntimeException("CORRUPTED");
+
+} else {
+    decrypted = encrypted;
+
+    if (!Arrays.equals(header.hash, sha256(encrypted)))
+        throw new RuntimeException("CORRUPTED");
+}
 
         byte[] payload = decompress(decrypted);
 
