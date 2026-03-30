@@ -1,13 +1,10 @@
 package neunix.stego;
 
 import android.content.Context;
-import android.content.Intent;
-import android.net.Uri;
 import android.view.*;
 import android.widget.*;
 
 import androidx.annotation.NonNull;
-import androidx.core.content.FileProvider;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
@@ -38,61 +35,25 @@ public class EmbeddedFilesAdapter extends RecyclerView.Adapter<EmbeddedFilesAdap
     @Override
     public void onBindViewHolder(@NonNull VH holder, int position) {
 
-        File file = files.get(position);
-        holder.fileName.setText(file.getName());
+        SmartFile sf = new SmartFile(files.get(position));
+        holder.fileName.setText(sf.getFile().getName());
 
-        // 🔥 Show thumbnail if image, else generic file icon
-        if (isImage(file)) {
+        if (sf.isImage()) {
             Glide.with(context)
-                    .load(file)
+                    .load(sf.getFile())
                     .centerCrop()
                     .into(holder.icon);
         } else {
             holder.icon.setImageResource(R.drawable.ic_file);
         }
 
-        // 📂 OPEN FILE
-        holder.itemView.setOnClickListener(v -> {
-            try {
-                Uri uri = FileProvider.getUriForFile(
-                        context,
-                        context.getPackageName() + ".provider",
-                        file
-                );
+        // 👆 Open file
+        holder.itemView.setOnClickListener(v -> sf.open(context));
 
-                Intent intent = new Intent(Intent.ACTION_VIEW);
-                intent.setDataAndType(uri, getMimeType(file)); // all as octet-stream
-                intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        // 🔗 Share
+        holder.btnShare.setOnClickListener(v -> sf.share(context));
 
-                context.startActivity(Intent.createChooser(intent, "Open with"));
-
-            } catch (Exception e) {
-                Toaster.show(context, "No app found to open this file");
-            }
-        });
-
-        // 🔗 SHARE FILE
-        holder.btnShare.setOnClickListener(v -> {
-            try {
-                Uri uri = FileProvider.getUriForFile(
-                        context,
-                        context.getPackageName() + ".provider",
-                        file
-                );
-
-                Intent intent = new Intent(Intent.ACTION_SEND);
-                intent.setType(getMimeType(file)); // all as octet-stream
-                intent.putExtra(Intent.EXTRA_STREAM, uri);
-                intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-
-                context.startActivity(Intent.createChooser(intent, "Share file"));
-
-            } catch (Exception e) {
-                Toaster.show(context, "Share failed");
-            }
-        });
-
-        // 🗑 DELETE FILE
+        // 🗑 Delete
         holder.btnDelete.setOnClickListener(v -> {
             int pos = holder.getAdapterPosition();
             if (pos == RecyclerView.NO_POSITION) return;
@@ -112,6 +73,8 @@ public class EmbeddedFilesAdapter extends RecyclerView.Adapter<EmbeddedFilesAdap
                 Toaster.show(context, "Delete failed");
             }
         });
+
+        holder.icon.setOnClickListener(v -> sf.open(context));
     }
 
     @Override
@@ -119,25 +82,8 @@ public class EmbeddedFilesAdapter extends RecyclerView.Adapter<EmbeddedFilesAdap
         return files.size();
     }
 
-    // ================= HELPERS =================
-
-    private boolean isImage(File file) {
-        String name = file.getName().toLowerCase();
-        return name.endsWith(".png") ||
-               name.endsWith(".jpg") ||
-               name.endsWith(".jpeg") ||
-               name.endsWith(".webp");
-    }
-
-    // 🔥 FORCE all files as octet-stream
-    private String getMimeType(File file) {
-        return "application/octet-stream";
-    }
-
-    // ================= VIEW HOLDER =================
-
+    // 🔍 ViewHolder
     static class VH extends RecyclerView.ViewHolder {
-
         ImageView icon;
         TextView fileName;
         ImageButton btnShare, btnDelete;
