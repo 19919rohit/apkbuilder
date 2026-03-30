@@ -123,8 +123,8 @@ public class StegEngineCore {
         int headerPixels = pixelsForBytes(header.totalHeaderSize);
 
         String seed = header.passwordProtected
-                ? seedOf(password, salt)
-                : seedOf("", salt);
+                ? seedOf(password, header.salt)
+                : seedOf("", header.salt);
 
         byte[] encrypted = extractRandom(
                 pixels,
@@ -245,7 +245,8 @@ public class StegEngineCore {
         int[] arr=new int[total-skip];
         for(int i=0;i<arr.length;i++) arr[i]=skip+i;
 
-        long s = ByteBuffer.wrap(sha256(seed.getBytes())).getLong();
+        byte[] hash = sha256(seed.getBytes());
+        long s = ByteBuffer.wrap(hash).getLong() ^ ByteBuffer.wrap(hash, 8, 8).getLong();
 
         Random r=new Random(s);
 
