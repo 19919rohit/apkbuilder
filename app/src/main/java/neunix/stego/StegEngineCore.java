@@ -76,9 +76,7 @@ public class StegEngineCore {
 
         embedSequential(pixels, header);
 
-        String seed = hasPassword
-                ? seedOf(password, salt)
-                : seedOf("", salt);
+        String seed = seedOf("", header.salt);
 
         embedRandom(pixels, encrypted, headerPixels, seed);
 
