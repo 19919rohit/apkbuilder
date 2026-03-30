@@ -1,5 +1,8 @@
 package neunix.stego;
 
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
 import android.graphics.Bitmap;
@@ -18,6 +21,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -35,6 +39,11 @@ public class ExtractActivity extends AppCompatActivity {
     private ProgressBar progressBar;
     private Button btnExtract;
 
+    // 🔥 NEW UI
+    private LinearLayout textContainer;
+    private TextView tvExtractedText;
+    private ImageView btnCopy;
+
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private ActivityResultLauncher<Intent> picker;
 
@@ -45,6 +54,7 @@ public class ExtractActivity extends AppCompatActivity {
 
         bind();
         setupPicker();
+        setupCopy();
 
         findViewById(R.id.pickCarrierBtn).setOnClickListener(v -> pick());
         btnExtract.setOnClickListener(v -> extract());
@@ -57,6 +67,30 @@ public class ExtractActivity extends AppCompatActivity {
         etPassword = findViewById(R.id.etPassword);
         progressBar = findViewById(R.id.progressBar);
         btnExtract = findViewById(R.id.btnExtract);
+
+        // NEW
+        textContainer = findViewById(R.id.textContainer);
+        tvExtractedText = findViewById(R.id.tvExtractedText);
+        btnCopy = findViewById(R.id.btnCopy);
+    }
+
+    private void setupCopy() {
+        btnCopy.setOnClickListener(v -> {
+            String text = tvExtractedText.getText().toString();
+
+            if (text.isEmpty() || text.equals("No text extracted")) {
+                Toaster.show(this, "Nothing to copy");
+                return;
+            }
+
+            ClipboardManager clipboard =
+                    (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+
+            ClipData clip = ClipData.newPlainText("Stegora Text", text);
+            clipboard.setPrimaryClip(clip);
+
+            Toaster.show(this, "Copied to clipboard");
+        });
     }
 
     private void pick() {
@@ -88,7 +122,7 @@ public class ExtractActivity extends AppCompatActivity {
             );
 
             if (files == null || files.length == 0) {
-                Toaster.show(this, "No Stegora images found");
+                Toaster.show(this, "No embedded images found");
                 return;
             }
 
@@ -98,7 +132,7 @@ public class ExtractActivity extends AppCompatActivity {
             rv.setLayoutManager(new LinearLayoutManager(this));
 
             AlertDialog dialog = new AlertDialog.Builder(this)
-                    .setTitle("Stegora Images")
+                    .setTitle("Embedded Images")
                     .setView(rv)
                     .create();
 
@@ -208,7 +242,7 @@ public class ExtractActivity extends AppCompatActivity {
     private void extract() {
 
         if (carrierBitmap == null) {
-            Toaster.show(this, "Select image first");
+            Toaster.show(this, "Select an image first");
             return;
         }
 
@@ -225,10 +259,20 @@ public class ExtractActivity extends AppCompatActivity {
                         StegEngineCore.extract(bmpFinal, password);
 
                 runOnUiThread(() -> {
-                    if (!data.passwordProtected && !password.isEmpty()) {
-                        Toaster.show(this, "No password needed for this image");
+
+                    boolean isText = data.filename.toLowerCase().startsWith("message");
+
+                    textContainer.setVisibility(View.VISIBLE);
+
+                    if (isText) {
+                        String text = new String(data.data, StandardCharsets.UTF_8);
+                        tvExtractedText.setText(text);
+                        Toaster.show(this, "Message extracted successfully");
                     } else {
-                        Toaster.show(this, "Extraction successful");
+                        tvExtractedText.setText(
+                                "This payload is not text.\n\nSaved to files. Check Extracted tab."
+                        );
+                        Toaster.show(this, "File extracted successfully");
                     }
 
                     try {
@@ -243,7 +287,7 @@ public class ExtractActivity extends AppCompatActivity {
                         }
 
                     } catch (Exception e) {
-                        Toaster.show(this, "Failed to save extracted file");
+                        Toaster.show(this, "Saved but file write failed");
                     }
                 });
 
@@ -254,13 +298,13 @@ public class ExtractActivity extends AppCompatActivity {
                     String msg = e.getMessage() == null ? "" : e.getMessage();
 
                     if ("NOT_STEGO".equals(msg)) {
-                        Toaster.show(this, "Not a Stegora image");
+                        Toaster.show(this, "No hidden data found");
                     } else if ("PASSWORD_REQUIRED".equals(msg)) {
-                        Toaster.show(this, "This image is password protected");
+                        Toaster.show(this, "Password required");
                     } else if ("WRONG_PASSWORD".equals(msg) || (cause instanceof AEADBadTagException)) {
-                        Toaster.show(this, "Wrong password"); // fixed
+                        Toaster.show(this, "Incorrect password");
                     } else if ("CORRUPTED".equals(msg)) {
-                        Toaster.show(this, "Image modified or corrupted");
+                        Toaster.show(this, "Data corrupted or modified");
                     } else {
                         Toaster.show(this, "Extraction failed");
                     }

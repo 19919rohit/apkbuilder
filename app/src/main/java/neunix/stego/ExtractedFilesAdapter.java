@@ -51,6 +51,26 @@ public class ExtractedFilesAdapter extends RecyclerView.Adapter<ExtractedFilesAd
             holder.icon.setImageResource(R.drawable.ic_file);
         }
 
+        // 👆 OPEN FILE on click
+        holder.itemView.setOnClickListener(v -> {
+            try {
+                Uri uri = FileProvider.getUriForFile(
+                        context,
+                        context.getPackageName() + ".provider",
+                        file
+                );
+
+                Intent intent = new Intent(Intent.ACTION_VIEW);
+                intent.setDataAndType(uri, "application/octet-stream"); // generic mime type
+                intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+                context.startActivity(Intent.createChooser(intent, "Open with"));
+
+            } catch (Exception e) {
+                Toaster.show(context, "No app found to open this file");
+            }
+        });
+
         // 🔗 SHARE AS DOCUMENT
         holder.btnShare.setOnClickListener(v -> {
             try {
@@ -61,7 +81,7 @@ public class ExtractedFilesAdapter extends RecyclerView.Adapter<ExtractedFilesAd
                 );
 
                 Intent intent = new Intent(Intent.ACTION_SEND);
-                intent.setType("application/octet-stream");
+                intent.setType("application/octet-stream"); // all files as octet-stream
                 intent.putExtra(Intent.EXTRA_STREAM, uri);
                 intent.putExtra(Intent.EXTRA_TITLE, file.getName());
                 intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
@@ -83,7 +103,6 @@ public class ExtractedFilesAdapter extends RecyclerView.Adapter<ExtractedFilesAd
             if (f.delete()) {
                 files.remove(pos);
                 notifyItemRemoved(pos);
-
                 Toaster.show(context, "Deleted");
 
                 if (files.isEmpty() && onListEmpty != null) {
@@ -94,9 +113,6 @@ public class ExtractedFilesAdapter extends RecyclerView.Adapter<ExtractedFilesAd
                 Toaster.show(context, "Delete failed");
             }
         });
-
-        // 👆 click item → share
-        holder.itemView.setOnClickListener(v -> holder.btnShare.performClick());
     }
 
     @Override
@@ -104,7 +120,7 @@ public class ExtractedFilesAdapter extends RecyclerView.Adapter<ExtractedFilesAd
         return files.size();
     }
 
-    // 🔍 Detect image
+    // 🔍 Detect image for thumbnail
     private boolean isImage(File file) {
         String n = file.getName().toLowerCase();
         return n.endsWith(".png") ||

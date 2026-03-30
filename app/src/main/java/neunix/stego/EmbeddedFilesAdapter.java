@@ -41,7 +41,7 @@ public class EmbeddedFilesAdapter extends RecyclerView.Adapter<EmbeddedFilesAdap
         File file = files.get(position);
         holder.fileName.setText(file.getName());
 
-        // 🔥 Show thumbnail if image, else icon
+        // 🔥 Show thumbnail if image, else generic file icon
         if (isImage(file)) {
             Glide.with(context)
                     .load(file)
@@ -51,7 +51,27 @@ public class EmbeddedFilesAdapter extends RecyclerView.Adapter<EmbeddedFilesAdap
             holder.icon.setImageResource(R.drawable.ic_file);
         }
 
-        // 🔗 SHARE
+        // 📂 OPEN FILE
+        holder.itemView.setOnClickListener(v -> {
+            try {
+                Uri uri = FileProvider.getUriForFile(
+                        context,
+                        context.getPackageName() + ".provider",
+                        file
+                );
+
+                Intent intent = new Intent(Intent.ACTION_VIEW);
+                intent.setDataAndType(uri, getMimeType(file)); // all as octet-stream
+                intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+                context.startActivity(Intent.createChooser(intent, "Open with"));
+
+            } catch (Exception e) {
+                Toaster.show(context, "No app found to open this file");
+            }
+        });
+
+        // 🔗 SHARE FILE
         holder.btnShare.setOnClickListener(v -> {
             try {
                 Uri uri = FileProvider.getUriForFile(
@@ -61,7 +81,7 @@ public class EmbeddedFilesAdapter extends RecyclerView.Adapter<EmbeddedFilesAdap
                 );
 
                 Intent intent = new Intent(Intent.ACTION_SEND);
-                intent.setType(getMimeType(file));
+                intent.setType(getMimeType(file)); // all as octet-stream
                 intent.putExtra(Intent.EXTRA_STREAM, uri);
                 intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
 
@@ -72,7 +92,7 @@ public class EmbeddedFilesAdapter extends RecyclerView.Adapter<EmbeddedFilesAdap
             }
         });
 
-        // 🗑 DELETE
+        // 🗑 DELETE FILE
         holder.btnDelete.setOnClickListener(v -> {
             int pos = holder.getAdapterPosition();
             if (pos == RecyclerView.NO_POSITION) return;
@@ -82,7 +102,6 @@ public class EmbeddedFilesAdapter extends RecyclerView.Adapter<EmbeddedFilesAdap
             if (f.delete()) {
                 files.remove(pos);
                 notifyItemRemoved(pos);
-
                 Toaster.show(context, "Deleted");
 
                 if (files.isEmpty() && onListEmpty != null) {
@@ -110,14 +129,9 @@ public class EmbeddedFilesAdapter extends RecyclerView.Adapter<EmbeddedFilesAdap
                name.endsWith(".webp");
     }
 
+    // 🔥 FORCE all files as octet-stream
     private String getMimeType(File file) {
-        String name = file.getName().toLowerCase();
-
-        if (name.endsWith(".png")) return "image/png";
-        if (name.endsWith(".jpg") || name.endsWith(".jpeg")) return "image/jpeg";
-        if (name.endsWith(".webp")) return "image/webp";
-
-        return "*/*";
+        return "application/octet-stream";
     }
 
     // ================= VIEW HOLDER =================
