@@ -35,7 +35,7 @@
             android:id="@+id/tvCarrierInfo"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Stego image info"
+            android:text="Image info"
             android:textColor="@color/text_secondary"
             android:layout_marginTop="8dp"/>
 
@@ -44,7 +44,7 @@
             android:id="@+id/pickCarrierBtn"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Select Stego Image"
+            android:text="Select Image"
             android:layout_marginTop="12dp"/>
 
         <!-- Password -->
@@ -64,7 +64,7 @@
             android:id="@+id/btnExtract"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Extract Payload"
+            android:text="Reveal Secret"
             android:layout_marginTop="16dp"
             android:backgroundTint="@color/primary"
             android:textColor="@color/text_on_primary"/>
@@ -96,7 +96,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Extracted Message"
+                    android:text="Message"
                     android:textStyle="bold"
                     android:textColor="@color/text_primary"/>
 

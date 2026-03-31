@@ -75,7 +75,7 @@
                     android:id="@+id/pickCarrierBtn"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Select Image"
+                    android:text="Select Carrier Image"
                     android:layout_marginTop="8dp" />
 
             </LinearLayout>
@@ -135,7 +135,7 @@
                 android:id="@+id/pickPayloadBtn"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Select Secret File"
+                android:text="Select Payload File"
                 android:layout_marginTop="6dp" />
         </LinearLayout>
 
@@ -188,7 +188,7 @@
             android:id="@+id/btnEmbed"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Hide Secret"
+            android:text="Embed Payload"
             android:layout_marginTop="20dp"
             android:backgroundTint="@color/green"
             android:textColor="@android:color/white" />
