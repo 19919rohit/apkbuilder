@@ -94,10 +94,10 @@ public class ExtractActivity extends AppCompatActivity {
     }
 
     private void pick() {
-        String[] options = {"Stegora Images", "Gallery / Other Apps"};
+        String[] options = {"Saved In App", "Choose From Phone"};
 
         new AlertDialog.Builder(this)
-                .setTitle("Select Image Source")
+                .setTitle("Choose Image")
                 .setItems(options, (d, which) -> {
                     if (which == 0) pickInternal();
                     else pickExternal();
@@ -122,7 +122,7 @@ public class ExtractActivity extends AppCompatActivity {
             );
 
             if (files == null || files.length == 0) {
-                Toaster.show(this, "No embedded images found");
+                Toaster.show(this, "No hidden images found");
                 return;
             }
 
@@ -132,7 +132,7 @@ public class ExtractActivity extends AppCompatActivity {
             rv.setLayoutManager(new LinearLayoutManager(this));
 
             AlertDialog dialog = new AlertDialog.Builder(this)
-                    .setTitle("Embedded Images")
+                    .setTitle("Hidden Images")
                     .setView(rv)
                     .create();
 

@@ -317,7 +317,7 @@ public class EmbedActivity extends AppCompatActivity {
 
             } catch (Exception e) {
                 e.printStackTrace();
-                runOnUiThread(() -> toast("Embed failed: " + e.getMessage()));
+                runOnUiThread(() -> toast("Hiding failed: " + e.getMessage()));
             } finally {
                 runOnUiThread(() -> {
                     progress.setVisibility(View.GONE);
