@@ -12,8 +12,8 @@ import java.util.Locale;
 public class Utils {
 
     // Folder constants (prevents typo bugs)
-    public static final String DIR_EMBEDDED = "Embedded";
-    public static final String DIR_EXTRACTED = "Extracted";
+    public static final String DIR_EMBEDDED = "Hidden";
+    public static final String DIR_EXTRACTED = "Revealed";
 
     // Get base directory inside Android/data/neunix.stego/files/
     public static File getBaseDir(Context context, String subFolder) throws IOException {

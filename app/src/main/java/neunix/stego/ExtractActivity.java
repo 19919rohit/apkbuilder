@@ -270,9 +270,9 @@ public class ExtractActivity extends AppCompatActivity {
                         Toaster.show(this, "Message extracted successfully");
                     } else {
                         tvExtractedText.setText(
-                                "This payload is not text.\n\nSaved to files. Check Extracted tab."
+                                "This payload is not text.\n\nSaved to files. Check Revealed Files tab."
                         );
-                        Toaster.show(this, "File extracted successfully");
+                        Toaster.show(this, "File revealed successfully");
                     }
 
                     try {
@@ -304,7 +304,7 @@ public class ExtractActivity extends AppCompatActivity {
                     } else if ("WRONG_PASSWORD".equals(msg) || (cause instanceof AEADBadTagException)) {
                         Toaster.show(this, "Incorrect password");
                     } else if ("CORRUPTED".equals(msg)) {
-                        Toaster.show(this, "Data corrupted or modified");
+                        Toaster.show(this, "Image corrupted or modified");
                     } else {
                         Toaster.show(this, "Extraction failed");
                     }
