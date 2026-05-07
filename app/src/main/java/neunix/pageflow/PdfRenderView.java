@@ -1,6 +1,7 @@
 package neunix.pageflow;
 
 import android.content.Context;
+import neunix.pageflow.PdfCore;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Paint;
