@@ -2,6 +2,7 @@ apply plugin: 'com.android.application'
 apply plugin: 'org.jetbrains.kotlin.android'
 
 android {
+
     namespace 'neunix.pageflow'
     compileSdkVersion 34
 
@@ -16,7 +17,7 @@ android {
     buildTypes {
 
         release {
-            minifyEnabled true
+            minifyEnabled false
 
             proguardFiles getDefaultProguardFile(
                     'proguard-android-optimize.txt'
@@ -26,6 +27,16 @@ android {
         debug {
             debuggable true
         }
+    }
+
+    // IMPORTANT FIX
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = '17'
     }
 }
 
