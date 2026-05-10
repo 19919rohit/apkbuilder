@@ -8,7 +8,6 @@ import android.net.Uri
 import android.os.ParcelFileDescriptor
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
-import java.util.concurrent.atomic.AtomicBoolean
 
 class PdfCore {
 
@@ -20,7 +19,8 @@ class PdfCore {
     private var pfd: ParcelFileDescriptor? = null
 
     private val executor: ExecutorService = Executors.newSingleThreadExecutor()
-    private val closed = AtomicBoolean(false)
+
+    private val renderLock = Any()
 
     fun open(context: Context, uri: Uri) {
 
@@ -34,25 +34,37 @@ class PdfCore {
         renderer = PdfRenderer(pfd!!)
     }
 
-    fun pageCount(): Int = renderer?.pageCount ?: 0
+    fun pageCount(): Int {
+        return renderer?.pageCount ?: 0
+    }
 
     fun renderPage(index: Int, width: Int, height: Int): Bitmap {
 
-        val page = renderer!!.openPage(index)
+        synchronized(renderLock) {
 
-        val bitmap = Bitmap.createBitmap(
-            width,
-            height,
-            Bitmap.Config.ARGB_8888
-        )
+            val page = renderer!!.openPage(index)
 
-        bitmap.eraseColor(Color.WHITE)
+            val bitmap = Bitmap.createBitmap(
+                width,
+                height,
+                Bitmap.Config.ARGB_8888
+            )
 
-        page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+            bitmap.eraseColor(Color.WHITE)
 
-        page.close()
+            try {
+                page.render(
+                    bitmap,
+                    null,
+                    null,
+                    PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY
+                )
+            } finally {
+                page.close()
+            }
 
-        return bitmap
+            return bitmap
+        }
     }
 
     fun renderPageAsync(
@@ -62,23 +74,16 @@ class PdfCore {
         callback: BitmapCallback
     ) {
 
-        if (closed.get()) return
-
         executor.execute {
             try {
                 val bmp = renderPage(index, width, height)
-
-                if (!closed.get()) {
-                    callback.onBitmap(bmp)
-                }
-
-            } catch (_: Exception) {}
+                callback.onBitmap(bmp)
+            } catch (_: Exception) {
+            }
         }
     }
 
     fun close() {
-        closed.set(true)
-
         try {
             renderer?.close()
             pfd?.close()

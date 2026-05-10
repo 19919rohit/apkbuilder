@@ -18,8 +18,7 @@ public class PdfPageAdapter extends RecyclerView.Adapter<PdfPageAdapter.VH> {
     private final Context context;
     private final PdfCore core;
 
-    private final LruCache<Integer, Bitmap> cache =
-            new LruCache<>(3);
+    private final LruCache<Integer, Bitmap> cache = new LruCache<>(3);
 
     public PdfPageAdapter(Context context, PdfCore core) {
         this.context = context;
@@ -42,9 +41,7 @@ public class PdfPageAdapter extends RecyclerView.Adapter<PdfPageAdapter.VH> {
         Bitmap bmp = cache.get(position);
 
         if (bmp == null) {
-
             bmp = core.renderPage(position, 720, 1280);
-
             cache.put(position, bmp);
         }
 
@@ -59,7 +56,6 @@ public class PdfPageAdapter extends RecyclerView.Adapter<PdfPageAdapter.VH> {
     private void preload(int pos) {
 
         if (pos < 0 || pos >= getItemCount()) return;
-
         if (cache.get(pos) != null) return;
 
         core.renderPageAsync(pos, 720, 1280,
