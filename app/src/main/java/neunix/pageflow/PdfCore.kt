@@ -6,18 +6,21 @@ import android.graphics.Color
 import android.graphics.pdf.PdfRenderer
 import android.net.Uri
 import android.os.ParcelFileDescriptor
-import java.io.File
-import java.util.concurrent.Executors
 import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
 class PdfCore {
+
+    interface BitmapCallback {
+        fun onBitmap(bitmap: Bitmap)
+    }
 
     private var renderer: PdfRenderer? = null
     private var pfd: ParcelFileDescriptor? = null
 
     private val executor: ExecutorService = Executors.newSingleThreadExecutor()
-    private val isClosed = AtomicBoolean(false)
+    private val closed = AtomicBoolean(false)
 
     fun open(context: Context, uri: Uri) {
 
@@ -31,16 +34,11 @@ class PdfCore {
         renderer = PdfRenderer(pfd!!)
     }
 
-    fun pageCount(): Int {
-        return renderer?.pageCount ?: 0
-    }
+    fun pageCount(): Int = renderer?.pageCount ?: 0
 
-    // FAST SYNC RENDER (used by ViewPager)
     fun renderPage(index: Int, width: Int, height: Int): Bitmap {
 
-        val r = renderer ?: throw IllegalStateException("Renderer not ready")
-
-        val page = r.openPage(index)
+        val page = renderer!!.openPage(index)
 
         val bitmap = Bitmap.createBitmap(
             width,
@@ -50,46 +48,36 @@ class PdfCore {
 
         bitmap.eraseColor(Color.WHITE)
 
-        page.render(
-            bitmap,
-            null,
-            null,
-            PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY
-        )
+        page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
 
         page.close()
 
         return bitmap
     }
 
-    // ASYNC PRELOAD (ONLY for next/prev)
     fun renderPageAsync(
         index: Int,
         width: Int,
         height: Int,
-        callback: (Bitmap) -> Unit
+        callback: BitmapCallback
     ) {
 
-        if (isClosed.get()) return
+        if (closed.get()) return
 
         executor.execute {
-
             try {
                 val bmp = renderPage(index, width, height)
 
-                if (!isClosed.get()) {
-                    callback(bmp)
+                if (!closed.get()) {
+                    callback.onBitmap(bmp)
                 }
 
-            } catch (_: Exception) {
-                // ignore safely
-            }
+            } catch (_: Exception) {}
         }
     }
 
     fun close() {
-
-        isClosed.set(true)
+        closed.set(true)
 
         try {
             renderer?.close()
