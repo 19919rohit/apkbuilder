@@ -1,59 +1,69 @@
-# ----------------------------------------
-# ✅ Base ProGuard / R8 Rules for Android
-# ----------------------------------------
+############################################
+# BASIC ANDROID SAFETY
+############################################
 
-# Keep line numbers and source file names for debugging (optional)
--renamesourcefileattribute SourceFile
--keepattributes SourceFile,LineNumberTable
-
-# ----------------------------------------
-# ✅ Common Android & Kotlin rules
-# ----------------------------------------
 -keep class androidx.** { *; }
--keep class com.google.** { *; }
--keep class kotlin.** { *; }
--keep class kotlinx.** { *; }
+-keep class com.google.android.material.** { *; }
 
-# Prevent obfuscation of your app's main entry points
--keep public class * extends android.app.Application { *; }
--keep public class * extends android.app.Activity { *; }
--keep public class * extends android.app.Service { *; }
--keep public class * extends android.content.BroadcastReceiver { *; }
--keep public class * extends android.content.ContentProvider { *; }
+############################################
+# VIEWPAGER / UI (IMPORTANT)
+############################################
 
-# Keep your R (resources) classes and prevent their obfuscation
--keep class **.R$* { *; }
--keep class **.R { *; }
+-keep class androidx.viewpager2.** { *; }
 
-# Keep names of methods used in XML layouts (onClick, etc.)
--keepclassmembers class * {
-    public void *(android.view.View);
-}
+############################################
+# GLIDE (CRITICAL - DO NOT OBFUSCATE)
+############################################
 
-# ----------------------------------------
-# ✅ Keep annotations (important for Jetpack & DI)
-# ----------------------------------------
--keepattributes *Annotation*
+-keep public class * implements com.bumptech.glide.module.AppGlideModule
+-keep class com.bumptech.glide.** { *; }
+-keep class com.bumptech.glide.load.engine.** { *; }
+-keep class com.bumptech.glide.request.** { *; }
 
-# ----------------------------------------
-# ✅ Optional: Logging and reflection safety
-# ----------------------------------------
+-dontwarn com.bumptech.glide.**
+
+############################################
+# PDF RENDERER (VERY IMPORTANT)
+############################################
+
+-keep class android.graphics.pdf.** { *; }
+
+############################################
+# YOUR CORE APP CLASSES (IMPORTANT)
+############################################
+
+-keep class neunix.pageflow.PdfCore { *; }
+-keep class neunix.pageflow.PdfPageAdapter { *; }
+-keep class neunix.pageflow.PdfActivity { *; }
+
+############################################
+# ANDROID FILE / URI HANDLING
+############################################
+
+-keep class androidx.core.content.FileProvider { *; }
+
+############################################
+# REMOVE LOGS (OPTIONAL RELEASE CLEANUP)
+############################################
+
 -assumenosideeffects class android.util.Log {
     public static *** d(...);
     public static *** v(...);
     public static *** i(...);
-    public static *** w(...);
-    public static *** e(...);
 }
 
-# ----------------------------------------
-# ✅ Optional: Ignore warnings (useful for mixed dependencies)
-# ----------------------------------------
--dontwarn org.jetbrains.annotations.**
--dontwarn javax.annotation.**
--dontwarn kotlinx.**
--dontwarn kotlin.**
--dontwarn androidx.**
+############################################
+# SAFE DEFAULT OPTIMIZATION RULES
+############################################
 
-# ----------------------------------------
+-keepattributes *Annotation*
+-keepattributes Signature
+-keepattributes InnerClasses
 
+############################################
+# PREVENT CRITICAL REFLECTION ISSUES
+############################################
+
+-keepclassmembers class * {
+    @android.webkit.JavascriptInterface <methods>;
+}

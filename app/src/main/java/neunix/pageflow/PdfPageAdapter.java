@@ -11,102 +11,76 @@ import android.widget.ImageView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
-public class PdfPageAdapter extends RecyclerView.Adapter<PdfPageAdapter.PageVH> {
+import com.bumptech.glide.Glide;
+
+public class PdfPageAdapter extends RecyclerView.Adapter<PdfPageAdapter.VH> {
 
     private final Context context;
-    private final PdfCore pdfCore;
+    private final PdfCore core;
 
-    // ONLY 3 pages cache
+    // STRICT 3 PAGE CACHE (previous, current, next)
     private final LruCache<Integer, Bitmap> cache =
-            new LruCache<Integer, Bitmap>(3) {
+            new LruCache<>(3);
 
-                @Override
-                protected int sizeOf(Integer key, Bitmap value) {
-                    return 1;
-                }
-
-                @Override
-                protected void entryRemoved(
-                        boolean evicted,
-                        Integer key,
-                        Bitmap oldValue,
-                        Bitmap newValue
-                ) {
-
-                    if (oldValue != null && !oldValue.isRecycled()) {
-                        oldValue.recycle();
-                    }
-                }
-            };
-
-    public PdfPageAdapter(Context context, PdfCore pdfCore) {
+    public PdfPageAdapter(Context context, PdfCore core) {
         this.context = context;
-        this.pdfCore = pdfCore;
+        this.core = core;
     }
 
     @NonNull
     @Override
-    public PageVH onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+    public VH onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
 
-        View view = LayoutInflater.from(context)
+        View v = LayoutInflater.from(context)
                 .inflate(R.layout.item_page, parent, false);
 
-        return new PageVH(view);
+        return new VH(v);
     }
 
     @Override
-    public void onBindViewHolder(@NonNull PageVH holder, int position) {
+    public void onBindViewHolder(@NonNull VH holder, int position) {
 
-        Bitmap bitmap = cache.get(position);
+        Bitmap bmp = cache.get(position);
 
-        if (bitmap == null || bitmap.isRecycled()) {
+        if (bmp == null) {
 
-            // lower resolution = huge RAM savings
-            int width = 720;
-            int height = 1280;
+            bmp = core.renderPage(position, 720, 1280);
 
-            bitmap = pdfCore.renderPage(position, width, height);
-
-            cache.put(position, bitmap);
+            cache.put(position, bmp);
         }
 
-        holder.imageView.setImageBitmap(bitmap);
+        Glide.with(context)
+                .load(bmp)
+                .into(holder.image);
 
         preload(position - 1);
         preload(position + 1);
     }
 
-    private void preload(int page) {
+    private void preload(int pos) {
 
-        if (page < 0 || page >= getItemCount()) {
-            return;
-        }
+        if (pos < 0 || pos >= getItemCount()) return;
 
-        if (cache.get(page) != null) {
-            return;
-        }
+        if (cache.get(pos) != null) return;
 
-        int width = 720;
-        int height = 1280;
+        core.renderPageAsync(pos, 720, 1280, bmp -> {
 
-        Bitmap bmp = pdfCore.renderPage(page, width, height);
-
-        cache.put(page, bmp);
+            cache.put(pos, bmp);
+        });
     }
 
     @Override
     public int getItemCount() {
-        return pdfCore.pageCount();
+        return core.pageCount();
     }
 
-    static class PageVH extends RecyclerView.ViewHolder {
+    static class VH extends RecyclerView.ViewHolder {
 
-        ImageView imageView;
+        ImageView image;
 
-        public PageVH(@NonNull View itemView) {
-            super(itemView);
-
-            imageView = itemView.findViewById(R.id.pageImage);
+        VH(View v) {
+            super(v);
+            image = v.findViewById(R.id.pageImage);
         }
     }
 }
