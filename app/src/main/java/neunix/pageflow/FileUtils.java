@@ -12,19 +12,25 @@ import java.io.InputStream;
 public class FileUtils {
 
     public static File getFileFromUri(Context context, Uri uri) {
+
         try {
-            InputStream inputStream = context.getContentResolver().openInputStream(uri);
 
-            String name = getFileName(context, uri);
-            File file = new File(context.getCacheDir(), name);
+            InputStream inputStream =
+                    context.getContentResolver().openInputStream(uri);
 
-            FileOutputStream outputStream = new FileOutputStream(file);
+            String fileName = getFileName(context, uri);
+
+            File file = new File(context.getCacheDir(), fileName);
+
+            FileOutputStream outputStream =
+                    new FileOutputStream(file);
 
             byte[] buffer = new byte[4096];
-            int len;
 
-            while ((len = inputStream.read(buffer)) != -1) {
-                outputStream.write(buffer, 0, len);
+            int read;
+
+            while ((read = inputStream.read(buffer)) != -1) {
+                outputStream.write(buffer, 0, read);
             }
 
             outputStream.close();
@@ -38,14 +44,21 @@ public class FileUtils {
     }
 
     private static String getFileName(Context context, Uri uri) {
+
         String result = "temp.pdf";
 
         Cursor cursor = context.getContentResolver()
                 .query(uri, null, null, null, null);
 
-        if (cursor != null && cursor.moveToFirst()) {
-            int idx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
-            result = cursor.getString(idx);
+        if (cursor != null) {
+
+            int nameIndex =
+                    cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+
+            cursor.moveToFirst();
+
+            result = cursor.getString(nameIndex);
+
             cursor.close();
         }
 
