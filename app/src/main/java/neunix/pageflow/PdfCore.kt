@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.pdf.PdfRenderer
 import android.net.Uri
 import android.os.ParcelFileDescriptor
+import java.io.File
 
 class PdfCore(private val context: Context) {
 
@@ -22,6 +23,10 @@ class PdfCore(private val context: Context) {
         renderer = PdfRenderer(fileDescriptor!!)
     }
 
+    fun pageCount(): Int {
+        return renderer?.pageCount ?: 0
+    }
+
     fun renderPage(index: Int, width: Int, height: Int): Bitmap {
         val page = renderer!!.openPage(index)
 
@@ -35,10 +40,6 @@ class PdfCore(private val context: Context) {
         page.close()
 
         return bitmap
-    }
-
-    fun hasPage(index: Int): Boolean {
-        return index < renderer!!.pageCount
     }
 
     fun close() {
