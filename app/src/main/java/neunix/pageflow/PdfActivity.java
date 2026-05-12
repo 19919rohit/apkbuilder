@@ -18,6 +18,9 @@ public class PdfActivity extends Activity {
     private PdfCore core;
     private PdfPageAdapter adapter;
 
+    // prevents multi-trigger flipping
+    private boolean flipping = false;
+
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
@@ -54,20 +57,29 @@ public class PdfActivity extends Activity {
 
                 pager.setAdapter(adapter);
 
+                // ONLY KEEP 1 OFFSCREEN PAGE
                 pager.setOffscreenPageLimit(1);
 
+                // smoother motion
                 pager.setPageTransformer((page, position) -> {
 
                     float abs = Math.abs(position);
 
-                    page.setAlpha(1 - abs * 0.25f);
-                    page.setScaleY(1 - abs * 0.05f);
+                    page.setAlpha(1f - abs * 0.25f);
+
+                    page.setScaleY(1f - abs * 0.05f);
+
                     page.setRotationY(position * -15f);
+
+                    page.setTranslationX(
+                            position * -page.getWidth() * 0.08f
+                    );
 
                     page.setCameraDistance(20000f);
                 });
 
-                setupTap();
+                // IMPORTANT
+                pager.post(this::setupTap);
 
             } catch (Exception e) {
                 e.printStackTrace();
@@ -79,6 +91,8 @@ public class PdfActivity extends Activity {
 
         pager.getChildAt(0).setOnTouchListener((v, e) -> {
 
+            if (flipping) return true;
+
             if (e.getAction() == MotionEvent.ACTION_UP) {
 
                 float x = e.getX();
@@ -86,23 +100,43 @@ public class PdfActivity extends Activity {
 
                 int cur = pager.getCurrentItem();
 
-                if (x > w * 0.7f && cur < adapter.getItemCount() - 1) {
+                flipping = true;
 
-                    playFlip();
-                    pager.setCurrentItem(cur + 1, true);
+                // NEXT PAGE
+                if (x > w * 0.7f) {
 
-                } else if (x < w * 0.3f && cur > 0) {
+                    if (cur < adapter.getItemCount() - 1) {
 
-                    playFlip();
-                    pager.setCurrentItem(cur - 1, true);
+                        flip();
+
+                        pager.postDelayed(() ->
+                                pager.setCurrentItem(cur + 1, true), 80);
+                    }
                 }
+
+                // PREVIOUS PAGE
+                else if (x < w * 0.3f) {
+
+                    if (cur > 0) {
+
+                        flip();
+
+                        pager.postDelayed(() ->
+                                pager.setCurrentItem(cur - 1, true), 80);
+                    }
+                }
+
+                // unlock after animation
+                pager.postDelayed(() -> {
+                    flipping = false;
+                }, 350);
             }
 
-            return false;
+            return true;
         });
     }
 
-    private void playFlip() {
+    private void flip() {
 
         Animation anim = AnimationUtils.loadAnimation(
                 this,
@@ -116,6 +150,8 @@ public class PdfActivity extends Activity {
     protected void onDestroy() {
         super.onDestroy();
 
-        if (core != null) core.close();
+        if (core != null) {
+            core.close();
+        }
     }
 }
