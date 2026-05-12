@@ -5,6 +5,8 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.pdf.PdfRenderer
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
 import android.os.ParcelFileDescriptor
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -18,8 +20,14 @@ class PdfCore {
     private var renderer: PdfRenderer? = null
     private var pfd: ParcelFileDescriptor? = null
 
-    private val executor: ExecutorService = Executors.newSingleThreadExecutor()
+    // SINGLE THREAD ONLY
+    private val executor: ExecutorService =
+        Executors.newSingleThreadExecutor()
 
+    // MAIN THREAD CALLBACK
+    private val mainHandler = Handler(Looper.getMainLooper())
+
+    // STRICT PDF LOCK
     private val renderLock = Any()
 
     fun open(context: Context, uri: Uri) {
@@ -38,32 +46,47 @@ class PdfCore {
         return renderer?.pageCount ?: 0
     }
 
-    fun renderPage(index: Int, width: Int, height: Int): Bitmap {
+    fun renderPage(
+        index: Int,
+        width: Int,
+        height: Int
+    ): Bitmap {
 
         synchronized(renderLock) {
 
-            val page = renderer!!.openPage(index)
+            val safeRenderer = renderer
+                ?: throw IllegalStateException("Renderer closed")
 
-            val bitmap = Bitmap.createBitmap(
-                width,
-                height,
-                Bitmap.Config.ARGB_8888
-            )
-
-            bitmap.eraseColor(Color.WHITE)
+            var page: PdfRenderer.Page? = null
 
             try {
+
+                page = safeRenderer.openPage(index)
+
+                val bitmap = Bitmap.createBitmap(
+                    width,
+                    height,
+                    Bitmap.Config.ARGB_8888
+                )
+
+                bitmap.eraseColor(Color.WHITE)
+
                 page.render(
                     bitmap,
                     null,
                     null,
                     PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY
                 )
-            } finally {
-                page.close()
-            }
 
-            return bitmap
+                return bitmap
+
+            } finally {
+
+                try {
+                    page?.close()
+                } catch (_: Exception) {
+                }
+            }
         }
     }
 
@@ -75,19 +98,35 @@ class PdfCore {
     ) {
 
         executor.execute {
+
             try {
-                val bmp = renderPage(index, width, height)
-                callback.onBitmap(bmp)
+
+                val bmp = renderPage(
+                    index,
+                    width,
+                    height
+                )
+
+                mainHandler.post {
+                    callback.onBitmap(bmp)
+                }
+
             } catch (_: Exception) {
             }
         }
     }
 
     fun close() {
+
         try {
             renderer?.close()
+        } catch (_: Exception) {
+        }
+
+        try {
             pfd?.close()
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+        }
 
         executor.shutdownNow()
     }
