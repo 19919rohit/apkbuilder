@@ -2,27 +2,22 @@ package neunix.pageflow;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Bundle;
-import android.view.MotionEvent;
-import android.view.View;
-import android.view.animation.Animation;
-import android.view.animation.AnimationUtils;
-
-import androidx.viewpager2.widget.ViewPager2;
-
-import com.google.android.material.slider.Slider;
 
 public class PdfActivity extends Activity {
 
     private static final int PICK = 100;
 
-    private ViewPager2 pager;
-    private PdfCore core;
-    private PdfPageAdapter adapter;
-    private Slider slider;
+    private PageFlipView pageFlipView;
 
-    private boolean flipping = false;
+    private PdfCore core;
+
+    private int currentPage = 0;
+
+    private Bitmap currentBitmap;
+    private Bitmap nextBitmap;
 
     @Override
     protected void onCreate(Bundle b) {
@@ -30,15 +25,16 @@ public class PdfActivity extends Activity {
 
         setContentView(R.layout.activity_pdf);
 
-        pager = findViewById(R.id.viewPager);
-        slider = findViewById(R.id.pageSlider);
+        pageFlipView =
+                findViewById(R.id.pageFlipView);
 
         openPicker();
     }
 
     private void openPicker() {
 
-        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        Intent i =
+                new Intent(Intent.ACTION_OPEN_DOCUMENT);
 
         i.setType("application/pdf");
 
@@ -48,12 +44,23 @@ public class PdfActivity extends Activity {
     }
 
     @Override
-    protected void onActivityResult(int r, int c, Intent d) {
-        super.onActivityResult(r, c, d);
+    protected void onActivityResult(
+            int requestCode,
+            int resultCode,
+            Intent data
+    ) {
 
-        if (r == PICK && c == RESULT_OK && d != null) {
+        super.onActivityResult(
+                requestCode,
+                resultCode,
+                data
+        );
 
-            Uri uri = d.getData();
+        if (requestCode == PICK
+                && resultCode == RESULT_OK
+                && data != null) {
+
+            Uri uri = data.getData();
 
             try {
 
@@ -61,171 +68,78 @@ public class PdfActivity extends Activity {
 
                 core.open(this, uri);
 
-                adapter = new PdfPageAdapter(this, core);
+                loadPages();
 
-                pager.setAdapter(adapter);
+                pageFlipView.setOnFlipListener(
+                        new PageFlipView.OnFlipListener() {
 
-                // only keep nearby pages
-                pager.setOffscreenPageLimit(1);
+                            @Override
+                            public void onNextPage() {
 
-                // smooth ReadEra-like feel
-                pager.setPageTransformer((page, position) -> {
+                                if (currentPage <
+                                        core.getPageCount() - 1) {
 
-                    float abs = Math.abs(position);
+                                    currentPage++;
 
-                    float scaleX = 1f - (abs * 0.25f);
+                                    loadPages();
+                                }
+                            }
 
-                    page.setScaleX(scaleX);
+                            @Override
+                            public void onPreviousPage() {
 
-                    page.setScaleY(1f - abs * 0.03f);
+                                if (currentPage > 0) {
 
-                    page.setTranslationX(
-                            position * -page.getWidth() * 0.18f
-                    );
+                                    currentPage--;
 
-                    page.setAlpha(1f - abs * 0.28f);
-
-                    page.setCameraDistance(20000f);
-                });
-
-                setupTouchSystem();
-
-                setupSlider();
+                                    loadPages();
+                                }
+                            }
+                        }
+                );
 
             } catch (Exception e) {
+
                 e.printStackTrace();
             }
         }
     }
 
-    private void setupSlider() {
+    private void loadPages() {
 
-        slider.setValueFrom(0);
+        try {
 
-        slider.setValueTo(
-                Math.max(1, adapter.getItemCount() - 1)
-        );
+            currentBitmap =
+                    core.renderPage(
+                            currentPage,
+                            1080,
+                            1920
+                    );
 
-        slider.setStepSize(1);
+            if (currentPage
+                    < core.getPageCount() - 1) {
 
-        slider.addOnChangeListener((s, value, fromUser) -> {
+                nextBitmap =
+                        core.renderPage(
+                                currentPage + 1,
+                                1080,
+                                1920
+                        );
 
-            if (!fromUser) return;
+            } else {
 
-            int page = (int) value;
+                nextBitmap = null;
+            }
 
-            pager.setCurrentItem(page, false);
-        });
+            pageFlipView.setBitmaps(
+                    currentBitmap,
+                    nextBitmap
+            );
 
-        pager.registerOnPageChangeCallback(
-                new ViewPager2.OnPageChangeCallback() {
+        } catch (Exception e) {
 
-                    @Override
-                    public void onPageSelected(int position) {
-
-                        slider.setValue(position);
-                    }
-                }
-        );
-    }
-
-    private void setupTouchSystem() {
-
-        pager.getChildAt(0).setOnTouchListener(
-                new View.OnTouchListener() {
-
-                    float downX;
-                    float downY;
-
-                    @Override
-                    public boolean onTouch(View v, MotionEvent e) {
-
-                        switch (e.getAction()) {
-
-                            case MotionEvent.ACTION_DOWN:
-
-                                downX = e.getX();
-                                downY = e.getY();
-
-                                return false;
-
-                            case MotionEvent.ACTION_UP:
-
-                                if (pager.getScrollState()
-                                        != ViewPager2.SCROLL_STATE_IDLE) {
-                                    return false;
-                                }
-
-                                float upX = e.getX();
-                                float upY = e.getY();
-
-                                float dx = Math.abs(upX - downX);
-                                float dy = Math.abs(upY - downY);
-
-                                // if moved enough -> swipe
-                                if (dx > 25 || dy > 25) {
-                                    return false;
-                                }
-
-                                if (flipping) {
-                                    return true;
-                                }
-
-                                int cur = pager.getCurrentItem();
-
-                                float w = pager.getWidth();
-
-                                flipping = true;
-
-                                // NEXT PAGE
-                                if (upX > w * 0.7f) {
-
-                                    if (cur <
-                                            adapter.getItemCount() - 1) {
-
-                                        flip();
-
-                                        pager.setCurrentItem(
-                                                cur + 1,
-                                                true
-                                        );
-                                    }
-                                }
-
-                                // PREVIOUS PAGE
-                                else if (upX < w * 0.3f) {
-
-                                    if (cur > 0) {
-
-                                        flip();
-
-                                        pager.setCurrentItem(
-                                                cur - 1,
-                                                true
-                                        );
-                                    }
-                                }
-
-                                pager.postDelayed(() ->
-                                        flipping = false, 220);
-
-                                return true;
-                        }
-
-                        return false;
-                    }
-                }
-        );
-    }
-
-    private void flip() {
-
-        Animation anim = AnimationUtils.loadAnimation(
-                this,
-                R.anim.page_flip
-        );
-
-        pager.startAnimation(anim);
+            e.printStackTrace();
+        }
     }
 
     @Override
