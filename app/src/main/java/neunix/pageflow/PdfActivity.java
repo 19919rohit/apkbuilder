@@ -77,7 +77,7 @@ public class PdfActivity extends Activity {
                             public void onNextPage() {
 
                                 if (currentPage <
-                                        core.getPageCount() - 1) {
+                                        core.pageCount() - 1) {
 
                                     currentPage++;
 
@@ -117,7 +117,7 @@ public class PdfActivity extends Activity {
                     );
 
             if (currentPage
-                    < core.getPageCount() - 1) {
+                    < core.pageCount() - 1) {
 
                 nextBitmap =
                         core.renderPage(
