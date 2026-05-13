@@ -1,23 +1,70 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <set xmlns:android="http://schemas.android.com/apk/res/android"
-    android:duration="180"
-    android:interpolator="@android:interpolator/accelerate_decelerate">
+    android:shareInterpolator="false"
+    android:fillAfter="false">
 
+    <!--
+        PROFESSIONAL PAGEFLOW TRANSITION
+
+        Goal:
+        - subtle paper tension
+        - NOT card rotation
+        - smooth content transition
+        - ReadEra-like softness
+    -->
+
+    <!-- slight inward compression -->
     <scale
+        android:duration="110"
         android:fromXScale="1.0"
-        android:toXScale="0.93"
+        android:toXScale="0.92"
         android:fromYScale="1.0"
-        android:toYScale="0.96"
-        android:pivotX="50%"
-        android:pivotY="50%" />
+        android:toYScale="0.985"
+        android:pivotX="85%"
+        android:pivotY="50%"
+        android:interpolator="@android:interpolator/accelerate_decelerate"/>
 
-    <alpha
-        android:fromAlpha="1.0"
-        android:toAlpha="0.78" />
-
+    <!-- tiny horizontal pull -->
     <translate
+        android:duration="110"
         android:fromXDelta="0"
-        android:toXDelta="-20dp" />
+        android:toXDelta="-14"
+        android:interpolator="@android:interpolator/accelerate_decelerate"/>
+
+    <!-- light dimming -->
+    <alpha
+        android:duration="90"
+        android:fromAlpha="1.0"
+        android:toAlpha="0.82"
+        android:interpolator="@android:interpolator/accelerate_decelerate"/>
+
+    <!-- recover naturally -->
+    <scale
+        android:startOffset="110"
+        android:duration="140"
+        android:fromXScale="0.92"
+        android:toXScale="1.0"
+        android:fromYScale="0.985"
+        android:toYScale="1.0"
+        android:pivotX="15%"
+        android:pivotY="50%"
+        android:interpolator="@android:interpolator/decelerate_quad"/>
+
+    <!-- settle back -->
+    <translate
+        android:startOffset="110"
+        android:duration="140"
+        android:fromXDelta="-14"
+        android:toXDelta="0"
+        android:interpolator="@android:interpolator/decelerate_quad"/>
+
+    <!-- restore brightness -->
+    <alpha
+        android:startOffset="110"
+        android:duration="140"
+        android:fromAlpha="0.82"
+        android:toAlpha="1.0"
+        android:interpolator="@android:interpolator/decelerate_quad"/>
 
 </set>

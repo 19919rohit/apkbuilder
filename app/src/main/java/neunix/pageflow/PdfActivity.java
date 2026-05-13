@@ -4,13 +4,14 @@ import android.app.Activity;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
-import android.view.GestureDetector;
 import android.view.MotionEvent;
+import android.view.View;
 import android.view.animation.Animation;
 import android.view.animation.AnimationUtils;
 
-import androidx.core.view.GestureDetectorCompat;
 import androidx.viewpager2.widget.ViewPager2;
+
+import com.google.android.material.slider.Slider;
 
 public class PdfActivity extends Activity {
 
@@ -19,10 +20,8 @@ public class PdfActivity extends Activity {
     private ViewPager2 pager;
     private PdfCore core;
     private PdfPageAdapter adapter;
+    private Slider slider;
 
-    private GestureDetectorCompat gestureDetector;
-
-    // prevents rapid double tap chaos
     private boolean flipping = false;
 
     @Override
@@ -32,6 +31,7 @@ public class PdfActivity extends Activity {
         setContentView(R.layout.activity_pdf);
 
         pager = findViewById(R.id.viewPager);
+        slider = findViewById(R.id.pageSlider);
 
         openPicker();
     }
@@ -39,7 +39,10 @@ public class PdfActivity extends Activity {
     private void openPicker() {
 
         Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+
         i.setType("application/pdf");
+
+        i.addCategory(Intent.CATEGORY_OPENABLE);
 
         startActivityForResult(i, PICK);
     }
@@ -48,41 +51,46 @@ public class PdfActivity extends Activity {
     protected void onActivityResult(int r, int c, Intent d) {
         super.onActivityResult(r, c, d);
 
-        if (r == PICK && c == RESULT_OK) {
+        if (r == PICK && c == RESULT_OK && d != null) {
 
             Uri uri = d.getData();
 
             try {
 
                 core = new PdfCore();
+
                 core.open(this, uri);
 
                 adapter = new PdfPageAdapter(this, core);
 
                 pager.setAdapter(adapter);
 
-                // keep memory low
+                // only keep nearby pages
                 pager.setOffscreenPageLimit(1);
 
-                // smooth book feeling
+                // smooth ReadEra-like feel
                 pager.setPageTransformer((page, position) -> {
 
                     float abs = Math.abs(position);
 
-                    page.setAlpha(1f - abs * 0.25f);
+                    float scaleX = 1f - (abs * 0.25f);
 
-                    page.setScaleY(1f - abs * 0.05f);
+                    page.setScaleX(scaleX);
 
-                    page.setRotationY(position * -12f);
+                    page.setScaleY(1f - abs * 0.03f);
 
                     page.setTranslationX(
-                            position * -page.getWidth() * 0.06f
+                            position * -page.getWidth() * 0.18f
                     );
+
+                    page.setAlpha(1f - abs * 0.28f);
 
                     page.setCameraDistance(20000f);
                 });
 
                 setupTouchSystem();
+
+                setupSlider();
 
             } catch (Exception e) {
                 e.printStackTrace();
@@ -90,83 +98,124 @@ public class PdfActivity extends Activity {
         }
     }
 
-    private void setupTouchSystem() {
+    private void setupSlider() {
 
-        gestureDetector = new GestureDetectorCompat(
-                this,
-                new GestureDetector.SimpleOnGestureListener() {
+        slider.setValueFrom(0);
+
+        slider.setValueTo(
+                Math.max(1, adapter.getItemCount() - 1)
+        );
+
+        slider.setStepSize(1);
+
+        slider.addOnChangeListener((s, value, fromUser) -> {
+
+            if (!fromUser) return;
+
+            int page = (int) value;
+
+            pager.setCurrentItem(page, false);
+        });
+
+        pager.registerOnPageChangeCallback(
+                new ViewPager2.OnPageChangeCallback() {
 
                     @Override
-                    public boolean onSingleTapUp(MotionEvent e) {
+                    public void onPageSelected(int position) {
 
-                        // ignore during active scrolling
-                        if (pager.getScrollState()
-                                != ViewPager2.SCROLL_STATE_IDLE) {
-                            return false;
-                        }
+                        slider.setValue(position);
+                    }
+                }
+        );
+    }
 
-                        // prevent tap spam
-                        if (flipping) {
-                            return true;
-                        }
+    private void setupTouchSystem() {
 
-                        float x = e.getX();
-                        float w = pager.getWidth();
+        pager.getChildAt(0).setOnTouchListener(
+                new View.OnTouchListener() {
 
-                        int cur = pager.getCurrentItem();
+                    float downX;
+                    float downY;
 
-                        // RIGHT = NEXT PAGE
-                        if (x > w * 0.7f) {
+                    @Override
+                    public boolean onTouch(View v, MotionEvent e) {
 
-                            if (cur < adapter.getItemCount() - 1) {
+                        switch (e.getAction()) {
+
+                            case MotionEvent.ACTION_DOWN:
+
+                                downX = e.getX();
+                                downY = e.getY();
+
+                                return false;
+
+                            case MotionEvent.ACTION_UP:
+
+                                if (pager.getScrollState()
+                                        != ViewPager2.SCROLL_STATE_IDLE) {
+                                    return false;
+                                }
+
+                                float upX = e.getX();
+                                float upY = e.getY();
+
+                                float dx = Math.abs(upX - downX);
+                                float dy = Math.abs(upY - downY);
+
+                                // if moved enough -> swipe
+                                if (dx > 25 || dy > 25) {
+                                    return false;
+                                }
+
+                                if (flipping) {
+                                    return true;
+                                }
+
+                                int cur = pager.getCurrentItem();
+
+                                float w = pager.getWidth();
 
                                 flipping = true;
 
-                                flip();
+                                // NEXT PAGE
+                                if (upX > w * 0.7f) {
 
-                                pager.setCurrentItem(
-                                        cur + 1,
-                                        true
-                                );
+                                    if (cur <
+                                            adapter.getItemCount() - 1) {
+
+                                        flip();
+
+                                        pager.setCurrentItem(
+                                                cur + 1,
+                                                true
+                                        );
+                                    }
+                                }
+
+                                // PREVIOUS PAGE
+                                else if (upX < w * 0.3f) {
+
+                                    if (cur > 0) {
+
+                                        flip();
+
+                                        pager.setCurrentItem(
+                                                cur - 1,
+                                                true
+                                        );
+                                    }
+                                }
 
                                 pager.postDelayed(() ->
-                                        flipping = false, 250);
-                            }
-                        }
+                                        flipping = false, 220);
 
-                        // LEFT = PREVIOUS PAGE
-                        else if (x < w * 0.3f) {
-
-                            if (cur > 0) {
-
-                                flipping = true;
-
-                                flip();
-
-                                pager.setCurrentItem(
-                                        cur - 1,
-                                        true
-                                );
-
-                                pager.postDelayed(() ->
-                                        flipping = false, 250);
-                            }
+                                return true;
                         }
 
                         return false;
                     }
                 }
         );
-
-        pager.getChildAt(0).setOnTouchListener((v, e) -> {
-
-            // gesture detector handles taps
-            gestureDetector.onTouchEvent(e);
-
-            // VERY IMPORTANT:
-            // allow ViewPager to handle swipes normally
-            return false;
-        });
     }
 
     private void flip() {
