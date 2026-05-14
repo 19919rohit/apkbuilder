@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 
-<FrameLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="#111111">
+    android:layout_height="match_parent">
 
-    <neunix.pageflow.PageFlipView
-        android:id="@+id/pageFlipView"
+    <!-- OPENGL RENDER LAYER -->
+    <neunix.pageflow.PageFlipGLView
+        android:id="@+id/pageFlipGL"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"/>
+        android:layout_height="match_parent" />
 
+    <!-- UI LAYER (UNCHANGED FEATURES) -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -25,15 +25,15 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="1 / 1"
-            android:textColor="#FFFFFF"
-            android:textSize="14sp"
-            android:layout_marginBottom="6dp"/>
+            android:textColor="#FFFFFF" />
 
         <com.google.android.material.slider.Slider
             android:id="@+id/pageSlider"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            app:haloRadius="18dp"/>
+            app:stepSize="1"
+            app:valueFrom="0" />
+
     </LinearLayout>
 
 </FrameLayout>
