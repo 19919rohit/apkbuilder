@@ -145,7 +145,7 @@ public class PdfActivity extends Activity {
             pageText.setText((currentPage + 1) + " / " + core.pageCount());
 
             // IMPORTANT: prevent slider loop trigger
-            slider.setValue(currentPage, false);
+            slider.setValue((float) currentPage);
 
         } catch (Exception e) {
             e.printStackTrace();
