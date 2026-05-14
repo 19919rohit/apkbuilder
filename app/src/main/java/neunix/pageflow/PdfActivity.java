@@ -25,8 +25,14 @@ public class PdfActivity extends Activity {
     private Slider slider;
     private TextView pageText;
 
-    private final Handler handler = new Handler(Looper.getMainLooper());
-    private Runnable debounce;
+    // SINGLE handler system (fix race + lag)
+    private final Handler sliderHandler =
+            new Handler(Looper.getMainLooper());
+
+    private Runnable sliderRunnable;
+
+    // prevent GL + PDF race condition
+    private boolean isRendering = false;
 
     @Override
     protected void onCreate(Bundle b) {
@@ -79,70 +85,81 @@ public class PdfActivity extends Activity {
 
     private void setupSlider() {
 
-    if (core == null) return;
+        if (core == null) return;
 
-    slider.setValueFrom(0f);
-    slider.setValueTo(Math.max(0, core.pageCount() - 1));
-    slider.setStepSize(1f);
+        slider.setValueFrom(0f);
+        slider.setValueTo(Math.max(0, core.pageCount() - 1));
+        slider.setStepSize(1f);
+        slider.setValue(currentPage);
 
-    slider.setValue(currentPage);
+        slider.addOnChangeListener((s, value, fromUser) -> {
 
-    slider.addOnChangeListener((s, value, fromUser) -> {
+            if (!fromUser) return;
 
-        if (!fromUser) return;
+            int target = (int) value;
 
-        int target = (int) value;
+            pageText.setText((target + 1) + " / " + core.pageCount());
 
-        pageText.setText((target + 1) + " / " + core.pageCount());
+            if (sliderRunnable != null) {
+                sliderHandler.removeCallbacks(sliderRunnable);
+            }
 
-        // cancel previous debounce
-        if (sliderRunnable != null) {
-            sliderHandler.removeCallbacks(sliderRunnable);
-        }
+            sliderRunnable = () -> {
 
-        sliderRunnable = () -> {
+                if (target == currentPage) return;
 
-            // prevent redundant reload
-            if (target == currentPage) return;
+                currentPage = target;
+                loadPages();
+            };
 
-            currentPage = target;
-            loadPages();
-        };
-
-        sliderHandler.postDelayed(sliderRunnable, 120);
-    });
-}
+            sliderHandler.postDelayed(sliderRunnable, 120);
+        });
+    }
 
     private void loadPages() {
 
+        if (core == null) return;
+
+        if (isRendering) return;
+        isRendering = true;
+
         try {
 
+            // PREVIOUS PAGE
             prevBmp = (currentPage > 0)
                     ? core.renderPage(currentPage - 1, 1080, 1920)
                     : null;
 
+            // CURRENT PAGE
             currBmp = core.renderPage(currentPage, 1080, 1920);
 
+            // NEXT PAGE
             nextBmp = (currentPage < core.pageCount() - 1)
                     ? core.renderPage(currentPage + 1, 1080, 1920)
                     : null;
 
-            // 🔥 ONLY GL CONNECT LINE
+            // GL CONNECT (IMPORTANT)
             pageFlipView.setPages(prevBmp, currBmp, nextBmp);
 
+            // UI UPDATE
             pageText.setText((currentPage + 1) + " / " + core.pageCount());
 
-            slider.setValue(currentPage);
+            // IMPORTANT: prevent slider loop trigger
+            slider.setValue(currentPage, false);
 
         } catch (Exception e) {
             e.printStackTrace();
         }
+
+        isRendering = false;
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        handler.removeCallbacksAndMessages(null);
+
+        sliderHandler.removeCallbacksAndMessages(null);
+
         if (core != null) core.close();
     }
 }
