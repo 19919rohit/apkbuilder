@@ -114,54 +114,27 @@ public class PdfActivity extends Activity {
 
     // ---------------- CORE LOADER ----------------
 
-    private void loadPages(int targetPage) {
+    private void loadPages() {
 
-        if (core == null || isRendering) return;
+    if (core == null) return;
 
-        isRendering = true;
+    prevBmp = (currentPage > 0)
+            ? core.renderPage(currentPage - 1, 1080, 1920)
+            : null;
 
-        renderExecutor.execute(() -> {
+    currBmp = core.renderPage(currentPage, 1080, 1920);
 
-            try {
+    nextBmp = (currentPage < core.pageCount() - 1)
+            ? core.renderPage(currentPage + 1, 1080, 1920)
+            : null;
 
-                int count = core.pageCount();
+    // ONLY TWO PASSED (FIXED)
+    pageFlipView.setPages(currBmp, nextBmp);
 
-                Bitmap prev = (targetPage > 0)
-                        ? core.renderPage(targetPage - 1, 1080, 1920)
-                        : null;
+    pageText.setText((currentPage + 1) + " / " + core.pageCount());
 
-                Bitmap curr = core.renderPage(targetPage, 1080, 1920);
-
-                Bitmap next = (targetPage < count - 1)
-                        ? core.renderPage(targetPage + 1, 1080, 1920)
-                        : null;
-
-                uiHandler.post(() -> {
-
-                    currentPage = targetPage;
-
-                    prevBmp = prev;
-                    currBmp = curr;
-                    nextBmp = next;
-
-                    // GL UPDATE (ONLY SAFE PLACE)
-                    pageFlipView.setPages(currBmp, nextBmp);
-
-                    pageText.setText((currentPage + 1) + " / " + count);
-
-                    // prevent slider loop
-                    slider.setValue((float) currentPage);
-
-                    isRendering = false;
-                });
-
-            } catch (Exception e) {
-                isRendering = false;
-                e.printStackTrace();
-            }
-        });
-    }
-
+    slider.setValue((float) currentPage);
+}
     @Override
     protected void onDestroy() {
         super.onDestroy();

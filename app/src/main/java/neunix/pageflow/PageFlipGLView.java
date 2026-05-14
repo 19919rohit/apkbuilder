@@ -7,33 +7,28 @@ import android.util.AttributeSet;
 
 public class PageFlipGLView extends GLSurfaceView {
 
-    private final PageCurlRenderer renderer;
-
-    public interface FlipListener {
-        void onFlipComplete(int direction);
-    }
+    private PageCurlRenderer renderer;
 
     public PageFlipGLView(Context c, AttributeSet a) {
         super(c, a);
 
         setEGLContextClientVersion(2);
 
-        renderer = new PageCurlRenderer(dir -> {
-            if (flipListener != null)
-                flipListener.onFlipComplete(dir);
+        renderer = new PageCurlRenderer(direction -> {
+            // optional callback
         });
 
         setRenderer(renderer);
-        setRenderMode(RENDERMODE_CONTINUOUSLY);
+        setRenderMode(RENDERMODE_WHEN_DIRTY);
+    }
+    
+    public void setPages(Bitmap current, Bitmap next) {
+        renderer.setPages(current, next);
+        requestRender();
     }
 
-    private FlipListener flipListener;
-
-    public void setOnFlipCompleteListener(FlipListener l) {
-        flipListener = l;
-    }
-
-    public void setPages(Bitmap prev, Bitmap next) {
-        renderer.setPages(curr, next);
+    public void startFlip(int direction) {
+        renderer.startFlip(direction);
+        requestRender();
     }
 }
