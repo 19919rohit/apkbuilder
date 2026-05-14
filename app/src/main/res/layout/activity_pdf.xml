@@ -33,9 +33,7 @@
         <com.google.android.material.slider.Slider
             android:id="@+id/pageSlider"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:valueFrom="0"
-            app:stepSize="1" />
+            android:layout_height="wrap_content" />
 
     </LinearLayout>
 

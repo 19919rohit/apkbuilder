@@ -79,29 +79,39 @@ public class PdfActivity extends Activity {
 
     private void setupSlider() {
 
-        slider.setValueFrom(0);
-        slider.setValueTo(core.pageCount() - 1);
-        slider.setStepSize(1f);
+    if (core == null) return;
 
-        slider.addOnChangeListener((s, value, fromUser) -> {
+    slider.setValueFrom(0f);
+    slider.setValueTo(Math.max(0, core.pageCount() - 1));
+    slider.setStepSize(1f);
 
-            if (!fromUser) return;
+    slider.setValue(currentPage);
 
-            int target = (int) value;
+    slider.addOnChangeListener((s, value, fromUser) -> {
 
-            pageText.setText((target + 1) + " / " + core.pageCount());
+        if (!fromUser) return;
 
-            if (debounce != null)
-                handler.removeCallbacks(debounce);
+        int target = (int) value;
 
-            debounce = () -> {
-                currentPage = target;
-                loadPages();
-            };
+        pageText.setText((target + 1) + " / " + core.pageCount());
 
-            handler.postDelayed(debounce, 120);
-        });
-    }
+        // cancel previous debounce
+        if (sliderRunnable != null) {
+            sliderHandler.removeCallbacks(sliderRunnable);
+        }
+
+        sliderRunnable = () -> {
+
+            // prevent redundant reload
+            if (target == currentPage) return;
+
+            currentPage = target;
+            loadPages();
+        };
+
+        sliderHandler.postDelayed(sliderRunnable, 120);
+    });
+}
 
     private void loadPages() {
 
