@@ -34,6 +34,6 @@ public class PageFlipGLView extends GLSurfaceView {
     }
 
     public void setPages(Bitmap prev, Bitmap next) {
-        renderer.setPages(prev, curr, next);
+        renderer.setPages(curr, next);
     }
 }

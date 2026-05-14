@@ -11,6 +11,9 @@ import android.widget.TextView;
 
 import com.google.android.material.slider.Slider;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
 public class PdfActivity extends Activity {
 
     private static final int PICK = 100;
@@ -20,19 +23,19 @@ public class PdfActivity extends Activity {
 
     private int currentPage = 0;
 
-    private Bitmap prevBmp, currBmp, nextBmp;
-
     private Slider slider;
     private TextView pageText;
 
-    // SINGLE handler system (fix race + lag)
-    private final Handler sliderHandler =
-            new Handler(Looper.getMainLooper());
+    private final Handler uiHandler = new Handler(Looper.getMainLooper());
+    private final ExecutorService renderExecutor = Executors.newSingleThreadExecutor();
 
     private Runnable sliderRunnable;
 
-    // prevent GL + PDF race condition
-    private boolean isRendering = false;
+    // prevent race conditions
+    private volatile boolean isRendering = false;
+
+    // cached bitmaps (important for GL stability)
+    private Bitmap prevBmp, currBmp, nextBmp;
 
     @Override
     protected void onCreate(Bundle b) {
@@ -48,11 +51,9 @@ public class PdfActivity extends Activity {
     }
 
     private void openPicker() {
-
         Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
         i.setType("application/pdf");
         i.addCategory(Intent.CATEGORY_OPENABLE);
-
         startActivityForResult(i, PICK);
     }
 
@@ -68,7 +69,7 @@ public class PdfActivity extends Activity {
             core.open(this, uri);
 
             setupSlider();
-            loadPages();
+            loadPages(currentPage);
 
             pageFlipView.setOnFlipCompleteListener(direction -> {
 
@@ -78,18 +79,19 @@ public class PdfActivity extends Activity {
                     currentPage--;
                 }
 
-                loadPages();
+                loadPages(currentPage);
             });
         }
     }
 
-    private void setupSlider() {
+    // ---------------- SLIDER ----------------
 
-        if (core == null) return;
+    private void setupSlider() {
 
         slider.setValueFrom(0f);
         slider.setValueTo(Math.max(0, core.pageCount() - 1));
         slider.setStepSize(1f);
+
         slider.setValue(currentPage);
 
         slider.addOnChangeListener((s, value, fromUser) -> {
@@ -101,64 +103,71 @@ public class PdfActivity extends Activity {
             pageText.setText((target + 1) + " / " + core.pageCount());
 
             if (sliderRunnable != null) {
-                sliderHandler.removeCallbacks(sliderRunnable);
+                uiHandler.removeCallbacks(sliderRunnable);
             }
 
-            sliderRunnable = () -> {
+            sliderRunnable = () -> loadPages(target);
 
-                if (target == currentPage) return;
-
-                currentPage = target;
-                loadPages();
-            };
-
-            sliderHandler.postDelayed(sliderRunnable, 120);
+            uiHandler.postDelayed(sliderRunnable, 120);
         });
     }
 
-    private void loadPages() {
+    // ---------------- CORE LOADER ----------------
 
-        if (core == null) return;
+    private void loadPages(int targetPage) {
 
-        if (isRendering) return;
+        if (core == null || isRendering) return;
+
         isRendering = true;
 
-        try {
+        renderExecutor.execute(() -> {
 
-            // PREVIOUS PAGE
-            prevBmp = (currentPage > 0)
-                    ? core.renderPage(currentPage - 1, 1080, 1920)
-                    : null;
+            try {
 
-            // CURRENT PAGE
-            currBmp = core.renderPage(currentPage, 1080, 1920);
+                int count = core.pageCount();
 
-            // NEXT PAGE
-            nextBmp = (currentPage < core.pageCount() - 1)
-                    ? core.renderPage(currentPage + 1, 1080, 1920)
-                    : null;
+                Bitmap prev = (targetPage > 0)
+                        ? core.renderPage(targetPage - 1, 1080, 1920)
+                        : null;
 
-            // GL CONNECT (IMPORTANT)
-            pageFlipView.setPages(prevBmp, currBmp, nextBmp);
+                Bitmap curr = core.renderPage(targetPage, 1080, 1920);
 
-            // UI UPDATE
-            pageText.setText((currentPage + 1) + " / " + core.pageCount());
+                Bitmap next = (targetPage < count - 1)
+                        ? core.renderPage(targetPage + 1, 1080, 1920)
+                        : null;
 
-            // IMPORTANT: prevent slider loop trigger
-            slider.setValue((float) currentPage);
+                uiHandler.post(() -> {
 
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+                    currentPage = targetPage;
 
-        isRendering = false;
+                    prevBmp = prev;
+                    currBmp = curr;
+                    nextBmp = next;
+
+                    // GL UPDATE (ONLY SAFE PLACE)
+                    pageFlipView.setPages(currBmp, nextBmp);
+
+                    pageText.setText((currentPage + 1) + " / " + count);
+
+                    // prevent slider loop
+                    slider.setValue((float) currentPage);
+
+                    isRendering = false;
+                });
+
+            } catch (Exception e) {
+                isRendering = false;
+                e.printStackTrace();
+            }
+        });
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
 
-        sliderHandler.removeCallbacksAndMessages(null);
+        uiHandler.removeCallbacksAndMessages(null);
+        renderExecutor.shutdownNow();
 
         if (core != null) core.close();
     }
