@@ -4,7 +4,6 @@ import android.animation.ValueAnimator;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
-import android.graphics.Color;
 import android.graphics.LinearGradient;
 import android.graphics.Paint;
 import android.graphics.Rect;
@@ -15,11 +14,15 @@ import android.view.View;
 
 public class PageFlipView extends View {
 
+    public interface OnFlipListener {
+        void onNextPage();
+        void onPreviousPage();
+    }
+
     private Bitmap currentPage;
     private Bitmap nextPage;
+    private Bitmap previousPage;
 
-    // 0 -> current visible
-    // 1 -> next visible
     private float progress = 0f;
 
     private final Paint bitmapPaint =
@@ -28,16 +31,18 @@ public class PageFlipView extends View {
     private final Paint shadowPaint =
             new Paint();
 
+    private OnFlipListener listener;
+
     private float downX;
+    private float downY;
 
     private boolean dragging = false;
 
-    private OnFlipListener listener;
+    private boolean flippingNext = true;
 
-    public interface OnFlipListener {
-        void onNextPage();
-        void onPreviousPage();
-    }
+    private boolean animating = false;
+
+    private static final float TAP_DISTANCE = 18f;
 
     public PageFlipView(Context c) {
         super(c);
@@ -61,8 +66,13 @@ public class PageFlipView extends View {
         listener = l;
     }
 
-    public void setBitmaps(Bitmap current, Bitmap next) {
+    public void setBitmaps(
+            Bitmap previous,
+            Bitmap current,
+            Bitmap next
+    ) {
 
+        previousPage = previous;
         currentPage = current;
         nextPage = next;
 
@@ -80,36 +90,50 @@ public class PageFlipView extends View {
         int w = getWidth();
         int h = getHeight();
 
-        // draw next page underneath
-        if (nextPage != null) {
+        Bitmap revealBitmap =
+                flippingNext
+                        ? nextPage
+                        : previousPage;
+
+        // background page
+        if (revealBitmap != null) {
 
             canvas.drawBitmap(
-                    nextPage,
+                    revealBitmap,
                     null,
                     new Rect(0, 0, w, h),
                     bitmapPaint
             );
-        } else {
-
-            canvas.drawColor(Color.BLACK);
         }
 
-        // current visible width
-        float currentVisible =
-                w * (1f - progress);
+        float visible;
 
-        // compressed fold effect
-        float compressed =
-                currentVisible * (1f - progress * 0.18f);
+        if (flippingNext) {
 
-        canvas.save();
+            visible = w * (1f - progress);
 
-        canvas.clipRect(
-                0,
-                0,
-                compressed,
-                h
-        );
+            canvas.save();
+
+            canvas.clipRect(
+                    0,
+                    0,
+                    visible,
+                    h
+            );
+
+        } else {
+
+            visible = w * progress;
+
+            canvas.save();
+
+            canvas.clipRect(
+                    visible,
+                    0,
+                    w,
+                    h
+            );
+        }
 
         canvas.drawBitmap(
                 currentPage,
@@ -123,66 +147,109 @@ public class PageFlipView extends View {
         // shadow
         if (progress > 0f && progress < 1f) {
 
-            float shadowX = compressed;
+            float shadowX =
+                    flippingNext
+                            ? visible
+                            : visible + 70;
 
-            LinearGradient gradient =
-                    new LinearGradient(
-                            shadowX - 70,
-                            0,
-                            shadowX,
-                            0,
-                            new int[]{
-                                    0x00000000,
-                                    0x55000000,
-                                    0xAA000000
-                            },
-                            null,
-                            Shader.TileMode.CLAMP
-                    );
+            LinearGradient gradient;
 
-            shadowPaint.setShader(gradient);
+            if (flippingNext) {
 
-            canvas.drawRect(
-                    shadowX - 70,
-                    0,
-                    shadowX,
-                    h,
-                    shadowPaint
-            );
+                gradient =
+                        new LinearGradient(
+                                shadowX - 70,
+                                0,
+                                shadowX,
+                                0,
+                                0x00000000,
+                                0x99000000,
+                                Shader.TileMode.CLAMP
+                        );
+
+                shadowPaint.setShader(gradient);
+
+                canvas.drawRect(
+                        shadowX - 70,
+                        0,
+                        shadowX,
+                        h,
+                        shadowPaint
+                );
+
+            } else {
+
+                gradient =
+                        new LinearGradient(
+                                shadowX,
+                                0,
+                                shadowX + 70,
+                                0,
+                                0x99000000,
+                                0x00000000,
+                                Shader.TileMode.CLAMP
+                        );
+
+                shadowPaint.setShader(gradient);
+
+                canvas.drawRect(
+                        shadowX,
+                        0,
+                        shadowX + 70,
+                        h,
+                        shadowPaint
+                );
+            }
         }
     }
 
     @Override
     public boolean onTouchEvent(MotionEvent e) {
 
+        if (animating) {
+            return true;
+        }
+
         switch (e.getAction()) {
 
             case MotionEvent.ACTION_DOWN:
 
                 downX = e.getX();
+                downY = e.getY();
 
-                dragging = true;
+                dragging = false;
 
                 return true;
 
             case MotionEvent.ACTION_MOVE:
 
+                float dx = e.getX() - downX;
+                float dy = e.getY() - downY;
+
                 if (!dragging) {
-                    return true;
+
+                    if (Math.abs(dx) > 12f &&
+                            Math.abs(dx) > Math.abs(dy)) {
+
+                        dragging = true;
+
+                        flippingNext = dx < 0;
+                    }
                 }
 
-                float dx = downX - e.getX();
+                if (dragging) {
 
-                progress =
-                        Math.max(
-                                0f,
-                                Math.min(
-                                        1f,
-                                        dx / getWidth()
-                                )
-                        );
+                    float amount =
+                            Math.abs(dx) / getWidth();
 
-                invalidate();
+                    progress =
+                            Math.max(
+                                    0f,
+                                    Math.min(1f, amount)
+                            );
+
+                    invalidate();
+                }
 
                 return true;
 
@@ -190,16 +257,14 @@ public class PageFlipView extends View {
 
             case MotionEvent.ACTION_CANCEL:
 
-                dragging = false;
+                if (!dragging) {
 
-                if (progress > 0.5f) {
+                    handleTap(e.getX());
 
-                    animateFlip(true);
-
-                } else {
-
-                    animateFlip(false);
+                    return true;
                 }
+
+                finishDrag();
 
                 return true;
         }
@@ -207,38 +272,139 @@ public class PageFlipView extends View {
         return super.onTouchEvent(e);
     }
 
-    private void animateFlip(boolean complete) {
+    private void handleTap(float x) {
 
-        float target = complete ? 1f : 0f;
+        float w = getWidth();
+
+        if (x > w * 0.7f) {
+
+            flippingNext = true;
+
+            animateToNext();
+
+        } else if (x < w * 0.3f) {
+
+            flippingNext = false;
+
+            animateToPrevious();
+        }
+    }
+
+    private void finishDrag() {
+
+        if (progress > 0.5f) {
+
+            if (flippingNext) {
+
+                animateToNext();
+
+            } else {
+
+                animateToPrevious();
+            }
+
+        } else {
+
+            cancelFlip();
+        }
+    }
+
+    private void animateToNext() {
+
+        if (nextPage == null) {
+            cancelFlip();
+            return;
+        }
+
+        animateProgress(
+                progress,
+                1f,
+                () -> {
+
+                    if (listener != null) {
+                        listener.onNextPage();
+                    }
+
+                    resetState();
+                }
+        );
+    }
+
+    private void animateToPrevious() {
+
+        if (previousPage == null) {
+            cancelFlip();
+            return;
+        }
+
+        animateProgress(
+                progress,
+                1f,
+                () -> {
+
+                    if (listener != null) {
+                        listener.onPreviousPage();
+                    }
+
+                    resetState();
+                }
+        );
+    }
+
+    private void cancelFlip() {
+
+        animateProgress(
+                progress,
+                0f,
+                this::resetState
+        );
+    }
+
+    private void animateProgress(
+            float from,
+            float to,
+            Runnable end
+    ) {
+
+        animating = true;
 
         ValueAnimator animator =
-                ValueAnimator.ofFloat(
-                        progress,
-                        target
-                );
+                ValueAnimator.ofFloat(from, to);
 
         animator.setDuration(220);
 
         animator.addUpdateListener(a -> {
 
-            progress = (float) a.getAnimatedValue();
+            progress =
+                    (float) a.getAnimatedValue();
 
             invalidate();
         });
 
         animator.start();
 
-        if (complete && listener != null) {
+        animator.addListener(
+                new android.animation.AnimatorListenerAdapter() {
 
-            postDelayed(() -> {
+                    @Override
+                    public void onAnimationEnd(
+                            android.animation.Animator animation
+                    ) {
 
-                listener.onNextPage();
+                        animating = false;
 
-                progress = 0f;
+                        end.run();
+                    }
+                }
+        );
+    }
 
-                invalidate();
+    private void resetState() {
 
-            }, 220);
-        }
+        progress = 0f;
+
+        dragging = false;
+
+        invalidate();
     }
 }

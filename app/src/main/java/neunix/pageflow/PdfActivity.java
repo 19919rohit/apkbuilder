@@ -5,6 +5,11 @@ import android.content.Intent;
 import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.widget.TextView;
+
+import com.google.android.material.slider.Slider;
 
 public class PdfActivity extends Activity {
 
@@ -16,8 +21,18 @@ public class PdfActivity extends Activity {
 
     private int currentPage = 0;
 
+    private Bitmap previousBitmap;
     private Bitmap currentBitmap;
     private Bitmap nextBitmap;
+
+    private Slider slider;
+    private TextView pageText;
+
+    // slider debounce
+    private final Handler sliderHandler =
+            new Handler(Looper.getMainLooper());
+
+    private Runnable sliderRunnable;
 
     @Override
     protected void onCreate(Bundle b) {
@@ -27,6 +42,12 @@ public class PdfActivity extends Activity {
 
         pageFlipView =
                 findViewById(R.id.pageFlipView);
+
+        slider =
+                findViewById(R.id.pageSlider);
+
+        pageText =
+                findViewById(R.id.pageText);
 
         openPicker();
     }
@@ -68,6 +89,8 @@ public class PdfActivity extends Activity {
 
                 core.open(this, uri);
 
+                setupSlider();
+
                 loadPages();
 
                 pageFlipView.setOnFlipListener(
@@ -105,10 +128,78 @@ public class PdfActivity extends Activity {
         }
     }
 
+    private void setupSlider() {
+
+        slider.setValueFrom(0);
+
+        slider.setValueTo(
+                Math.max(
+                        1,
+                        core.pageCount() - 1
+                )
+        );
+
+        slider.setStepSize(1f);
+
+        slider.addOnChangeListener(
+                (s, value, fromUser) -> {
+
+                    if (!fromUser) {
+                        return;
+                    }
+
+                    int target =
+                            (int) value;
+
+                    pageText.setText(
+                            (target + 1)
+                                    + " / "
+                                    + core.pageCount()
+                    );
+
+                    // debounce
+                    if (sliderRunnable != null) {
+
+                        sliderHandler.removeCallbacks(
+                                sliderRunnable
+                        );
+                    }
+
+                    sliderRunnable = () -> {
+
+                        currentPage = target;
+
+                        loadPages();
+                    };
+
+                    sliderHandler.postDelayed(
+                            sliderRunnable,
+                            120
+                    );
+                }
+        );
+    }
+
     private void loadPages() {
 
         try {
 
+            // PREVIOUS
+            if (currentPage > 0) {
+
+                previousBitmap =
+                        core.renderPage(
+                                currentPage - 1,
+                                1080,
+                                1920
+                        );
+
+            } else {
+
+                previousBitmap = null;
+            }
+
+            // CURRENT
             currentBitmap =
                     core.renderPage(
                             currentPage,
@@ -116,6 +207,7 @@ public class PdfActivity extends Activity {
                             1920
                     );
 
+            // NEXT
             if (currentPage
                     < core.pageCount() - 1) {
 
@@ -132,8 +224,17 @@ public class PdfActivity extends Activity {
             }
 
             pageFlipView.setBitmaps(
+                    previousBitmap,
                     currentBitmap,
                     nextBitmap
+            );
+
+            slider.setValue(currentPage);
+
+            pageText.setText(
+                    (currentPage + 1)
+                            + " / "
+                            + core.pageCount()
             );
 
         } catch (Exception e) {
@@ -145,6 +246,8 @@ public class PdfActivity extends Activity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+
+        sliderHandler.removeCallbacksAndMessages(null);
 
         if (core != null) {
             core.close();

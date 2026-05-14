@@ -5,65 +5,79 @@
     android:fillAfter="false">
 
     <!--
-        PROFESSIONAL PAGEFLOW TRANSITION
-
+        PAGEFLOW 3D PAPER FLIP
         Goal:
-        - subtle paper tension
-        - NOT card rotation
-        - smooth content transition
-        - ReadEra-like softness
+        - subtle 3D depth
+        - soft paper tension
+        - premium reader feeling
+        - NOT card-like rotation
     -->
 
-    <!-- slight inward compression -->
+    <!-- slight Z-depth illusion -->
     <scale
-        android:duration="110"
+        android:duration="85"
         android:fromXScale="1.0"
-        android:toXScale="0.92"
+        android:toXScale="0.88"
         android:fromYScale="1.0"
-        android:toYScale="0.985"
-        android:pivotX="85%"
+        android:toYScale="0.97"
+        android:pivotX="92%"
         android:pivotY="50%"
         android:interpolator="@android:interpolator/accelerate_decelerate"/>
 
-    <!-- tiny horizontal pull -->
+    <!-- tiny perspective pull -->
     <translate
-        android:duration="110"
+        android:duration="85"
         android:fromXDelta="0"
-        android:toXDelta="-14"
+        android:toXDelta="-22"
         android:interpolator="@android:interpolator/accelerate_decelerate"/>
 
-    <!-- light dimming -->
+    <!-- subtle vertical tension -->
+    <translate
+        android:duration="85"
+        android:fromYDelta="0"
+        android:toYDelta="-2"
+        android:interpolator="@android:interpolator/accelerate_decelerate"/>
+
+    <!-- soft dim -->
     <alpha
-        android:duration="90"
+        android:duration="80"
         android:fromAlpha="1.0"
-        android:toAlpha="0.82"
+        android:toAlpha="0.72"
         android:interpolator="@android:interpolator/accelerate_decelerate"/>
 
-    <!-- recover naturally -->
+    <!-- fake perspective recovery -->
     <scale
-        android:startOffset="110"
-        android:duration="140"
-        android:fromXScale="0.92"
+        android:startOffset="85"
+        android:duration="170"
+        android:fromXScale="0.88"
         android:toXScale="1.0"
-        android:fromYScale="0.985"
+        android:fromYScale="0.97"
         android:toYScale="1.0"
-        android:pivotX="15%"
+        android:pivotX="8%"
         android:pivotY="50%"
         android:interpolator="@android:interpolator/decelerate_quad"/>
 
-    <!-- settle back -->
+    <!-- smooth settle -->
     <translate
-        android:startOffset="110"
-        android:duration="140"
-        android:fromXDelta="-14"
+        android:startOffset="85"
+        android:duration="170"
+        android:fromXDelta="-22"
         android:toXDelta="0"
         android:interpolator="@android:interpolator/decelerate_quad"/>
 
-    <!-- restore brightness -->
+    <!-- vertical rebound -->
+    <translate
+        android:startOffset="85"
+        android:duration="170"
+        android:fromYDelta="-2"
+        android:toYDelta="0"
+        android:interpolator="@android:interpolator/decelerate_quad"/>
+
+    <!-- brightness recovery -->
     <alpha
-        android:startOffset="110"
-        android:duration="140"
-        android:fromAlpha="0.82"
+        android:startOffset="85"
+        android:duration="170"
+        android:fromAlpha="0.72"
         android:toAlpha="1.0"
         android:interpolator="@android:interpolator/decelerate_quad"/>
 
