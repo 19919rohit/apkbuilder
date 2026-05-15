@@ -339,14 +339,14 @@ public class PdfActivity extends Activity {
                     null
             );
 
-        } catch (_e) {
+        } catch (Exception ignored) {
         }
 
         try {
 
             renderExecutor.shutdownNow();
 
-        } catch (_e) {
+        } catch (Exception ignored) {
         }
 
         try {
@@ -355,7 +355,7 @@ public class PdfActivity extends Activity {
                 core.close();
             }
 
-        } catch (_e) {
+        } catch (Exception ignored) {
         }
 
         recycleBitmap(prevBmp);
@@ -377,7 +377,7 @@ public class PdfActivity extends Activity {
                 bmp.recycle();
             }
 
-        } catch (_e) {
+        } catch (Exception ignored) {
         }
     }
 }
