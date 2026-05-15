@@ -23,19 +23,30 @@ public class PdfActivity extends Activity {
 
     private int currentPage = 0;
 
+    // cached pages
+    private Bitmap prevBmp;
+    private Bitmap currBmp;
+    private Bitmap nextBmp;
+
     private Slider slider;
     private TextView pageText;
 
-    private final Handler uiHandler = new Handler(Looper.getMainLooper());
-    private final ExecutorService renderExecutor = Executors.newSingleThreadExecutor();
+    // UI
+    private final Handler uiHandler =
+            new Handler(Looper.getMainLooper());
 
+    // render thread
+    private final ExecutorService renderExecutor =
+            Executors.newSingleThreadExecutor();
+
+    // debounce
     private Runnable sliderRunnable;
 
-    // prevent race conditions
+    // rendering protection
     private volatile boolean isRendering = false;
 
-    // cached bitmaps (important for GL stability)
-    private Bitmap prevBmp, currBmp, nextBmp;
+    // prevents slider feedback loop
+    private boolean internalSliderUpdate = false;
 
     @Override
     protected void onCreate(Bundle b) {
@@ -43,105 +54,330 @@ public class PdfActivity extends Activity {
 
         setContentView(R.layout.activity_pdf);
 
-        pageFlipView = findViewById(R.id.pageFlipGL);
-        slider = findViewById(R.id.pageSlider);
-        pageText = findViewById(R.id.pageText);
+        pageFlipView =
+                findViewById(R.id.pageFlipGL);
+
+        slider =
+                findViewById(R.id.pageSlider);
+
+        pageText =
+                findViewById(R.id.pageText);
 
         openPicker();
     }
 
+    // ---------------------------------------------------
+    // PDF PICKER
+    // ---------------------------------------------------
+
     private void openPicker() {
-        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+
+        Intent i =
+                new Intent(Intent.ACTION_OPEN_DOCUMENT);
+
         i.setType("application/pdf");
+
         i.addCategory(Intent.CATEGORY_OPENABLE);
+
         startActivityForResult(i, PICK);
     }
 
     @Override
-    protected void onActivityResult(int r, int c, Intent d) {
-        super.onActivityResult(r, c, d);
+    protected void onActivityResult(
+            int requestCode,
+            int resultCode,
+            Intent data
+    ) {
 
-        if (r == PICK && c == RESULT_OK && d != null) {
+        super.onActivityResult(
+                requestCode,
+                resultCode,
+                data
+        );
 
-            Uri uri = d.getData();
+        if (requestCode != PICK) return;
+
+        if (resultCode != RESULT_OK) return;
+
+        if (data == null) return;
+
+        try {
+
+            Uri uri = data.getData();
+
+            if (uri == null) return;
 
             core = new PdfCore();
+
             core.open(this, uri);
 
             setupSlider();
-            loadPages(currentPage);
 
-            pageFlipView.setOnFlipCompleteListener(direction -> {
+            setupFlipListener();
 
-                if (direction > 0 && currentPage < core.pageCount() - 1) {
-                    currentPage++;
-                } else if (direction < 0 && currentPage > 0) {
-                    currentPage--;
-                }
+            loadPages();
 
-                loadPages(currentPage);
-            });
+        } catch (Exception e) {
+
+            e.printStackTrace();
         }
     }
 
-    // ---------------- SLIDER ----------------
+    // ---------------------------------------------------
+    // FLIP LISTENER
+    // ---------------------------------------------------
 
-    private void setupSlider() {
+    private void setupFlipListener() {
 
-        slider.setValueFrom(0f);
-        slider.setValueTo(Math.max(0, core.pageCount() - 1));
-        slider.setStepSize(1f);
+        pageFlipView.setFlipListener(direction -> {
 
-        slider.setValue(currentPage);
+            if (core == null) return;
 
-        slider.addOnChangeListener((s, value, fromUser) -> {
+            if (isRendering) return;
 
-            if (!fromUser) return;
+            // NEXT PAGE
+            if (direction > 0) {
 
-            int target = (int) value;
+                if (currentPage
+                        < core.pageCount() - 1) {
 
-            pageText.setText((target + 1) + " / " + core.pageCount());
-
-            if (sliderRunnable != null) {
-                uiHandler.removeCallbacks(sliderRunnable);
+                    currentPage++;
+                }
             }
 
-            sliderRunnable = () -> loadPages(target);
+            // PREVIOUS PAGE
+            else if (direction < 0) {
 
-            uiHandler.postDelayed(sliderRunnable, 120);
+                if (currentPage > 0) {
+
+                    currentPage--;
+                }
+            }
+
+            loadPages();
         });
     }
 
-    // ---------------- CORE LOADER ----------------
+    // ---------------------------------------------------
+    // SLIDER
+    // ---------------------------------------------------
+
+    private void setupSlider() {
+
+        if (core == null) return;
+
+        slider.setValueFrom(0f);
+
+        slider.setValueTo(
+                Math.max(
+                        0,
+                        core.pageCount() - 1
+                )
+        );
+
+        slider.setStepSize(1f);
+
+        internalSliderUpdate = true;
+        slider.setValue((float) currentPage);
+        internalSliderUpdate = false;
+
+        slider.addOnChangeListener(
+                (s, value, fromUser) -> {
+
+                    if (!fromUser) return;
+
+                    if (internalSliderUpdate) return;
+
+                    final int target =
+                            (int) value;
+
+                    pageText.setText(
+                            (target + 1)
+                                    + " / "
+                                    + core.pageCount()
+                    );
+
+                    // debounce
+                    if (sliderRunnable != null) {
+
+                        uiHandler.removeCallbacks(
+                                sliderRunnable
+                        );
+                    }
+
+                    sliderRunnable = () -> {
+
+                        if (target == currentPage) {
+                            return;
+                        }
+
+                        currentPage = target;
+
+                        loadPages();
+                    };
+
+                    uiHandler.postDelayed(
+                            sliderRunnable,
+                            120
+                    );
+                }
+        );
+    }
+
+    // ---------------------------------------------------
+    // PAGE LOADER
+    // ---------------------------------------------------
 
     private void loadPages() {
 
-    if (core == null) return;
+        if (core == null) return;
 
-    prevBmp = (currentPage > 0)
-            ? core.renderPage(currentPage - 1, 1080, 1920)
-            : null;
+        if (isRendering) return;
 
-    currBmp = core.renderPage(currentPage, 1080, 1920);
+        isRendering = true;
 
-    nextBmp = (currentPage < core.pageCount() - 1)
-            ? core.renderPage(currentPage + 1, 1080, 1920)
-            : null;
+        final int targetPage = currentPage;
 
-    // ONLY TWO PASSED (FIXED)
-    pageFlipView.setPages(currBmp, nextBmp);
+        renderExecutor.execute(() -> {
 
-    pageText.setText((currentPage + 1) + " / " + core.pageCount());
+            try {
 
-    slider.setValue((float) currentPage);
-}
+                Bitmap prev = null;
+                Bitmap curr;
+                Bitmap next = null;
+
+                // PREVIOUS PAGE
+                if (targetPage > 0) {
+
+                    prev = core.renderPage(
+                            targetPage - 1,
+                            1080,
+                            1920
+                    );
+                }
+
+                // CURRENT PAGE
+                curr = core.renderPage(
+                        targetPage,
+                        1080,
+                        1920
+                );
+
+                // NEXT PAGE
+                if (targetPage
+                        < core.pageCount() - 1) {
+
+                    next = core.renderPage(
+                            targetPage + 1,
+                            1080,
+                            1920
+                    );
+                }
+
+                Bitmap finalPrev = prev;
+                Bitmap finalCurr = curr;
+                Bitmap finalNext = next;
+
+                uiHandler.post(() -> {
+
+                    try {
+
+                        prevBmp = finalPrev;
+                        currBmp = finalCurr;
+                        nextBmp = finalNext;
+
+                        // CURRENT + NEXT
+                        // renderer internally decides direction
+                        pageFlipView.setPages(
+                                currBmp,
+                                nextBmp
+                        );
+
+                        pageText.setText(
+                                (currentPage + 1)
+                                        + " / "
+                                        + core.pageCount()
+                        );
+
+                        // prevent callback loop
+                        internalSliderUpdate = true;
+
+                        slider.setValue(
+                                (float) currentPage
+                        );
+
+                        internalSliderUpdate = false;
+
+                    } catch (Exception e) {
+
+                        e.printStackTrace();
+                    }
+
+                    isRendering = false;
+                });
+
+            } catch (Exception e) {
+
+                e.printStackTrace();
+
+                isRendering = false;
+            }
+        });
+    }
+
+    // ---------------------------------------------------
+    // CLEANUP
+    // ---------------------------------------------------
+
     @Override
     protected void onDestroy() {
         super.onDestroy();
 
-        uiHandler.removeCallbacksAndMessages(null);
-        renderExecutor.shutdownNow();
+        try {
 
-        if (core != null) core.close();
+            uiHandler.removeCallbacksAndMessages(
+                    null
+            );
+
+        } catch (_e) {
+        }
+
+        try {
+
+            renderExecutor.shutdownNow();
+
+        } catch (_e) {
+        }
+
+        try {
+
+            if (core != null) {
+                core.close();
+            }
+
+        } catch (_e) {
+        }
+
+        recycleBitmap(prevBmp);
+        recycleBitmap(currBmp);
+        recycleBitmap(nextBmp);
+    }
+
+    // ---------------------------------------------------
+    // BITMAP CLEANUP
+    // ---------------------------------------------------
+
+    private void recycleBitmap(Bitmap bmp) {
+
+        try {
+
+            if (bmp != null
+                    && !bmp.isRecycled()) {
+
+                bmp.recycle();
+            }
+
+        } catch (_e) {
+        }
     }
 }
