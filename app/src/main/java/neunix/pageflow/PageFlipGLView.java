@@ -4,6 +4,7 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.opengl.GLSurfaceView;
 import android.util.AttributeSet;
+import android.view.MotionEvent;
 
 public class PageFlipGLView extends GLSurfaceView {
 
@@ -11,60 +12,65 @@ public class PageFlipGLView extends GLSurfaceView {
         void onFlip(int direction);
     }
 
-    private FlipListener flipListener;
-
     private final PageCurlRenderer renderer;
 
-    public PageFlipGLView(Context c, AttributeSet a) {
-        super(c, a);
+    private FlipListener listener;
+
+    private float downX;
+
+    public PageFlipGLView(Context context, AttributeSet attrs) {
+        super(context, attrs);
 
         setEGLContextClientVersion(2);
 
         renderer = new PageCurlRenderer(direction -> {
 
-            // forward renderer callback
-            if (flipListener != null) {
-                flipListener.onFlip(direction);
+            if (listener != null) {
+                listener.onFlip(direction);
             }
-
-            // keep rendering smooth
-            requestRender();
         });
 
         setRenderer(renderer);
 
-        // IMPORTANT
-        // continuous animation for curl
-        setRenderMode(GLSurfaceView.RENDERMODE_CONTINUOUSLY);
+        setRenderMode(RENDERMODE_CONTINUOUSLY);
     }
-
-    // ---------------------------------------------------
-    // LISTENER
-    // ---------------------------------------------------
-
-    public void setFlipListener(FlipListener listener) {
-        this.flipListener = listener;
-    }
-
-    // ---------------------------------------------------
-    // PAGE SETTER
-    // ---------------------------------------------------
 
     public void setPages(Bitmap current, Bitmap next) {
 
-        renderer.setPages(current, next);
-
-        requestRender();
+        queueEvent(() -> renderer.setPages(current, next));
     }
 
-    // ---------------------------------------------------
-    // START FLIP
-    // ---------------------------------------------------
+    public void setFlipListener(FlipListener l) {
+        listener = l;
+    }
 
-    public void startFlip(int direction) {
+    @Override
+    public boolean onTouchEvent(MotionEvent e) {
 
-        renderer.startFlip(direction);
+        switch (e.getAction()) {
 
-        requestRender();
+            case MotionEvent.ACTION_DOWN:
+
+                downX = e.getX();
+                return true;
+
+            case MotionEvent.ACTION_UP:
+
+                float dx = e.getX() - downX;
+
+                if (Math.abs(dx) < 120f) {
+                    return true;
+                }
+
+                if (dx < 0f) {
+                    renderer.startFlip(1);
+                } else {
+                    renderer.startFlip(-1);
+                }
+
+                return true;
+        }
+
+        return true;
     }
 }
