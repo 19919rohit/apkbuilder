@@ -3,7 +3,6 @@ package neunix.pageflow;
 import android.graphics.Bitmap;
 import android.opengl.GLES20;
 import android.opengl.GLUtils;
-import android.opengl.GLSurfaceView;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -11,6 +10,8 @@ import java.nio.FloatBuffer;
 
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
+
+import android.opengl.GLSurfaceView;
 
 public class PageCurlRenderer implements GLSurfaceView.Renderer {
 
@@ -20,11 +21,16 @@ public class PageCurlRenderer implements GLSurfaceView.Renderer {
 
     private final Callback callback;
 
+    // -----------------------------------
+    // PAGE BITMAPS
+    // -----------------------------------
+
     private Bitmap currentBitmap;
     private Bitmap nextBitmap;
 
-    private int currentTexture = -1;
-    private int nextTexture = -1;
+    // -----------------------------------
+    // OPENGL
+    // -----------------------------------
 
     private int program;
 
@@ -32,16 +38,28 @@ public class PageCurlRenderer implements GLSurfaceView.Renderer {
     private int aTexCoord;
 
     private int uTexture;
-    private int uCurl;
+    private int uOffset;
+    private int uDarkness;
 
-    private FloatBuffer vertexBuffer;
-    private FloatBuffer texBuffer;
+    private int currentTexture = 0;
+    private int nextTexture = 0;
+
+    // -----------------------------------
+    // ANIMATION
+    // -----------------------------------
 
     private boolean animating = false;
 
+    private int direction = 1;
+
     private float progress = 0f;
 
-    private int direction = 1;
+    // 60 FPS speed tuned
+    private static final float SPEED = 0.040f;
+
+    // -----------------------------------
+    // GEOMETRY
+    // -----------------------------------
 
     private final float[] vertices = {
 
@@ -59,9 +77,12 @@ public class PageCurlRenderer implements GLSurfaceView.Renderer {
             1f, 0f
     };
 
-    public PageCurlRenderer(Callback callback) {
+    private final FloatBuffer vertexBuffer;
+    private final FloatBuffer texBuffer;
 
-        this.callback = callback;
+    public PageCurlRenderer(Callback cb) {
+
+        callback = cb;
 
         ByteBuffer vb =
                 ByteBuffer.allocateDirect(
@@ -90,9 +111,9 @@ public class PageCurlRenderer implements GLSurfaceView.Renderer {
         texBuffer.position(0);
     }
 
-    // ---------------------------------------------------
-    // SET PAGES
-    // ---------------------------------------------------
+    // -----------------------------------
+    // PAGE INPUT
+    // -----------------------------------
 
     public void setPages(
             Bitmap current,
@@ -103,16 +124,15 @@ public class PageCurlRenderer implements GLSurfaceView.Renderer {
 
         nextBitmap = next;
 
-        destroyTexture(currentTexture);
-        destroyTexture(nextTexture);
+        deleteTextures();
 
-        currentTexture = -1;
-        nextTexture = -1;
+        currentTexture = 0;
+        nextTexture = 0;
     }
 
-    // ---------------------------------------------------
+    // -----------------------------------
     // START FLIP
-    // ---------------------------------------------------
+    // -----------------------------------
 
     public void startFlip(int dir) {
 
@@ -125,9 +145,9 @@ public class PageCurlRenderer implements GLSurfaceView.Renderer {
         animating = true;
     }
 
-    // ---------------------------------------------------
-    // OPENGL
-    // ---------------------------------------------------
+    // -----------------------------------
+    // OPENGL INIT
+    // -----------------------------------
 
     @Override
     public void onSurfaceCreated(
@@ -142,9 +162,9 @@ public class PageCurlRenderer implements GLSurfaceView.Renderer {
                 1f
         );
 
-        GLES20.glEnable(
-                GLES20.GL_BLEND
-        );
+        GLES20.glDisable(GLES20.GL_DEPTH_TEST);
+
+        GLES20.glEnable(GLES20.GL_BLEND);
 
         GLES20.glBlendFunc(
                 GLES20.GL_SRC_ALPHA,
@@ -154,27 +174,33 @@ public class PageCurlRenderer implements GLSurfaceView.Renderer {
         String vertexShader =
 
                 "attribute vec4 aPosition;" +
-
                 "attribute vec2 aTexCoord;" +
 
-                "varying vec2 vTexCoord;" +
+                "uniform float uOffset;" +
 
-                "uniform float uCurl;" +
+                "varying vec2 vTexCoord;" +
+                "varying float vShade;" +
 
                 "void main(){" +
 
+                "float x = aPosition.x;" +
+
+                // curl distortion
+                "float curve = sin(abs(x) * 1.57) * uOffset * 0.35;" +
+
                 "vec4 pos = aPosition;" +
 
-                // premium fake curl deformation
-                "float strength = abs(pos.x);" +
+                "pos.x += uOffset;" +
+                "pos.z = curve;" +
 
-                "pos.y += sin(strength * 3.1415) * uCurl * 0.18;" +
-
-                "pos.x += uCurl * 0.25 * pos.x;" +
+                // fake perspective
+                "pos.xy *= (1.0 - curve * 0.12);" +
 
                 "gl_Position = pos;" +
 
                 "vTexCoord = aTexCoord;" +
+
+                "vShade = curve;" +
 
                 "}";
 
@@ -183,35 +209,35 @@ public class PageCurlRenderer implements GLSurfaceView.Renderer {
                 "precision mediump float;" +
 
                 "uniform sampler2D uTexture;" +
+                "uniform float uDarkness;" +
 
                 "varying vec2 vTexCoord;" +
-
-                "uniform float uCurl;" +
+                "varying float vShade;" +
 
                 "void main(){" +
 
-                "vec4 color = texture2D(uTexture, vTexCoord);" +
+                "vec4 color =" +
+                "texture2D(uTexture, vTexCoord);" +
 
-                // dynamic shadow
-                "float shadow = 1.0 - (uCurl * 0.35);" +
+                // premium shadow
+                "float shadow =" +
+                "(vShade * 0.55) + uDarkness;" +
 
-                "color.rgb *= shadow;" +
+                "color.rgb -= shadow;" +
 
                 "gl_FragColor = color;" +
 
                 "}";
 
-        int vs =
-                loadShader(
-                        GLES20.GL_VERTEX_SHADER,
-                        vertexShader
-                );
+        int vs = compileShader(
+                GLES20.GL_VERTEX_SHADER,
+                vertexShader
+        );
 
-        int fs =
-                loadShader(
-                        GLES20.GL_FRAGMENT_SHADER,
-                        fragmentShader
-                );
+        int fs = compileShader(
+                GLES20.GL_FRAGMENT_SHADER,
+                fragmentShader
+        );
 
         program = GLES20.glCreateProgram();
 
@@ -239,10 +265,16 @@ public class PageCurlRenderer implements GLSurfaceView.Renderer {
                         "uTexture"
                 );
 
-        uCurl =
+        uOffset =
                 GLES20.glGetUniformLocation(
                         program,
-                        "uCurl"
+                        "uOffset"
+                );
+
+        uDarkness =
+                GLES20.glGetUniformLocation(
+                        program,
+                        "uDarkness"
                 );
     }
 
@@ -261,6 +293,10 @@ public class PageCurlRenderer implements GLSurfaceView.Renderer {
         );
     }
 
+    // -----------------------------------
+    // DRAW LOOP
+    // -----------------------------------
+
     @Override
     public void onDrawFrame(GL10 gl) {
 
@@ -272,76 +308,105 @@ public class PageCurlRenderer implements GLSurfaceView.Renderer {
             return;
         }
 
-        if (currentTexture == -1) {
+        // lazy texture upload
+        ensureTextures();
 
-            currentTexture =
-                    createTexture(currentBitmap);
+        // -----------------------------------
+        // STATIC PAGE
+        // -----------------------------------
+
+        if (!animating) {
+
+            drawPage(
+                    currentTexture,
+                    0f,
+                    0f
+            );
+
+            return;
         }
 
-        if (nextBitmap != null
-                && nextTexture == -1) {
+        // -----------------------------------
+        // ANIMATION VALUES
+        // -----------------------------------
 
-            nextTexture =
-                    createTexture(nextBitmap);
-        }
+        float t = progress;
 
-        // draw next under page
-        if (animating && nextTexture != -1) {
+        // smooth easing
+        float ease =
+                (float)(
+                        1f -
+                        Math.pow(1f - t, 3)
+                );
 
-            drawTexture(
+        // -----------------------------------
+        // DRAW BACK PAGE
+        // -----------------------------------
+
+        if (nextTexture != 0) {
+
+            drawPage(
                     nextTexture,
+                    0f,
                     0f
             );
         }
 
-        // curl intensity
-        float curl =
-                animating
-                        ? progress
-                        : 0f;
+        // -----------------------------------
+        // FRONT CURL PAGE
+        // -----------------------------------
 
-        // reverse effect
-        if (direction < 0) {
-            curl *= -1f;
+        float move;
+
+        if (direction > 0) {
+
+            move = -ease * 2.0f;
+
+        } else {
+
+            move = ease * 2.0f;
         }
 
-        drawTexture(
+        float darkness =
+                ease * 0.22f;
+
+        drawPage(
                 currentTexture,
-                curl
+                move,
+                darkness
         );
 
-        // animation engine
-        if (animating) {
+        // -----------------------------------
+        // UPDATE
+        // -----------------------------------
 
-            progress += 0.045f;
+        progress += SPEED;
 
-            if (progress >= 1f) {
+        if (progress >= 1f) {
 
-                progress = 1f;
+            progress = 1f;
 
-                animating = false;
+            animating = false;
 
-                if (callback != null) {
-                    callback.onEnd(direction);
-                }
+            if (callback != null) {
+                callback.onEnd(direction);
             }
         }
     }
 
-    // ---------------------------------------------------
-    // DRAW
-    // ---------------------------------------------------
+    // -----------------------------------
+    // DRAW SINGLE PAGE
+    // -----------------------------------
 
-    private void drawTexture(
+    private void drawPage(
             int texture,
-            float curl
+            float offset,
+            float darkness
     ) {
 
         GLES20.glUseProgram(program);
 
-        GLES20.glEnableVertexAttribArray(
-                aPosition
-        );
+        GLES20.glEnableVertexAttribArray(aPosition);
 
         GLES20.glVertexAttribPointer(
                 aPosition,
@@ -352,9 +417,7 @@ public class PageCurlRenderer implements GLSurfaceView.Renderer {
                 vertexBuffer
         );
 
-        GLES20.glEnableVertexAttribArray(
-                aTexCoord
-        );
+        GLES20.glEnableVertexAttribArray(aTexCoord);
 
         GLES20.glVertexAttribPointer(
                 aTexCoord,
@@ -363,11 +426,6 @@ public class PageCurlRenderer implements GLSurfaceView.Renderer {
                 false,
                 0,
                 texBuffer
-        );
-
-        GLES20.glUniform1f(
-                uCurl,
-                curl
         );
 
         GLES20.glActiveTexture(
@@ -382,6 +440,16 @@ public class PageCurlRenderer implements GLSurfaceView.Renderer {
         GLES20.glUniform1i(
                 uTexture,
                 0
+        );
+
+        GLES20.glUniform1f(
+                uOffset,
+                offset
+        );
+
+        GLES20.glUniform1f(
+                uDarkness,
+                darkness
         );
 
         GLES20.glDrawArrays(
@@ -399,23 +467,40 @@ public class PageCurlRenderer implements GLSurfaceView.Renderer {
         );
     }
 
-    // ---------------------------------------------------
+    // -----------------------------------
     // TEXTURES
-    // ---------------------------------------------------
+    // -----------------------------------
+
+    private void ensureTextures() {
+
+        if (currentTexture == 0
+                && currentBitmap != null) {
+
+            currentTexture =
+                    createTexture(currentBitmap);
+        }
+
+        if (nextTexture == 0
+                && nextBitmap != null) {
+
+            nextTexture =
+                    createTexture(nextBitmap);
+        }
+    }
 
     private int createTexture(Bitmap bmp) {
 
-        int[] textures = new int[1];
+        int[] tex = new int[1];
 
         GLES20.glGenTextures(
                 1,
-                textures,
+                tex,
                 0
         );
 
         GLES20.glBindTexture(
                 GLES20.GL_TEXTURE_2D,
-                textures[0]
+                tex[0]
         );
 
         GLES20.glTexParameteri(
@@ -449,27 +534,35 @@ public class PageCurlRenderer implements GLSurfaceView.Renderer {
                 0
         );
 
-        return textures[0];
+        return tex[0];
     }
 
-    private void destroyTexture(int texture) {
+    private void deleteTextures() {
 
-        if (texture == -1) return;
+        if (currentTexture != 0) {
 
-        int[] textures = {texture};
+            GLES20.glDeleteTextures(
+                    1,
+                    new int[]{currentTexture},
+                    0
+            );
+        }
 
-        GLES20.glDeleteTextures(
-                1,
-                textures,
-                0
-        );
+        if (nextTexture != 0) {
+
+            GLES20.glDeleteTextures(
+                    1,
+                    new int[]{nextTexture},
+                    0
+            );
+        }
     }
 
-    // ---------------------------------------------------
-    // SHADER
-    // ---------------------------------------------------
+    // -----------------------------------
+    // SHADERS
+    // -----------------------------------
 
-    private int loadShader(
+    private int compileShader(
             int type,
             String code
     ) {
