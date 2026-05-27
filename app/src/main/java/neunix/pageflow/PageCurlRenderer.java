@@ -2,6 +2,7 @@ package neunix.pageflow;
 
 import android.graphics.Bitmap;
 import android.opengl.GLES20;
+import android.opengl.GLSurfaceView;
 import android.opengl.GLUtils;
 
 import java.nio.ByteBuffer;
@@ -11,9 +12,11 @@ import java.nio.FloatBuffer;
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
-import android.opengl.GLSurfaceView;
-
 public class PageCurlRenderer implements GLSurfaceView.Renderer {
+
+    // =========================================================
+    // CALLBACK
+    // =========================================================
 
     public interface Callback {
         void onEnd(int direction);
@@ -21,16 +24,23 @@ public class PageCurlRenderer implements GLSurfaceView.Renderer {
 
     private final Callback callback;
 
-    // -----------------------------------
-    // PAGE BITMAPS
-    // -----------------------------------
+    // =========================================================
+    // BITMAPS
+    // =========================================================
 
     private Bitmap currentBitmap;
     private Bitmap nextBitmap;
 
-    // -----------------------------------
+    // =========================================================
+    // TEXTURES
+    // =========================================================
+
+    private int currentTexture = 0;
+    private int nextTexture = 0;
+
+    // =========================================================
     // OPENGL
-    // -----------------------------------
+    // =========================================================
 
     private int program;
 
@@ -38,101 +48,64 @@ public class PageCurlRenderer implements GLSurfaceView.Renderer {
     private int aTexCoord;
 
     private int uTexture;
-    private int uOffset;
     private int uDarkness;
 
-    private int currentTexture = 0;
-    private int nextTexture = 0;
+    // =========================================================
+    // MESH
+    // =========================================================
 
-    // -----------------------------------
+    private static final int SEGMENTS = 72;
+
+    private final float[] vertices =
+            new float[(SEGMENTS + 1) * 4];
+
+    private final float[] texCoords =
+            new float[(SEGMENTS + 1) * 4];
+
+    private FloatBuffer vertexBuffer;
+    private FloatBuffer texBuffer;
+
+    // =========================================================
     // ANIMATION
-    // -----------------------------------
+    // =========================================================
+
+    private float progress = 0f;
 
     private boolean animating = false;
 
     private int direction = 1;
 
-    private float progress = 0f;
+    // =========================================================
+    // CURL
+    // =========================================================
 
-    // 60 FPS speed tuned
-    private static final float SPEED = 0.040f;
+    private static final float CURL_RADIUS = 0.22f;
 
-    // -----------------------------------
-    // GEOMETRY
-    // -----------------------------------
-
-    private final float[] vertices = {
-
-            -1f, -1f,
-             1f, -1f,
-            -1f,  1f,
-             1f,  1f
-    };
-
-    private final float[] texCoords = {
-
-            0f, 1f,
-            1f, 1f,
-            0f, 0f,
-            1f, 0f
-    };
-
-    private final FloatBuffer vertexBuffer;
-    private final FloatBuffer texBuffer;
+    // =========================================================
+    // CONSTRUCTOR
+    // =========================================================
 
     public PageCurlRenderer(Callback cb) {
 
         callback = cb;
 
-        ByteBuffer vb =
-                ByteBuffer.allocateDirect(
-                        vertices.length * 4
-                );
-
-        vb.order(ByteOrder.nativeOrder());
-
-        vertexBuffer = vb.asFloatBuffer();
-
-        vertexBuffer.put(vertices);
-
-        vertexBuffer.position(0);
-
-        ByteBuffer tb =
-                ByteBuffer.allocateDirect(
-                        texCoords.length * 4
-                );
-
-        tb.order(ByteOrder.nativeOrder());
-
-        texBuffer = tb.asFloatBuffer();
-
-        texBuffer.put(texCoords);
-
-        texBuffer.position(0);
+        setupBuffers();
     }
 
-    // -----------------------------------
-    // PAGE INPUT
-    // -----------------------------------
+    // =========================================================
+    // PUBLIC
+    // =========================================================
 
-    public void setPages(
-            Bitmap current,
-            Bitmap next
-    ) {
+    public void setPages(Bitmap current, Bitmap next) {
 
         currentBitmap = current;
-
         nextBitmap = next;
 
-        deleteTextures();
+        destroyTextures();
 
         currentTexture = 0;
         nextTexture = 0;
     }
-
-    // -----------------------------------
-    // START FLIP
-    // -----------------------------------
 
     public void startFlip(int dir) {
 
@@ -145,9 +118,9 @@ public class PageCurlRenderer implements GLSurfaceView.Renderer {
         animating = true;
     }
 
-    // -----------------------------------
-    // OPENGL INIT
-    // -----------------------------------
+    // =========================================================
+    // OPENGL
+    // =========================================================
 
     @Override
     public void onSurfaceCreated(
@@ -155,14 +128,7 @@ public class PageCurlRenderer implements GLSurfaceView.Renderer {
             EGLConfig config
     ) {
 
-        GLES20.glClearColor(
-                0f,
-                0f,
-                0f,
-                1f
-        );
-
-        GLES20.glDisable(GLES20.GL_DEPTH_TEST);
+        GLES20.glClearColor(0f, 0f, 0f, 1f);
 
         GLES20.glEnable(GLES20.GL_BLEND);
 
@@ -173,34 +139,16 @@ public class PageCurlRenderer implements GLSurfaceView.Renderer {
 
         String vertexShader =
 
-                "attribute vec4 aPosition;" +
+                "attribute vec2 aPosition;" +
                 "attribute vec2 aTexCoord;" +
 
-                "uniform float uOffset;" +
-
                 "varying vec2 vTexCoord;" +
-                "varying float vShade;" +
 
                 "void main(){" +
 
-                "float x = aPosition.x;" +
+                "gl_Position=vec4(aPosition,0.0,1.0);" +
 
-                // curl distortion
-                "float curve = sin(abs(x) * 1.57) * uOffset * 0.35;" +
-
-                "vec4 pos = aPosition;" +
-
-                "pos.x += uOffset;" +
-                "pos.z = curve;" +
-
-                // fake perspective
-                "pos.xy *= (1.0 - curve * 0.12);" +
-
-                "gl_Position = pos;" +
-
-                "vTexCoord = aTexCoord;" +
-
-                "vShade = curve;" +
+                "vTexCoord=aTexCoord;" +
 
                 "}";
 
@@ -212,29 +160,23 @@ public class PageCurlRenderer implements GLSurfaceView.Renderer {
                 "uniform float uDarkness;" +
 
                 "varying vec2 vTexCoord;" +
-                "varying float vShade;" +
 
                 "void main(){" +
 
-                "vec4 color =" +
-                "texture2D(uTexture, vTexCoord);" +
+                "vec4 c = texture2D(uTexture,vTexCoord);" +
 
-                // premium shadow
-                "float shadow =" +
-                "(vShade * 0.55) + uDarkness;" +
+                "c.rgb *= uDarkness;" +
 
-                "color.rgb -= shadow;" +
-
-                "gl_FragColor = color;" +
+                "gl_FragColor = c;" +
 
                 "}";
 
-        int vs = compileShader(
+        int vs = loadShader(
                 GLES20.GL_VERTEX_SHADER,
                 vertexShader
         );
 
-        int fs = compileShader(
+        int fs = loadShader(
                 GLES20.GL_FRAGMENT_SHADER,
                 fragmentShader
         );
@@ -265,12 +207,6 @@ public class PageCurlRenderer implements GLSurfaceView.Renderer {
                         "uTexture"
                 );
 
-        uOffset =
-                GLES20.glGetUniformLocation(
-                        program,
-                        "uOffset"
-                );
-
         uDarkness =
                 GLES20.glGetUniformLocation(
                         program,
@@ -293,10 +229,6 @@ public class PageCurlRenderer implements GLSurfaceView.Renderer {
         );
     }
 
-    // -----------------------------------
-    // DRAW LOOP
-    // -----------------------------------
-
     @Override
     public void onDrawFrame(GL10 gl) {
 
@@ -304,109 +236,316 @@ public class PageCurlRenderer implements GLSurfaceView.Renderer {
                 GLES20.GL_COLOR_BUFFER_BIT
         );
 
-        if (currentBitmap == null) {
-            return;
-        }
+        if (currentBitmap == null) return;
 
-        // lazy texture upload
         ensureTextures();
 
-        // -----------------------------------
-        // STATIC PAGE
-        // -----------------------------------
-
-        if (!animating) {
-
-            drawPage(
-                    currentTexture,
-                    0f,
-                    0f
-            );
-
-            return;
-        }
-
-        // -----------------------------------
-        // ANIMATION VALUES
-        // -----------------------------------
-
-        float t = progress;
-
-        // smooth easing
-        float ease =
-                (float)(
-                        1f -
-                        Math.pow(1f - t, 3)
-                );
-
-        // -----------------------------------
-        // DRAW BACK PAGE
-        // -----------------------------------
+        // =====================================================
+        // DRAW NEXT PAGE UNDER
+        // =====================================================
 
         if (nextTexture != 0) {
 
-            drawPage(
+            buildFlatMesh();
+
+            drawMesh(
                     nextTexture,
-                    0f,
-                    0f
+                    1f
             );
         }
 
-        // -----------------------------------
-        // FRONT CURL PAGE
-        // -----------------------------------
+        // =====================================================
+        // DRAW CURL PAGE
+        // =====================================================
 
-        float move;
+        buildCurlMesh();
 
-        if (direction > 0) {
-
-            move = -ease * 2.0f;
-
-        } else {
-
-            move = ease * 2.0f;
-        }
-
-        float darkness =
-                ease * 0.22f;
-
-        drawPage(
+        drawMesh(
                 currentTexture,
-                move,
-                darkness
+                1f
         );
 
-        // -----------------------------------
-        // UPDATE
-        // -----------------------------------
+        // =====================================================
+        // DRAW BACKSIDE
+        // =====================================================
 
-        progress += SPEED;
+        if (animating) {
 
-        if (progress >= 1f) {
+            buildBackMesh();
 
-            progress = 1f;
+            drawMesh(
+                    currentTexture,
+                    0.72f
+            );
+        }
 
-            animating = false;
+        // =====================================================
+        // ANIMATION
+        // =====================================================
 
-            if (callback != null) {
+        if (animating) {
+
+            progress += 0.018f;
+
+            if (progress >= 1f) {
+
+                progress = 1f;
+
+                animating = false;
+
                 callback.onEnd(direction);
             }
         }
     }
 
-    // -----------------------------------
-    // DRAW SINGLE PAGE
-    // -----------------------------------
+    // =========================================================
+    // REAL CURL MESH
+    // =========================================================
 
-    private void drawPage(
+    private void buildCurlMesh() {
+
+        int vi = 0;
+        int ti = 0;
+
+        float curlPos;
+
+        if (direction > 0) {
+
+            curlPos = 1f - progress * 2f;
+
+        } else {
+
+            curlPos = -1f + progress * 2f;
+        }
+
+        for (int i = 0; i <= SEGMENTS; i++) {
+
+            float x =
+                    -1f + (2f * i / SEGMENTS);
+
+            float u =
+                    (float) i / SEGMENTS;
+
+            boolean curled;
+
+            float dist;
+
+            if (direction > 0) {
+
+                curled = x > curlPos;
+
+                dist = x - curlPos;
+
+            } else {
+
+                curled = x < curlPos;
+
+                dist = curlPos - x;
+            }
+
+            float vx = x;
+
+            float z = 0f;
+
+            if (curled) {
+
+                float theta =
+                        dist / 2f
+                                * (float)Math.PI;
+
+                theta =
+                        Math.min(
+                                theta,
+                                (float)Math.PI
+                        );
+
+                float arcX =
+                        (float)Math.sin(theta)
+                                * CURL_RADIUS;
+
+                z =
+                        (1f -
+                                (float)Math.cos(theta))
+                                * 0.25f;
+
+                if (direction > 0) {
+
+                    vx = curlPos + arcX;
+
+                } else {
+
+                    vx = curlPos - arcX;
+                }
+            }
+
+            // TOP
+            vertices[vi++] = vx;
+            vertices[vi++] = 1f - z;
+
+            texCoords[ti++] = u;
+            texCoords[ti++] = 0f;
+
+            // BOTTOM
+            vertices[vi++] = vx;
+            vertices[vi++] = -1f + z;
+
+            texCoords[ti++] = u;
+            texCoords[ti++] = 1f;
+        }
+
+        uploadMesh();
+    }
+
+    // =========================================================
+    // BACKSIDE
+    // =========================================================
+
+    private void buildBackMesh() {
+
+        int vi = 0;
+        int ti = 0;
+
+        float curlPos;
+
+        if (direction > 0) {
+
+            curlPos = 1f - progress * 2f;
+
+        } else {
+
+            curlPos = -1f + progress * 2f;
+        }
+
+        for (int i = 0; i <= SEGMENTS; i++) {
+
+            float x =
+                    -1f + (2f * i / SEGMENTS);
+
+            float u =
+                    (float) i / SEGMENTS;
+
+            boolean curled;
+
+            float dist;
+
+            if (direction > 0) {
+
+                curled = x > curlPos;
+
+                dist = x - curlPos;
+
+            } else {
+
+                curled = x < curlPos;
+
+                dist = curlPos - x;
+            }
+
+            float vx = x;
+
+            float z = 0f;
+
+            if (curled) {
+
+                float theta =
+                        dist / 2f
+                                * (float)Math.PI;
+
+                theta =
+                        Math.min(
+                                theta,
+                                (float)Math.PI
+                        );
+
+                float arcX =
+                        (float)Math.sin(theta)
+                                * CURL_RADIUS;
+
+                z =
+                        (1f -
+                                (float)Math.cos(theta))
+                                * 0.28f;
+
+                if (direction > 0) {
+
+                    vx = curlPos + arcX;
+
+                } else {
+
+                    vx = curlPos - arcX;
+                }
+            }
+
+            // mirror UV backside
+            float backU = 1f - u;
+
+            // TOP
+            vertices[vi++] = vx;
+            vertices[vi++] = 1f - z;
+
+            texCoords[ti++] = backU;
+            texCoords[ti++] = 0f;
+
+            // BOTTOM
+            vertices[vi++] = vx;
+            vertices[vi++] = -1f + z;
+
+            texCoords[ti++] = backU;
+            texCoords[ti++] = 1f;
+        }
+
+        uploadMesh();
+    }
+
+    // =========================================================
+    // FLAT PAGE
+    // =========================================================
+
+    private void buildFlatMesh() {
+
+        int vi = 0;
+        int ti = 0;
+
+        for (int i = 0; i <= SEGMENTS; i++) {
+
+            float x =
+                    -1f + (2f * i / SEGMENTS);
+
+            float u =
+                    (float) i / SEGMENTS;
+
+            // TOP
+            vertices[vi++] = x;
+            vertices[vi++] = 1f;
+
+            texCoords[ti++] = u;
+            texCoords[ti++] = 0f;
+
+            // BOTTOM
+            vertices[vi++] = x;
+            vertices[vi++] = -1f;
+
+            texCoords[ti++] = u;
+            texCoords[ti++] = 1f;
+        }
+
+        uploadMesh();
+    }
+
+    // =========================================================
+    // DRAW
+    // =========================================================
+
+    private void drawMesh(
             int texture,
-            float offset,
             float darkness
     ) {
 
         GLES20.glUseProgram(program);
 
-        GLES20.glEnableVertexAttribArray(aPosition);
+        GLES20.glEnableVertexAttribArray(
+                aPosition
+        );
 
         GLES20.glVertexAttribPointer(
                 aPosition,
@@ -417,7 +556,9 @@ public class PageCurlRenderer implements GLSurfaceView.Renderer {
                 vertexBuffer
         );
 
-        GLES20.glEnableVertexAttribArray(aTexCoord);
+        GLES20.glEnableVertexAttribArray(
+                aTexCoord
+        );
 
         GLES20.glVertexAttribPointer(
                 aTexCoord,
@@ -426,10 +567,6 @@ public class PageCurlRenderer implements GLSurfaceView.Renderer {
                 false,
                 0,
                 texBuffer
-        );
-
-        GLES20.glActiveTexture(
-                GLES20.GL_TEXTURE0
         );
 
         GLES20.glBindTexture(
@@ -443,11 +580,6 @@ public class PageCurlRenderer implements GLSurfaceView.Renderer {
         );
 
         GLES20.glUniform1f(
-                uOffset,
-                offset
-        );
-
-        GLES20.glUniform1f(
                 uDarkness,
                 darkness
         );
@@ -455,7 +587,7 @@ public class PageCurlRenderer implements GLSurfaceView.Renderer {
         GLES20.glDrawArrays(
                 GLES20.GL_TRIANGLE_STRIP,
                 0,
-                4
+                (SEGMENTS + 1) * 2
         );
 
         GLES20.glDisableVertexAttribArray(
@@ -467,9 +599,45 @@ public class PageCurlRenderer implements GLSurfaceView.Renderer {
         );
     }
 
-    // -----------------------------------
+    // =========================================================
+    // BUFFERS
+    // =========================================================
+
+    private void setupBuffers() {
+
+        vertexBuffer =
+                ByteBuffer.allocateDirect(
+                        vertices.length * 4
+                )
+                        .order(ByteOrder.nativeOrder())
+                        .asFloatBuffer();
+
+        texBuffer =
+                ByteBuffer.allocateDirect(
+                        texCoords.length * 4
+                )
+                        .order(ByteOrder.nativeOrder())
+                        .asFloatBuffer();
+    }
+
+    private void uploadMesh() {
+
+        vertexBuffer.clear();
+
+        vertexBuffer.put(vertices);
+
+        vertexBuffer.position(0);
+
+        texBuffer.clear();
+
+        texBuffer.put(texCoords);
+
+        texBuffer.position(0);
+    }
+
+    // =========================================================
     // TEXTURES
-    // -----------------------------------
+    // =========================================================
 
     private void ensureTextures() {
 
@@ -477,18 +645,18 @@ public class PageCurlRenderer implements GLSurfaceView.Renderer {
                 && currentBitmap != null) {
 
             currentTexture =
-                    createTexture(currentBitmap);
+                    loadTexture(currentBitmap);
         }
 
         if (nextTexture == 0
                 && nextBitmap != null) {
 
             nextTexture =
-                    createTexture(nextBitmap);
+                    loadTexture(nextBitmap);
         }
     }
 
-    private int createTexture(Bitmap bmp) {
+    private int loadTexture(Bitmap bmp) {
 
         int[] tex = new int[1];
 
@@ -537,7 +705,7 @@ public class PageCurlRenderer implements GLSurfaceView.Renderer {
         return tex[0];
     }
 
-    private void deleteTextures() {
+    private void destroyTextures() {
 
         if (currentTexture != 0) {
 
@@ -546,6 +714,8 @@ public class PageCurlRenderer implements GLSurfaceView.Renderer {
                     new int[]{currentTexture},
                     0
             );
+
+            currentTexture = 0;
         }
 
         if (nextTexture != 0) {
@@ -555,14 +725,16 @@ public class PageCurlRenderer implements GLSurfaceView.Renderer {
                     new int[]{nextTexture},
                     0
             );
+
+            nextTexture = 0;
         }
     }
 
-    // -----------------------------------
-    // SHADERS
-    // -----------------------------------
+    // =========================================================
+    // SHADER
+    // =========================================================
 
-    private int compileShader(
+    private int loadShader(
             int type,
             String code
     ) {
