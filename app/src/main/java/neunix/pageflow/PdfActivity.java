@@ -1,6 +1,5 @@
 package neunix.pageflow;
 
-import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -16,6 +15,7 @@ import android.widget.TextView;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.material.slider.Slider;
 
@@ -24,11 +24,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
-public class PdfActivity extends Activity {
-
-    // =========================================================
-    // PREFS KEYS
-    // =========================================================
+public class PdfActivity extends AppCompatActivity {
 
     private static final String PREFS_NAME    = "pageflow_prefs";
     private static final String KEY_LAST_PAGE = "last_page_";
@@ -64,7 +60,7 @@ public class PdfActivity extends Activity {
     // RENDER STATE
     // =========================================================
 
-    private final Handler        uiHandler      = new Handler(Looper.getMainLooper());
+    private final Handler         uiHandler      = new Handler(Looper.getMainLooper());
     private final ExecutorService renderExecutor =
             Executors.newSingleThreadExecutor(r ->
                     new Thread(r, "PdfActivity-Render"));
@@ -80,12 +76,12 @@ public class PdfActivity extends Activity {
     // SLIDER DEBOUNCE
     // =========================================================
 
-    private boolean          internalSliderUpdate = false;
-    private Runnable         sliderDebounce;
-    private List<Future<?>>  prefetchFutures;
+    private boolean         internalSliderUpdate = false;
+    private Runnable        sliderDebounce;
+    private List<Future<?>> prefetchFutures;
 
     // =========================================================
-    // CONTROL BAR AUTO-HIDE
+    // CONTROLS AUTO-HIDE
     // =========================================================
 
     private static final long HIDE_DELAY_MS  = 3_000L;
@@ -117,7 +113,6 @@ public class PdfActivity extends Activity {
         setupSlider();
         setupButtons();
 
-        // If launched with a URI directly (e.g. from MainActivity recent list)
         Uri incomingUri = getIntent().getData();
         if (incomingUri != null) {
             openPdf(incomingUri);
@@ -167,7 +162,6 @@ public class PdfActivity extends Activity {
         btnOpenNew     = findViewById(R.id.btnOpenNew);
         btnBack        = findViewById(R.id.btnBack);
 
-        // Retry button inside error view
         findViewById(R.id.btnRetryOpen)
                 .setOnClickListener(v -> openFilePicker());
     }
@@ -218,7 +212,6 @@ public class PdfActivity extends Activity {
                 int w = pageFlipView.getWidth();
                 int h = pageFlipView.getHeight();
 
-                // If view not laid out yet, wait for it
                 if (w == 0 || h == 0) {
                     pageFlipView.post(() -> {
                         int w2 = pageFlipView.getWidth();
@@ -261,7 +254,6 @@ public class PdfActivity extends Activity {
 
             @Override
             public void onFlipCommitted(int direction) {
-                // Advance page index then load new triple
                 currentPage = currentPage + direction;
                 currentPage = Math.max(0, Math.min(currentPage, totalPages - 1));
                 loadPage(currentPage, false);
@@ -346,13 +338,19 @@ public class PdfActivity extends Activity {
 
         final int target = index;
 
+        // Capture screen size for explicit Kotlin default param calls
+        final int sw = core.getScreenWidth();
+        final int sh = core.getScreenHeight();
+
         pendingRender = renderExecutor.submit(() -> {
             try {
-                Bitmap current = core.renderPage(target);
+                // Pass width and height explicitly — Kotlin default
+                // params are not visible to Java callers
+                Bitmap current = core.renderPage(target, sw, sh);
                 Bitmap next    = (target < totalPages - 1)
-                        ? core.renderPage(target + 1) : null;
+                        ? core.renderPage(target + 1, sw, sh) : null;
                 Bitmap prev    = (target > 0)
-                        ? core.renderPage(target - 1) : null;
+                        ? core.renderPage(target - 1, sw, sh) : null;
 
                 uiHandler.post(() -> {
                     if (isDestroyed()) return;
@@ -420,8 +418,8 @@ public class PdfActivity extends Activity {
 
     private void setControlsVisible(boolean visible) {
         controlsVisible = visible;
-        float alpha     = visible ? 1f : 0f;
-        int   vis       = visible ? View.VISIBLE : View.INVISIBLE;
+        float alpha = visible ? 1f : 0f;
+        int   vis   = visible ? View.VISIBLE : View.INVISIBLE;
 
         topBar.animate()
                 .alpha(alpha).setDuration(220)

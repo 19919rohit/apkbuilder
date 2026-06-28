@@ -1,6 +1,5 @@
 package neunix.pageflow;
 
-import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -16,6 +15,7 @@ import android.widget.TextView;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.appcompat.app.AppCompatActivity;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -23,34 +23,18 @@ import org.json.JSONObject;
 import java.util.ArrayList;
 import java.util.List;
 
-public class MainActivity extends Activity {
-
-    // =========================================================
-    // PREFS
-    // =========================================================
+public class MainActivity extends AppCompatActivity {
 
     private static final String PREFS_NAME  = "pageflow_prefs";
     private static final String KEY_RECENT  = "recent_files";
     private static final int    MAX_RECENT  = 10;
 
-    // =========================================================
-    // VIEWS
-    // =========================================================
-
     private ListView      recentList;
     private View          emptyState;
     private View          btnOpenPdf;
 
-    // =========================================================
-    // DATA
-    // =========================================================
-
     private final List<RecentFile> recentFiles = new ArrayList<>();
     private RecentAdapter          adapter;
-
-    // =========================================================
-    // FILE PICKER
-    // =========================================================
 
     private ActivityResultLauncher<Intent> pickerLauncher;
 
@@ -68,7 +52,6 @@ public class MainActivity extends Activity {
         setupRecent();
         setupButtons();
 
-        // Handle PDFs opened from external apps (file manager, email etc.)
         Intent incoming = getIntent();
         if (Intent.ACTION_VIEW.equals(incoming.getAction())
                 && incoming.getData() != null) {
@@ -96,10 +79,6 @@ public class MainActivity extends Activity {
         emptyState = findViewById(R.id.emptyState);
         btnOpenPdf = findViewById(R.id.btnOpenPdf);
     }
-
-    // =========================================================
-    // BUTTONS
-    // =========================================================
 
     private void setupButtons() {
         btnOpenPdf.setOnClickListener(v -> openFilePicker());
@@ -234,10 +213,7 @@ public class MainActivity extends Activity {
     private void removeFromRecent(int position) {
         if (position < 0 || position >= recentFiles.size()) return;
         RecentFile removed = recentFiles.get(position);
-
-        // Clean up the cached file too
         FileUtils.evictCacheForUri(this, removed.uri);
-
         recentFiles.remove(position);
         saveRecent();
         adapter.notifyDataSetChanged();
@@ -261,10 +237,10 @@ public class MainActivity extends Activity {
 
         String relativeTime() {
             long diff = System.currentTimeMillis() - timestamp;
-            if (diff < 60_000L)          return "Just now";
-            if (diff < 3_600_000L)       return (diff / 60_000L)    + " min ago";
-            if (diff < 86_400_000L)      return (diff / 3_600_000L) + " hr ago";
-            if (diff < 7 * 86_400_000L)  return (diff / 86_400_000L)+ " days ago";
+            if (diff < 60_000L)         return "Just now";
+            if (diff < 3_600_000L)      return (diff / 60_000L)     + " min ago";
+            if (diff < 86_400_000L)     return (diff / 3_600_000L)  + " hr ago";
+            if (diff < 7 * 86_400_000L) return (diff / 86_400_000L) + " days ago";
             return "A while ago";
         }
 
@@ -298,13 +274,10 @@ public class MainActivity extends Activity {
             }
 
             RecentFile file = recentFiles.get(position);
-
             holder.initial.setText(file.initial());
             holder.name.setText(file.name);
             holder.time.setText(file.relativeTime());
-
-            holder.btnRemove.setOnClickListener(v ->
-                    removeFromRecent(position));
+            holder.btnRemove.setOnClickListener(v -> removeFromRecent(position));
 
             return convertView;
         }
