@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="72dp"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:paddingStart="24dp"
+    android:paddingEnd="24dp"
+    android:clickable="true"
+    android:focusable="true"
+    android:background="?attr/selectableItemBackground">
+
+    <!-- Thumbnail -->
+    <FrameLayout
+        android:layout_width="44dp"
+        android:layout_height="56dp"
+        android:background="@drawable/bg_recent_card">
+
+        <ImageView
+            android:id="@+id/rowThumbnail"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"/>
+
+        <TextView
+            android:id="@+id/rowInitial"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="#2A2A2A"/>
+
+    </FrameLayout>
+
+    <!-- Name + time -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:layout_marginStart="14dp"
+        android:layout_marginEnd="8dp">
+
+        <TextView
+            android:id="@+id/rowName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="14sp"
+            android:textColor="#EEEEEE"
+            android:maxLines="1"
+            android:ellipsize="end"/>
+
+        <TextView
+            android:id="@+id/rowTime"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="11sp"
+            android:textColor="#444444"
+            android:layout_marginTop="3dp"/>
+
+    </LinearLayout>
+
+    <!-- Remove -->
+    <ImageButton
+        android:id="@+id/rowRemove"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:src="@drawable/ic_close"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="Remove"
+        android:tint="#333333"/>
+
+</LinearLayout>
