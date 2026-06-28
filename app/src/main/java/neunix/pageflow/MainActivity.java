@@ -124,15 +124,18 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        thumbExecutor.shutdownNow();
-        for (Bitmap b : thumbnailCache.values()) {
-            if (b != null && !b.isRecycled()) b.recycle();
-        }
-        thumbnailCache.clear();
-    }
+protected void onDestroy() {
+    super.onDestroy();
 
+    thumbExecutor.shutdownNow();
+
+    if (continueThumbnail != null) continueThumbnail.setImageDrawable(null);
+
+    if (recentRecycler != null) recentRecycler.setAdapter(null);
+    if (allFilesRecycler != null) allFilesRecycler.setAdapter(null);
+
+    thumbnailCache.clear();
+}
     // =========================================================
     // BIND
     // =========================================================
@@ -549,7 +552,7 @@ public class MainActivity extends AppCompatActivity {
 
             h.remove.setOnClickListener(v -> {
                 int pos = h.getAdapterPosition();
-                if (pos != RecyclerView.NO_ID) removeFromRecent(pos);
+                if (pos != RecyclerView.NO_POSITION) removeFromRecent(pos);
             });
 
             // Stagger animation
@@ -618,7 +621,7 @@ public class MainActivity extends AppCompatActivity {
 
             h.remove.setOnClickListener(v -> {
                 int pos = h.getAdapterPosition();
-                if (pos != RecyclerView.NO_ID) removeFromRecent(pos);
+                if (pos != RecyclerView.NO_POSITION) removeFromRecent(pos);
             });
         }
 
