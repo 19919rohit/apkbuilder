@@ -124,18 +124,19 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
-protected void onDestroy() {
-    super.onDestroy();
+    protected void onDestroy() {
+        super.onDestroy();
 
-    thumbExecutor.shutdownNow();
+        thumbExecutor.shutdownNow();
 
-    if (continueThumbnail != null) continueThumbnail.setImageDrawable(null);
+        if (continueThumbnail != null) continueThumbnail.setImageDrawable(null);
 
-    if (recentRecycler != null) recentRecycler.setAdapter(null);
-    if (allFilesRecycler != null) allFilesRecycler.setAdapter(null);
+        if (recentRecycler != null) recentRecycler.setAdapter(null);
+        if (allFilesRecycler != null) allFilesRecycler.setAdapter(null);
 
-    thumbnailCache.clear();
-}
+        thumbnailCache.clear();
+    }
+
     // =========================================================
     // BIND
     // =========================================================
@@ -351,13 +352,26 @@ protected void onDestroy() {
                          .apply();
                 }
 
+                // Render the initial bitmap from native code
                 Bitmap thumb = core.renderPage(0, 240, 320);
+                
+                Bitmap safeThumb = null;
+                if (thumb != null && !thumb.isRecycled()) {
+                    // Create an independent deep copy managed by Android's Java layer
+                    Bitmap.Config config = thumb.getConfig() != null ? thumb.getConfig() : Bitmap.Config.ARGB_8888;
+                    safeThumb = thumb.copy(config, false);
+                }
+                
+                // Safe to close native resources now; our safeThumb copy won't be affected
                 core.close();
 
-                uiHandler.post(() -> {
-                    thumbnailCache.put(key, thumb);
-                    onThumbnailLoaded(file.uri, thumb);
-                });
+                if (safeThumb != null) {
+                    final Bitmap finalThumb = safeThumb;
+                    uiHandler.post(() -> {
+                        thumbnailCache.put(key, finalThumb);
+                        onThumbnailLoaded(file.uri, finalThumb);
+                    });
+                }
 
             } catch (Exception ignored) { }
         });
