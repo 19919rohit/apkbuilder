@@ -3,16 +3,12 @@ package neunix.pageflow;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.content.res.AssetFileDescriptor;
 import android.graphics.Bitmap;
 import android.graphics.Color;
-import android.media.AudioAttributes;
-import android.media.SoundPool;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.ImageButton;
@@ -54,19 +50,6 @@ public class PdfActivity extends AppCompatActivity {
     private TextView    errorMessage;
     private ImageButton btnOpenNew;
     private ImageButton btnBack;
-
-    // =========================================================
-    // AUDIO (SOUNDPOOL)
-    // =========================================================
-
-    private SoundPool soundPool;
-    private int       flipSoundId = -1;
-
-    // Smart-audio touch state trackers
-    private long    touchDownTime             = 0L;
-    private boolean isUserTouching            = false;
-    private int     indexAtTouchDown          = 0;
-    private boolean soundPlayedForCurrentFlip = false;
 
     // =========================================================
     // PDF STATE
@@ -133,7 +116,6 @@ public class PdfActivity extends AppCompatActivity {
 
         setContentView(R.layout.activity_pdf);
 
-        initSoundPool();
         bindViews();
         registerFilePicker();
         setupCurlView();
@@ -169,74 +151,24 @@ public class PdfActivity extends AppCompatActivity {
         uiHandler.removeCallbacksAndMessages(null);
         renderExecutor.shutdownNow();
         closePdfCore();
-        
-        if (soundPool != null) {
-            soundPool.release();
-            soundPool = null;
-        }
     }
 
     // =========================================================
-    // TOUCH INTERCEPT MOTION DISPATCH
-    // Intercepts touch states safely before reaching CurlView listeners
+    // Activity-level touch intercept — safe way to detect
+    // any touch without overwriting CurlView's own listener
     // =========================================================
 
     @Override
-    public boolean dispatchTouchEvent(MotionEvent ev) {
-        switch (ev.getActionMasked()) {
-            case MotionEvent.ACTION_DOWN:
-                touchDownTime = System.currentTimeMillis();
-                isUserTouching = true;
-                indexAtTouchDown = currentPage;
-                soundPlayedForCurrentFlip = false;
-                break;
-
-            case MotionEvent.ACTION_UP:
-            case MotionEvent.ACTION_CANCEL:
-                isUserTouching = false;
-                // If they dragged slowly ("for fun") and structural index changed,
-                // trigger a clean snap flip audio effect right as they let go.
-                uiHandler.postDelayed(() -> {
-                    if (!soundPlayedForCurrentFlip && currentPage != indexAtTouchDown) {
-                        playFlipSound();
-                        soundPlayedForCurrentFlip = true;
-                    }
-                }, 50);
-                break;
-        }
-
+    public void onUserInteraction() {
         if (!controlsVisible) {
             setControlsVisible(true);
         }
         scheduleHideControls();
-        
-        return super.dispatchTouchEvent(ev);
-    }
-
-    @Override
-    public void onUserInteraction() {
-        // Handled directly inside dispatchTouchEvent for seamless syncing
     }
 
     // =========================================================
-    // INITIALIZATION HELPERS
+    // BIND
     // =========================================================
-
-    private void initSoundPool() {
-        AudioAttributes audioAttributes = new AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
-                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                .build();
-
-        soundPool = new SoundPool.Builder()
-                .setMaxStreams(3) 
-                .setAudioAttributes(audioAttributes)
-                .build();
-
-        try (AssetFileDescriptor afd = getAssets().openFd("page_flip.ogg")) {
-            flipSoundId = soundPool.load(afd, 1);
-        } catch (Exception ignored) { }
-    }
 
     private void bindViews() {
         curlView       = findViewById(R.id.curlView);
@@ -288,6 +220,7 @@ public class PdfActivity extends AppCompatActivity {
         showLoading(true);
         hideError();
 
+        // Tear down previous session completely before opening new one
         closePdfCore();
         coreReady.set(false);
         bitmapWidth  = 0;
@@ -302,6 +235,7 @@ public class PdfActivity extends AppCompatActivity {
 
                 int pages = newCore.pageCount();
 
+                // Guard: PDF must have at least one page
                 if (pages <= 0) {
                     newCore.close();
                     uiHandler.post(() -> {
@@ -329,6 +263,7 @@ public class PdfActivity extends AppCompatActivity {
                     titleText.setText(cleanFileName(currentFileName));
                     setupSliderRange();
 
+                    // Wire CurlView — this triggers updatePage() calls
                     curlView.setPageProvider(pageProvider);
                     curlView.setCurrentIndex(currentPage);
                     curlView.setViewMode(CurlView.SHOW_ONE_PAGE);
@@ -356,14 +291,31 @@ public class PdfActivity extends AppCompatActivity {
 
         @Override
         public int getPageCount() {
+            // Return exact page count.
+            // CurlView uses this to know when navigation ends.
             return totalPages;
         }
 
+        /**
+         * Called on the GL thread whenever CurlView needs a page bitmap.
+         * MUST be synchronous — CurlView expects the texture set before
+         * this method returns.
+         *
+         * Robustness contract:
+         *  • index < 0              → blank (should never happen)
+         *  • index >= totalPages    → blank (should never happen)
+         *  • index == totalPages-1  → render front, paper-grey back
+         *  • core not ready         → blank white
+         *  • render throws          → blank white, no crash
+         *  • copy() fails           → fall back to direct bitmap
+         */
         @Override
         public void updatePage(CurlPage page,
                                int width, int height,
                                int index) {
 
+            // Record bitmap dimensions on first call so prefetch
+            // uses the correct resolution
             if (bitmapWidth == 0 || bitmapHeight == 0) {
                 bitmapWidth  = Math.max(width,  1);
                 bitmapHeight = Math.max(height, 1);
@@ -374,11 +326,13 @@ public class PdfActivity extends AppCompatActivity {
             final int w = Math.max(width,  1);
             final int h = Math.max(height, 1);
 
+            // ── Guard: core not ready ─────────────────────────
             if (!coreReady.get() || core == null) {
                 page.setTexture(blankBitmap(w, h), CurlPage.SIDE_BOTH);
                 return;
             }
 
+            // ── Guard: index completely out of range ──────────
             if (index < 0 || index >= totalPages) {
                 page.setTexture(blankBitmap(w, h), CurlPage.SIDE_BOTH);
                 return;
@@ -391,18 +345,23 @@ public class PdfActivity extends AppCompatActivity {
                 page.setTexture(frontCopy, CurlPage.SIDE_FRONT);
 
                 // ── BACK FACE ─────────────────────────────────
+                // index + 1 exists → render it (shows through curl)
+                // index + 1 doesn't exist → paper-grey back cover
                 if (index + 1 < totalPages) {
                     Bitmap back     = core.renderPage(index + 1, w, h);
                     Bitmap backCopy = safeCopy(back, w, h);
                     page.setTexture(backCopy, CurlPage.SIDE_BACK);
                 } else {
+                    // Last page back — warm paper grey like a book's
+                    // back cover. Looks natural instead of a hard white.
                     Bitmap backCover = blankBitmap(w, h);
-                    backCover.eraseColor(0xFFF0EDE8); 
+                    backCover.eraseColor(0xFFF0EDE8); // warm off-white
                     page.setTexture(backCover, CurlPage.SIDE_BACK);
                     page.setColor(0xFFE8E4DF, CurlPage.SIDE_BACK);
                 }
 
                 // ── UPDATE UI ─────────────────────────────────
+                // Post to main thread — never touch UI from GL thread
                 final int capturedIndex = index;
                 uiHandler.post(() -> {
                     if (isDestroyed()) return;
@@ -410,23 +369,6 @@ public class PdfActivity extends AppCompatActivity {
                         currentPage = capturedIndex;
                         updatePageText(capturedIndex);
                         syncSlider(capturedIndex);
-                        
-                        // Adaptive Audio Processing Window
-                        long dragDuration = System.currentTimeMillis() - touchDownTime;
-                        
-                        if (!isUserTouching) {
-                            // Automatic program trigger (Slider drop or jump settle)
-                            playFlipSound();
-                        } else if (dragDuration < 300) {
-                            // Intentional swift swipe layout translation: trigger instantly
-                            if (!soundPlayedForCurrentFlip) {
-                                playFlipSound();
-                                soundPlayedForCurrentFlip = true;
-                            }
-                        } else {
-                            // Suppressed: User is actively wiggling or holding layout page for fun.
-                            // Audio will play seamlessly at ACTION_UP instead.
-                        }
 
                         // Prefetch neighbours in background
                         PdfCore snap = core;
@@ -441,20 +383,12 @@ public class PdfActivity extends AppCompatActivity {
                 });
 
             } catch (Exception e) {
+                // Never let a render exception reach GL thread —
+                // CurlView doesn't catch it and the app would crash
                 page.setTexture(blankBitmap(w, h), CurlPage.SIDE_BOTH);
             }
         }
     };
-
-    // =========================================================
-    // AUDIO ENGINE PLAYBACK
-    // =========================================================
-
-    private void playFlipSound() {
-        if (soundPool != null && flipSoundId != -1) {
-            soundPool.play(flipSoundId, 1.0f, 1.0f, 1, 0, 1.0f);
-        }
-    }
 
     // =========================================================
     // SETUP
@@ -462,16 +396,30 @@ public class PdfActivity extends AppCompatActivity {
 
     private void setupCurlView() {
         curlView.setBackgroundColor(0xFF0A0A0A);
+
+        // Allow last page curl — our updatePage handles the blank
+        // back face gracefully with a paper-grey colour
         curlView.setAllowLastPageCurl(true);
+
+        // Single page mode — no left page
         curlView.setRenderLeftPage(false);
+
+        // Zero margins — page fills the full GL surface.
+        // PdfCore already centres content with white padding.
         curlView.setMargins(0.0f, 0.0f, 0.0f, 0.0f);
 
+        // Sync screen size when GL surface dimensions are known
         curlView.setSizeChangedObserver((w, h) -> {
             bitmapWidth  = w;
             bitmapHeight = h;
             PdfCore snap = core;
             if (snap != null) snap.setScreenSize(w, h);
         });
+
+        // IMPORTANT: Do NOT call curlView.setOnTouchListener().
+        // CurlView sets itself as its own touch listener in init().
+        // Overwriting it kills all page flip gestures.
+        // Touch intercept is handled via onUserInteraction() above.
     }
 
     private void setupSlider() {
@@ -481,6 +429,7 @@ public class PdfActivity extends AppCompatActivity {
             int target = (int) value;
             updatePageText(target);
 
+            // Cancel in-flight prefetches before seek jump
             PdfCore snap = core;
             if (prefetchFutures != null && snap != null) {
                 snap.cancelPrefetch(prefetchFutures);
@@ -495,8 +444,9 @@ public class PdfActivity extends AppCompatActivity {
                 if (!coreReady.get()) return;
                 if (target == currentPage)  return;
 
-                PdfCore s1 = core;
-                if (s1 != null) s1.evictExcept(target - 3, target + 3);
+                // Evict pages far from target to free memory
+                PdfCore s = core;
+                if (s != null) s.evictExcept(target - 3, target + 3);
 
                 currentPage = target;
                 curlView.setCurrentIndex(target);
@@ -511,6 +461,7 @@ public class PdfActivity extends AppCompatActivity {
         internalSliderUpdate = true;
         slider.setValueFrom(0f);
 
+        // Need at least valueTo > valueFrom — guard single-page PDFs
         float valueTo = totalPages > 1 ? totalPages - 1 : 1f;
         slider.setValueTo(valueTo);
         slider.setStepSize(1f);
@@ -541,6 +492,7 @@ public class PdfActivity extends AppCompatActivity {
     }
 
     private void updatePageText(int page) {
+        // Guard: never show 0/0 or negative
         int display = Math.max(0, Math.min(page, totalPages - 1));
         pageText.setText((display + 1) + " / " + totalPages);
     }
@@ -621,6 +573,10 @@ public class PdfActivity extends AppCompatActivity {
     // BITMAP HELPERS
     // =========================================================
 
+    /**
+     * Creates a white bitmap of the given size.
+     * Always returns a valid non-null bitmap — never throws.
+     */
     private Bitmap blankBitmap(int w, int h) {
         try {
             Bitmap b = Bitmap.createBitmap(
@@ -630,19 +586,25 @@ public class PdfActivity extends AppCompatActivity {
             b.eraseColor(Color.WHITE);
             return b;
         } catch (OutOfMemoryError e) {
+            // Last resort: 1×1 white pixel
             Bitmap b = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
             b.eraseColor(Color.WHITE);
             return b;
         }
     }
 
+    /**
+     * Safely copies a bitmap. If copy() fails (OOM), returns the
+     * original rather than crashing. CurlPage may recycle it but
+     * that is safer than an OOM crash.
+     */
     private Bitmap safeCopy(Bitmap src, int w, int h) {
         if (src == null || src.isRecycled()) return blankBitmap(w, h);
         try {
             Bitmap copy = src.copy(Bitmap.Config.ARGB_8888, false);
             return (copy != null) ? copy : src;
         } catch (OutOfMemoryError e) {
-            return src;
+            return src; // use original — better than crash
         }
     }
 
@@ -650,6 +612,7 @@ public class PdfActivity extends AppCompatActivity {
     // STRING HELPERS
     // =========================================================
 
+    /** Strips .pdf extension and underscores for the title bar */
     private String cleanFileName(String name) {
         if (name == null || name.isEmpty()) return "PDF";
         return name.replaceAll("(?i)\\.pdf$", "")
@@ -657,6 +620,7 @@ public class PdfActivity extends AppCompatActivity {
                    .trim();
     }
 
+    /** Null-safe exception message for error UI */
     private String safeMessage(Exception e) {
         if (e == null) return "Unknown error";
         String msg = e.getMessage();
