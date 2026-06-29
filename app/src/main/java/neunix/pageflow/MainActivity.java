@@ -11,7 +11,6 @@ import android.os.Looper;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.animation.AnimationUtils;
 import android.view.animation.DecelerateInterpolator;
 import android.widget.ImageButton;
 import android.widget.ImageView;
@@ -50,31 +49,31 @@ public class MainActivity extends AppCompatActivity {
     // VIEWS
     // =========================================================
 
-    private TextView      greetingText;
-    private View          continueSection;
-    private View          continueCard;
-    private ImageView     continueThumbnail;
-    private View          continueThumbnailShimmer;
-    private TextView      continueTitle;
-    private TextView      continuePageInfo;
-    private View          continueProgress;
-    private TextView      continueProgressText;
-    private View          recentSection;
-    private RecyclerView  recentRecycler;
-    private View          allFilesSection;
-    private RecyclerView  allFilesRecycler;
-    private View          emptyState;
-    private View          btnOpenPdf;
-    private TextView      clearAllBtn;
+    private TextView  greetingText;
+    private View      continueSection;
+    private View      continueCard;
+    private ImageView continueThumbnail;
+    private View      continueThumbnailShimmer;
+    private TextView  continueTitle;
+    private TextView  continuePageInfo;
+    private View      continueProgress;
+    private TextView  continueProgressText;
+    private View      recentSection;
+    private RecyclerView recentRecycler;
+    private View      allFilesSection;
+    private RecyclerView allFilesRecycler;
+    private View      emptyState;
+    private View      btnOpenPdf;
+    private TextView  clearAllBtn;
 
     // =========================================================
     // DATA
     // =========================================================
 
-    private final List<RecentFile>          recentFiles  = new ArrayList<>();
-    private final Map<String, Bitmap>       thumbnailCache = new HashMap<>();
-    private BookCardAdapter                 cardAdapter;
-    private FileRowAdapter                  rowAdapter;
+    private final List<RecentFile>       recentFiles     = new ArrayList<>();
+    private final Map<String, Bitmap>    thumbnailCache  = new HashMap<>();
+    private BookCardAdapter              cardAdapter;
+    private FileRowAdapter               rowAdapter;
 
     // =========================================================
     // BACKGROUND
@@ -105,7 +104,6 @@ public class MainActivity extends AppCompatActivity {
         setupButtons();
         animateEntrance();
 
-        // Handle PDFs opened from external apps
         Intent incoming = getIntent();
         if (Intent.ACTION_VIEW.equals(incoming.getAction())
                 && incoming.getData() != null) {
@@ -126,14 +124,17 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-
         thumbExecutor.shutdownNow();
 
-        if (continueThumbnail != null) continueThumbnail.setImageDrawable(null);
+        // Clear ImageViews BEFORE recycling bitmaps —
+        // prevents draw-after-recycle if a frame is in flight
+        if (continueThumbnail != null) {
+            continueThumbnail.setImageBitmap(null);
+        }
 
-        if (recentRecycler != null) recentRecycler.setAdapter(null);
-        if (allFilesRecycler != null) allFilesRecycler.setAdapter(null);
-
+        for (Bitmap b : thumbnailCache.values()) {
+            if (b != null && !b.isRecycled()) b.recycle();
+        }
         thumbnailCache.clear();
     }
 
@@ -142,24 +143,23 @@ public class MainActivity extends AppCompatActivity {
     // =========================================================
 
     private void bindViews() {
-        greetingText            = findViewById(R.id.greetingText);
-        continueSection         = findViewById(R.id.continueSection);
-        continueCard            = findViewById(R.id.continueCard);
-        continueThumbnail       = findViewById(R.id.continueThumbnail);
-        continueThumbnailShimmer= findViewById(R.id.continueThumbnailShimmer);
-        continueTitle           = findViewById(R.id.continueTitle);
-        continuePageInfo        = findViewById(R.id.continuePageInfo);
-        continueProgress        = findViewById(R.id.continueProgress);
-        continueProgressText    = findViewById(R.id.continueProgressText);
-        recentSection           = findViewById(R.id.recentSection);
-        recentRecycler          = findViewById(R.id.recentRecycler);
-        allFilesSection         = findViewById(R.id.allFilesSection);
-        allFilesRecycler        = findViewById(R.id.allFilesRecycler);
-        emptyState              = findViewById(R.id.emptyState);
-        btnOpenPdf              = findViewById(R.id.btnOpenPdf);
-        clearAllBtn             = findViewById(R.id.clearAllBtn);
+        greetingText             = findViewById(R.id.greetingText);
+        continueSection          = findViewById(R.id.continueSection);
+        continueCard             = findViewById(R.id.continueCard);
+        continueThumbnail        = findViewById(R.id.continueThumbnail);
+        continueThumbnailShimmer = findViewById(R.id.continueThumbnailShimmer);
+        continueTitle            = findViewById(R.id.continueTitle);
+        continuePageInfo         = findViewById(R.id.continuePageInfo);
+        continueProgress         = findViewById(R.id.continueProgress);
+        continueProgressText     = findViewById(R.id.continueProgressText);
+        recentSection            = findViewById(R.id.recentSection);
+        recentRecycler           = findViewById(R.id.recentRecycler);
+        allFilesSection          = findViewById(R.id.allFilesSection);
+        allFilesRecycler         = findViewById(R.id.allFilesRecycler);
+        emptyState               = findViewById(R.id.emptyState);
+        btnOpenPdf               = findViewById(R.id.btnOpenPdf);
+        clearAllBtn              = findViewById(R.id.clearAllBtn);
 
-        // Greeting
         greetingText.setText(getGreeting());
     }
 
@@ -168,17 +168,14 @@ public class MainActivity extends AppCompatActivity {
     // =========================================================
 
     private void setupRecyclers() {
-        // Horizontal book cards
         cardAdapter = new BookCardAdapter();
         recentRecycler.setLayoutManager(
                 new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
         recentRecycler.setAdapter(cardAdapter);
         recentRecycler.setHasFixedSize(false);
 
-        // Vertical file rows
         rowAdapter = new FileRowAdapter();
-        allFilesRecycler.setLayoutManager(
-                new LinearLayoutManager(this));
+        allFilesRecycler.setLayoutManager(new LinearLayoutManager(this));
         allFilesRecycler.setAdapter(rowAdapter);
         allFilesRecycler.setHasFixedSize(false);
         allFilesRecycler.setNestedScrollingEnabled(false);
@@ -189,20 +186,26 @@ public class MainActivity extends AppCompatActivity {
     // =========================================================
 
     private void setupButtons() {
-        btnOpenPdf.setOnClickListener(v -> {
-            v.animate().scaleX(0.95f).scaleY(0.95f).setDuration(80)
-                    .withEndAction(() ->
-                            v.animate().scaleX(1f).scaleY(1f).setDuration(80)
-                                    .withEndAction(this::openFilePicker).start())
-                    .start();
-        });
+        btnOpenPdf.setOnClickListener(v ->
+                v.animate().scaleX(0.95f).scaleY(0.95f).setDuration(80)
+                        .withEndAction(() ->
+                                v.animate().scaleX(1f).scaleY(1f).setDuration(80)
+                                        .withEndAction(this::openFilePicker).start())
+                        .start());
 
         clearAllBtn.setOnClickListener(v -> {
             for (RecentFile f : recentFiles) {
                 FileUtils.evictCacheForUri(this, f.uri);
             }
-            recentFiles.clear();
+            // Clear ImageView references before recycling
+            if (continueThumbnail != null) {
+                continueThumbnail.setImageBitmap(null);
+            }
+            for (Bitmap b : thumbnailCache.values()) {
+                if (b != null && !b.isRecycled()) b.recycle();
+            }
             thumbnailCache.clear();
+            recentFiles.clear();
             saveRecent();
             refreshUI();
         });
@@ -250,7 +253,9 @@ public class MainActivity extends AppCompatActivity {
         Intent i = new Intent(this, PdfActivity.class);
         i.setData(uri);
         startActivity(i);
-        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
+        overridePendingTransition(
+                android.R.anim.fade_in,
+                android.R.anim.fade_out);
     }
 
     // =========================================================
@@ -260,18 +265,18 @@ public class MainActivity extends AppCompatActivity {
     private void refreshUI() {
         boolean empty = recentFiles.isEmpty();
 
-        emptyState.setVisibility(empty ? View.VISIBLE : View.GONE);
-        continueSection.setVisibility(empty ? View.GONE : View.VISIBLE);
-        recentSection.setVisibility(empty ? View.GONE : View.VISIBLE);
-        allFilesSection.setVisibility(empty ? View.GONE : View.VISIBLE);
+        emptyState.setVisibility(      empty ? View.VISIBLE : View.GONE);
+        continueSection.setVisibility( empty ? View.GONE    : View.VISIBLE);
+        recentSection.setVisibility(   empty ? View.GONE    : View.VISIBLE);
+        allFilesSection.setVisibility( empty ? View.GONE    : View.VISIBLE);
 
         if (!empty) {
             setupContinueCard(recentFiles.get(0));
             cardAdapter.notifyDataSetChanged();
             rowAdapter.notifyDataSetChanged();
 
-            // Load thumbnails for visible items
-            for (int i = 0; i < Math.min(recentFiles.size(), 6); i++) {
+            // Kick off thumbnail loads for visible items
+            for (int i = 0; i < Math.min(recentFiles.size(), 8); i++) {
                 loadThumbnailAsync(recentFiles.get(i));
             }
         }
@@ -284,26 +289,31 @@ public class MainActivity extends AppCompatActivity {
     private void setupContinueCard(RecentFile file) {
         continueTitle.setText(cleanFileName(file.name));
 
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        SharedPreferences prefs =
+                getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         int lastPage   = prefs.getInt(KEY_LAST_PAGE   + file.uri.hashCode(), 0);
         int totalPages = prefs.getInt(KEY_TOTAL_PAGES + file.uri.hashCode(), 0);
 
         if (totalPages > 0) {
-            continuePageInfo.setText("Page " + (lastPage + 1) + " of " + totalPages);
+            continuePageInfo.setText(
+                    "Page " + (lastPage + 1) + " of " + totalPages);
             float pct = (float) lastPage / Math.max(1, totalPages - 1);
 
-            // Animate progress bar width
             continueProgress.post(() -> {
-                int maxW = ((View) continueProgress.getParent()).getWidth();
-                continueProgress.getLayoutParams().width = (int)(maxW * pct);
-                continueProgress.requestLayout();
+                View parent = (View) continueProgress.getParent();
+                if (parent == null) return;
+                int maxW = parent.getWidth();
+                ViewGroup.LayoutParams lp = continueProgress.getLayoutParams();
+                lp.width = (int)(maxW * pct);
+                continueProgress.setLayoutParams(lp);
             });
 
-            int pctInt = (int)(pct * 100);
-            continueProgressText.setText(pctInt + "% complete");
+            continueProgressText.setText((int)(pct * 100) + "% complete");
         } else {
             continuePageInfo.setText("Not started");
-            continueProgress.getLayoutParams().width = 0;
+            ViewGroup.LayoutParams lp = continueProgress.getLayoutParams();
+            lp.width = 0;
+            continueProgress.setLayoutParams(lp);
             continueProgressText.setText("");
         }
 
@@ -312,12 +322,18 @@ public class MainActivity extends AppCompatActivity {
             openReader(file.uri);
         });
 
-        // Load thumbnail
-        Bitmap cached = thumbnailCache.get(file.uri.toString());
+        // Thumbnail — always guard against recycled bitmaps
+        String key = file.uri.toString();
+        Bitmap cached = thumbnailCache.get(key);
+
         if (cached != null && !cached.isRecycled()) {
+            continueThumbnail.setImageBitmap(null);   // clear stale ref first
             continueThumbnail.setImageBitmap(cached);
             continueThumbnailShimmer.setVisibility(View.GONE);
         } else {
+            // Remove stale recycled entry if present
+            if (cached != null) thumbnailCache.remove(key);
+            continueThumbnail.setImageBitmap(null);
             continueThumbnailShimmer.setVisibility(View.VISIBLE);
             loadThumbnailAsync(file);
         }
@@ -329,7 +345,13 @@ public class MainActivity extends AppCompatActivity {
 
     private void loadThumbnailAsync(RecentFile file) {
         String key = file.uri.toString();
-        if (thumbnailCache.containsKey(key)) return;
+
+        // Check cache — skip if valid bitmap already exists
+        Bitmap existing = thumbnailCache.get(key);
+        if (existing != null && !existing.isRecycled()) return;
+
+        // Remove stale entry
+        if (existing != null) thumbnailCache.remove(key);
 
         thumbExecutor.submit(() -> {
             try {
@@ -352,43 +374,53 @@ public class MainActivity extends AppCompatActivity {
                          .apply();
                 }
 
-                // Render the initial bitmap from native code
-                Bitmap thumb = core.renderPage(0, 240, 320);
-                
-                Bitmap safeThumb = null;
-                if (thumb != null && !thumb.isRecycled()) {
-                    // Create an independent deep copy managed by Android's Java layer
-                    Bitmap.Config config = thumb.getConfig() != null ? thumb.getConfig() : Bitmap.Config.ARGB_8888;
-                    safeThumb = thumb.copy(config, false);
-                }
-                
-                // Safe to close native resources now; our safeThumb copy won't be affected
+                // Render page 0 at thumbnail size
+                Bitmap rendered = core.renderPage(0, 240, 320);
+
+                // Make an independent copy so PdfCore's cache lifecycle
+                // is completely decoupled from our thumbnail lifecycle.
+                // This is critical — without this copy, PdfCore.close()
+                // or cache eviction could affect a bitmap still drawn
+                // in an ImageView, causing the recycled bitmap crash.
+                Bitmap owned = rendered.copy(Bitmap.Config.ARGB_8888, false);
+
                 core.close();
 
-                if (safeThumb != null) {
-                    final Bitmap finalThumb = safeThumb;
-                    uiHandler.post(() -> {
-                        thumbnailCache.put(key, finalThumb);
-                        onThumbnailLoaded(file.uri, finalThumb);
-                    });
-                }
+                uiHandler.post(() -> {
+                    // Final guard: don't use if recycled during background work
+                    if (owned.isRecycled()) return;
+
+                    // Evict any stale entry that appeared while we were working
+                    Bitmap stale = thumbnailCache.get(key);
+                    if (stale != null && stale != owned && !stale.isRecycled()) {
+                        stale.recycle();
+                    }
+
+                    thumbnailCache.put(key, owned);
+                    onThumbnailLoaded(file.uri, owned);
+                });
 
             } catch (Exception ignored) { }
         });
     }
 
     private void onThumbnailLoaded(Uri uri, Bitmap thumb) {
-        // Update continue card if it matches
-        if (!recentFiles.isEmpty() && recentFiles.get(0).uri.equals(uri)) {
+        if (thumb == null || thumb.isRecycled()) return;
+
+        // Update continue card if the loaded thumbnail matches it
+        if (!recentFiles.isEmpty()
+                && recentFiles.get(0).uri.equals(uri)
+                && continueThumbnail != null) {
+            continueThumbnail.setImageBitmap(null);   // clear before setting
             continueThumbnail.setImageBitmap(thumb);
             continueThumbnailShimmer.setVisibility(View.GONE);
             continueThumbnail.setAlpha(0f);
             continueThumbnail.animate().alpha(1f).setDuration(300).start();
         }
 
-        // Notify adapters
-        cardAdapter.notifyDataSetChanged();
-        rowAdapter.notifyDataSetChanged();
+        // Notify both adapters so visible cards update
+        if (cardAdapter != null) cardAdapter.notifyDataSetChanged();
+        if (rowAdapter  != null) rowAdapter.notifyDataSetChanged();
     }
 
     // =========================================================
@@ -396,22 +428,23 @@ public class MainActivity extends AppCompatActivity {
     // =========================================================
 
     private void animateEntrance() {
-        View[] views = {
-                findViewById(R.id.headerSection),
-                continueSection,
-                recentSection,
-                allFilesSection
+        int[] ids = {
+                R.id.headerSection,
+                R.id.continueSection,
+                R.id.recentSection,
+                R.id.allFilesSection
         };
 
-        for (int i = 0; i < views.length; i++) {
-            if (views[i] == null) continue;
-            views[i].setAlpha(0f);
-            views[i].setTranslationY(24f);
-            views[i].animate()
+        for (int i = 0; i < ids.length; i++) {
+            View v = findViewById(ids[i]);
+            if (v == null) continue;
+            v.setAlpha(0f);
+            v.setTranslationY(28f);
+            v.animate()
                     .alpha(1f)
                     .translationY(0f)
-                    .setDuration(400)
-                    .setStartDelay(i * 80L)
+                    .setDuration(420)
+                    .setStartDelay(i * 70L)
                     .setInterpolator(new DecelerateInterpolator(2f))
                     .start();
         }
@@ -426,8 +459,8 @@ public class MainActivity extends AppCompatActivity {
         try {
             SharedPreferences prefs =
                     getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-            String json = prefs.getString(KEY_RECENT, "[]");
-            JSONArray arr = new JSONArray(json);
+            String    json = prefs.getString(KEY_RECENT, "[]");
+            JSONArray arr  = new JSONArray(json);
             for (int i = 0; i < arr.length(); i++) {
                 JSONObject obj = arr.getJSONObject(i);
                 recentFiles.add(new RecentFile(
@@ -462,19 +495,27 @@ public class MainActivity extends AppCompatActivity {
         recentFiles.removeIf(f -> f.uri.equals(uri));
         recentFiles.add(0, new RecentFile(
                 uri, name, System.currentTimeMillis(), totalPages));
-
         if (recentFiles.size() > MAX_RECENT) {
             recentFiles.subList(MAX_RECENT, recentFiles.size()).clear();
         }
-
         saveRecent();
     }
 
     private void removeFromRecent(int position) {
         if (position < 0 || position >= recentFiles.size()) return;
         RecentFile removed = recentFiles.get(position);
+
+        // Recycle thumbnail safely — clear ImageView first
+        String key = removed.uri.toString();
+        if (continueThumbnail != null
+                && !recentFiles.isEmpty()
+                && recentFiles.get(0).uri.equals(removed.uri)) {
+            continueThumbnail.setImageBitmap(null);
+        }
+        Bitmap thumb = thumbnailCache.remove(key);
+        if (thumb != null && !thumb.isRecycled()) thumb.recycle();
+
         FileUtils.evictCacheForUri(this, removed.uri);
-        thumbnailCache.remove(removed.uri.toString());
         recentFiles.remove(position);
         saveRecent();
         refreshUI();
@@ -491,7 +532,6 @@ public class MainActivity extends AppCompatActivity {
         return "Good evening";
     }
 
-    /** Strips .pdf extension and underscores for display */
     private String cleanFileName(String name) {
         return name.replaceAll("(?i)\\.pdf$", "")
                    .replace("_", " ")
@@ -517,10 +557,10 @@ public class MainActivity extends AppCompatActivity {
 
         String relativeTime() {
             long diff = System.currentTimeMillis() - timestamp;
-            if (diff < 60_000L)          return "Just now";
-            if (diff < 3_600_000L)       return (diff / 60_000L)     + "m ago";
-            if (diff < 86_400_000L)      return (diff / 3_600_000L)  + "h ago";
-            if (diff < 7 * 86_400_000L)  return (diff / 86_400_000L) + "d ago";
+            if (diff < 60_000L)         return "Just now";
+            if (diff < 3_600_000L)      return (diff / 60_000L)     + "m ago";
+            if (diff < 86_400_000L)     return (diff / 3_600_000L)  + "h ago";
+            if (diff < 7 * 86_400_000L) return (diff / 86_400_000L) + "d ago";
             return "Long ago";
         }
 
@@ -533,7 +573,8 @@ public class MainActivity extends AppCompatActivity {
     // ADAPTER: HORIZONTAL BOOK CARDS
     // =========================================================
 
-    private class BookCardAdapter extends RecyclerView.Adapter<BookCardAdapter.VH> {
+    private class BookCardAdapter
+            extends RecyclerView.Adapter<BookCardAdapter.VH> {
 
         @Override
         public VH onCreateViewHolder(ViewGroup parent, int viewType) {
@@ -544,47 +585,59 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         public void onBindViewHolder(VH h, int position) {
-            RecentFile file = recentFiles.get(position);
+            RecentFile file  = recentFiles.get(position);
+            String     key   = file.uri.toString();
+            Bitmap     thumb = thumbnailCache.get(key);
+
             h.title.setText(cleanFileName(file.name));
             h.time.setText(file.relativeTime());
 
-            Bitmap thumb = thumbnailCache.get(file.uri.toString());
+            // Always clear ImageView before setting a new bitmap —
+            // prevents the recycled bitmap exception on fast scrolls
+            h.cover.setImageBitmap(null);
+
             if (thumb != null && !thumb.isRecycled()) {
                 h.cover.setImageBitmap(thumb);
                 h.cover.setVisibility(View.VISIBLE);
                 h.initial.setVisibility(View.GONE);
             } else {
+                // Remove stale recycled cache entry
+                if (thumb != null) thumbnailCache.remove(key);
                 h.cover.setVisibility(View.GONE);
                 h.initial.setText(file.initial());
                 h.initial.setVisibility(View.VISIBLE);
             }
 
             h.itemView.setOnClickListener(v -> {
-                addToRecent(file.uri, file.name, file.totalPages);
-                openReader(file.uri);
+                int pos = h.getAdapterPosition();
+                if (pos == RecyclerView.NO_ID) return;
+                RecentFile f = recentFiles.get(pos);
+                addToRecent(f.uri, f.name, f.totalPages);
+                openReader(f.uri);
             });
 
             h.remove.setOnClickListener(v -> {
                 int pos = h.getAdapterPosition();
-                if (pos != RecyclerView.NO_POSITION) removeFromRecent(pos);
+                if (pos != RecyclerView.NO_ID) removeFromRecent(pos);
             });
 
-            // Stagger animation
+            // Stagger fade-in
             h.itemView.setAlpha(0f);
             h.itemView.animate()
                     .alpha(1f)
-                    .setDuration(300)
-                    .setStartDelay(position * 50L)
+                    .setDuration(280)
+                    .setStartDelay(position * 40L)
                     .start();
         }
 
-        @Override public int getItemCount() { return recentFiles.size(); }
+        @Override
+        public int getItemCount() { return recentFiles.size(); }
 
         class VH extends RecyclerView.ViewHolder {
-            ImageView  cover;
-            TextView   initial;
-            TextView   title;
-            TextView   time;
+            ImageView   cover;
+            TextView    initial;
+            TextView    title;
+            TextView    time;
             ImageButton remove;
 
             VH(View v) {
@@ -602,7 +655,8 @@ public class MainActivity extends AppCompatActivity {
     // ADAPTER: VERTICAL FILE ROWS
     // =========================================================
 
-    private class FileRowAdapter extends RecyclerView.Adapter<FileRowAdapter.VH> {
+    private class FileRowAdapter
+            extends RecyclerView.Adapter<FileRowAdapter.VH> {
 
         @Override
         public VH onCreateViewHolder(ViewGroup parent, int viewType) {
@@ -613,33 +667,43 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         public void onBindViewHolder(VH h, int position) {
-            RecentFile file = recentFiles.get(position);
+            RecentFile file  = recentFiles.get(position);
+            String     key   = file.uri.toString();
+            Bitmap     thumb = thumbnailCache.get(key);
+
             h.name.setText(cleanFileName(file.name));
             h.time.setText(file.relativeTime());
 
-            Bitmap thumb = thumbnailCache.get(file.uri.toString());
+            // Always clear before setting
+            h.thumbnail.setImageBitmap(null);
+
             if (thumb != null && !thumb.isRecycled()) {
                 h.thumbnail.setImageBitmap(thumb);
                 h.thumbnail.setVisibility(View.VISIBLE);
                 h.initial.setVisibility(View.GONE);
             } else {
+                if (thumb != null) thumbnailCache.remove(key);
                 h.thumbnail.setVisibility(View.GONE);
                 h.initial.setText(file.initial());
                 h.initial.setVisibility(View.VISIBLE);
             }
 
             h.itemView.setOnClickListener(v -> {
-                addToRecent(file.uri, file.name, file.totalPages);
-                openReader(file.uri);
+                int pos = h.getAdapterPosition();
+                if (pos == RecyclerView.NO_ID) return;
+                RecentFile f = recentFiles.get(pos);
+                addToRecent(f.uri, f.name, f.totalPages);
+                openReader(f.uri);
             });
 
             h.remove.setOnClickListener(v -> {
                 int pos = h.getAdapterPosition();
-                if (pos != RecyclerView.NO_POSITION) removeFromRecent(pos);
+                if (pos != RecyclerView.NO_ID) removeFromRecent(pos);
             });
         }
 
-        @Override public int getItemCount() { return recentFiles.size(); }
+        @Override
+        public int getItemCount() { return recentFiles.size(); }
 
         class VH extends RecyclerView.ViewHolder {
             ImageView   thumbnail;
