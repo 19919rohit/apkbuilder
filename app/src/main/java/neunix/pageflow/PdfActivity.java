@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
+import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
@@ -19,12 +20,16 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.material.slider.Slider;
 
-import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.List;
 
 public class PdfActivity extends AppCompatActivity {
+
+    // =========================================================
+    // PREFS
+    // =========================================================
 
     private static final String PREFS_NAME    = "pageflow_prefs";
     private static final String KEY_LAST_PAGE = "last_page_";
@@ -33,7 +38,7 @@ public class PdfActivity extends AppCompatActivity {
     // VIEWS
     // =========================================================
 
-    private PageFlipGLView pageFlipView;
+    private CurlView       curlView;
     private Slider         slider;
     private TextView       pageText;
     private TextView       titleText;
@@ -57,7 +62,7 @@ public class PdfActivity extends AppCompatActivity {
     private int totalPages  = 0;
 
     // =========================================================
-    // RENDER STATE
+    // RENDER
     // =========================================================
 
     private final Handler         uiHandler      = new Handler(Looper.getMainLooper());
@@ -65,12 +70,8 @@ public class PdfActivity extends AppCompatActivity {
             Executors.newSingleThreadExecutor(r ->
                     new Thread(r, "PdfActivity-Render"));
 
-    private volatile boolean   rendering     = false;
     private volatile Future<?> pendingRender = null;
-
-    private Bitmap bmpCurrent;
-    private Bitmap bmpNext;
-    private Bitmap bmpPrev;
+    private volatile boolean   coreReady     = false;
 
     // =========================================================
     // SLIDER DEBOUNCE
@@ -84,7 +85,7 @@ public class PdfActivity extends AppCompatActivity {
     // CONTROLS AUTO-HIDE
     // =========================================================
 
-    private static final long HIDE_DELAY_MS  = 3_000L;
+    private static final long HIDE_DELAY_MS   = 3_000L;
     private boolean           controlsVisible = true;
     private final Runnable    hideControls    = () -> setControlsVisible(false);
 
@@ -109,7 +110,7 @@ public class PdfActivity extends AppCompatActivity {
 
         bindViews();
         registerFilePicker();
-        setupFlipView();
+        setupCurlView();
         setupSlider();
         setupButtons();
 
@@ -124,14 +125,14 @@ public class PdfActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        pageFlipView.onResume();
+        curlView.onResume();
         scheduleHideControls();
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-        pageFlipView.onPause();
+        curlView.onPause();
         uiHandler.removeCallbacks(hideControls);
         saveLastPage();
     }
@@ -142,15 +143,14 @@ public class PdfActivity extends AppCompatActivity {
         uiHandler.removeCallbacksAndMessages(null);
         renderExecutor.shutdownNow();
         closePdfCore();
-        recycleBitmaps();
     }
 
     // =========================================================
-    // BIND VIEWS
+    // BIND
     // =========================================================
 
     private void bindViews() {
-        pageFlipView   = findViewById(R.id.pageFlipGL);
+        curlView       = findViewById(R.id.curlView);
         slider         = findViewById(R.id.pageSlider);
         pageText       = findViewById(R.id.pageText);
         titleText      = findViewById(R.id.titleText);
@@ -196,11 +196,10 @@ public class PdfActivity extends AppCompatActivity {
     // =========================================================
 
     private void openPdf(Uri uri) {
-
         showLoading(true);
         hideError();
         closePdfCore();
-        recycleBitmaps();
+        coreReady = false;
 
         currentUri = uri;
 
@@ -209,17 +208,18 @@ public class PdfActivity extends AppCompatActivity {
                 PdfCore newCore = new PdfCore();
                 newCore.open(this, uri);
 
-                int w = pageFlipView.getWidth();
-                int h = pageFlipView.getHeight();
-
-                if (w == 0 || h == 0) {
-                    pageFlipView.post(() -> {
-                        int w2 = pageFlipView.getWidth();
-                        int h2 = pageFlipView.getHeight();
+                // Set screen size for correct aspect ratio rendering
+                int w = curlView.getWidth();
+                int h = curlView.getHeight();
+                if (w > 0 && h > 0) {
+                    newCore.setScreenSize(w, h);
+                } else {
+                    // View not laid out yet — wait for it
+                    curlView.post(() -> {
+                        int w2 = curlView.getWidth();
+                        int h2 = curlView.getHeight();
                         if (w2 > 0 && h2 > 0) newCore.setScreenSize(w2, h2);
                     });
-                } else {
-                    newCore.setScreenSize(w, h);
                 }
 
                 String fileName = FileUtils.getFileName(this, uri);
@@ -229,10 +229,19 @@ public class PdfActivity extends AppCompatActivity {
                     currentFileName = fileName;
                     totalPages      = core.pageCount();
                     currentPage     = restoreLastPage(uri);
+                    coreReady       = true;
 
-                    setupSliderRange();
                     titleText.setText(currentFileName);
-                    loadPage(currentPage, true);
+                    setupSliderRange();
+
+                    // Wire up Harism's PageProvider — this is the bridge
+                    // between PdfCore and CurlView
+                    curlView.setPageProvider(pageProvider);
+                    curlView.setCurrentIndex(currentPage);
+                    curlView.setViewMode(CurlView.SHOW_ONE_PAGE);
+
+                    showLoading(false);
+                    updatePageText(currentPage);
                 });
 
             } catch (Exception e) {
@@ -245,35 +254,119 @@ public class PdfActivity extends AppCompatActivity {
     }
 
     // =========================================================
+    // HARISM PAGE PROVIDER
+    // This is the entire integration point.
+    // CurlView calls updatePage() whenever it needs a bitmap.
+    // We render via PdfCore and hand the result to CurlPage.
+    // =========================================================
+
+    private final CurlView.PageProvider pageProvider = new CurlView.PageProvider() {
+
+        @Override
+        public int getPageCount() {
+            return totalPages;
+        }
+
+        /**
+         * Called by CurlView on the GL thread whenever it needs a page bitmap.
+         * width/height are the exact pixel dimensions CurlView wants rendered.
+         *
+         * We MUST be synchronous here — CurlView expects the bitmap to be
+         * set on the CurlPage before this method returns.
+         * PdfCore.renderPage() is thread-safe via renderLock so this is fine.
+         */
+        @Override
+        public void updatePage(CurlPage page, int width, int height, int index) {
+
+            if (!coreReady || core == null) {
+                // Core not ready yet — give CurlPage a white blank
+                Bitmap blank = Bitmap.createBitmap(
+                        Math.max(width, 1),
+                        Math.max(height, 1),
+                        Bitmap.Config.ARGB_8888);
+                blank.eraseColor(Color.WHITE);
+                page.setTexture(blank, CurlPage.SIDE_BOTH);
+                return;
+            }
+
+            try {
+                // Render the front face of this page
+                Bitmap front = core.renderPage(index, width, height);
+
+                // Make an independent copy — CurlPage will recycle
+                // the bitmap when done, and we don't want PdfCore's
+                // cache entry to get recycled underneath us.
+                Bitmap frontCopy = front.copy(Bitmap.Config.ARGB_8888, false);
+                page.setTexture(frontCopy, CurlPage.SIDE_FRONT);
+
+                // Render the back face — this is the next page showing
+                // through as the curl peels back. Harism renders both
+                // sides independently which is what makes his backside
+                // look correct (not a mirror of the front).
+                if (index + 1 < totalPages) {
+                    Bitmap back = core.renderPage(index + 1, width, height);
+                    Bitmap backCopy = back.copy(Bitmap.Config.ARGB_8888, false);
+                    page.setTexture(backCopy, CurlPage.SIDE_BACK);
+                } else {
+                    // Last page — back is blank white
+                    Bitmap blank = Bitmap.createBitmap(
+                            Math.max(width, 1),
+                            Math.max(height, 1),
+                            Bitmap.Config.ARGB_8888);
+                    blank.eraseColor(Color.WHITE);
+                    page.setTexture(blank, CurlPage.SIDE_BACK);
+                }
+
+                // Update page counter on UI thread
+                // CurlView's currentIndex reflects the right-side page
+                uiHandler.post(() -> {
+                    if (index != currentPage) {
+                        currentPage = index;
+                        updatePageText(index);
+                        syncSlider(index);
+
+                        // Trigger prefetch around new position
+                        if (core != null) {
+                            prefetchFutures = core.prefetchAround(index, 2);
+                        }
+                    }
+                });
+
+            } catch (Exception e) {
+                // Render failed — show white page rather than crash
+                Bitmap blank = Bitmap.createBitmap(
+                        Math.max(width, 1),
+                        Math.max(height, 1),
+                        Bitmap.Config.ARGB_8888);
+                blank.eraseColor(Color.WHITE);
+                page.setTexture(blank, CurlPage.SIDE_BOTH);
+            }
+        }
+    };
+
+    // =========================================================
     // SETUP
     // =========================================================
 
-    private void setupFlipView() {
+    private void setupCurlView() {
+        curlView.setBackgroundColor(0xFF0A0A0A);
+        curlView.setAllowLastPageCurl(true);
+        curlView.setRenderLeftPage(false);  // single page mode
+        curlView.setMargins(0.05f, 0.05f, 0.05f, 0.05f);
 
-        pageFlipView.setFlipListener(new PageFlipGLView.FlipListener() {
-
-            @Override
-            public void onFlipCommitted(int direction) {
-                currentPage = currentPage + direction;
-                currentPage = Math.max(0, Math.min(currentPage, totalPages - 1));
-                loadPage(currentPage, false);
-                scheduleHideControls();
-            }
-
-            @Override
-            public boolean canFlip(int direction) {
-                if (core == null || rendering) return false;
-                if (direction > 0) return currentPage < totalPages - 1;
-                if (direction < 0) return currentPage > 0;
-                return false;
-            }
+        // Show/hide controls on touch
+        curlView.setSizeChangedObserver((w, h) -> {
+            if (core != null) core.setScreenSize(w, h);
         });
 
-        pageFlipView.setOnTouchInterceptListener(() -> {
+        // Intercept touch to show controls
+        curlView.setOnTouchListener((v, event) -> {
             if (!controlsVisible) {
                 setControlsVisible(true);
                 scheduleHideControls();
             }
+            // Let CurlView handle the actual event
+            return false;
         });
     }
 
@@ -293,12 +386,11 @@ public class PdfActivity extends AppCompatActivity {
             }
 
             sliderDebounce = () -> {
-                if (target == currentPage) return;
-                if (core != null) {
-                    core.evictExcept(target - 3, target + 3);
-                }
+                if (target == currentPage || !coreReady) return;
+                if (core != null) core.evictExcept(target - 3, target + 3);
                 currentPage = target;
-                loadPage(currentPage, false);
+                curlView.setCurrentIndex(target);
+                updatePageText(target);
             };
 
             uiHandler.postDelayed(sliderDebounce, 120);
@@ -318,69 +410,6 @@ public class PdfActivity extends AppCompatActivity {
     private void setupButtons() {
         btnOpenNew.setOnClickListener(v -> openFilePicker());
         btnBack.setOnClickListener(v -> finish());
-    }
-
-    // =========================================================
-    // PAGE LOADING
-    // =========================================================
-
-    private void loadPage(int index, boolean showSpinner) {
-
-        if (core == null) return;
-
-        if (pendingRender != null) {
-            pendingRender.cancel(false);
-        }
-
-        if (showSpinner) showLoading(true);
-
-        rendering = true;
-
-        final int target = index;
-
-        // Capture screen size for explicit Kotlin default param calls
-        final int sw = core.getScreenWidth();
-        final int sh = core.getScreenHeight();
-
-        pendingRender = renderExecutor.submit(() -> {
-            try {
-                // Pass width and height explicitly — Kotlin default
-                // params are not visible to Java callers
-                Bitmap current = core.renderPage(target, sw, sh);
-                Bitmap next    = (target < totalPages - 1)
-                        ? core.renderPage(target + 1, sw, sh) : null;
-                Bitmap prev    = (target > 0)
-                        ? core.renderPage(target - 1, sw, sh) : null;
-
-                uiHandler.post(() -> {
-                    if (isDestroyed()) return;
-
-                    bmpCurrent = current;
-                    bmpNext    = next;
-                    bmpPrev    = prev;
-
-                    pageFlipView.setPages(bmpCurrent, bmpNext, bmpPrev);
-
-                    syncSlider(target);
-                    updatePageText(target);
-                    showLoading(false);
-                    hideError();
-
-                    rendering = false;
-
-                    prefetchFutures = core.prefetchAround(target, 2);
-                });
-
-            } catch (Exception e) {
-                uiHandler.post(() -> {
-                    if (isDestroyed()) return;
-                    showLoading(false);
-                    showError("Failed to render page "
-                            + (target + 1) + ".\n" + e.getMessage());
-                    rendering = false;
-                });
-            }
-        });
     }
 
     // =========================================================
@@ -479,11 +508,5 @@ public class PdfActivity extends AppCompatActivity {
             try { core.close(); } catch (Exception ignored) { }
             core = null;
         }
-    }
-
-    private void recycleBitmaps() {
-        bmpCurrent = null;
-        bmpNext    = null;
-        bmpPrev    = null;
     }
 }

@@ -8,18 +8,16 @@
     android:background="#0A0A0A">
 
     <!-- ══════════════════════════════════════════════════════
-         GL SURFACE — full screen, behind everything
+         HARISM CURL VIEW — full screen, behind everything
          ══════════════════════════════════════════════════════ -->
 
-    <neunix.pageflow.PageFlipGLView
-        android:id="@+id/pageFlipGL"
+    <neunix.pageflow.CurlView
+        android:id="@+id/curlView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"/>
 
     <!-- ══════════════════════════════════════════════════════
          LOADING OVERLAY
-         Shown while PDF is opening or a page is rendering.
-         Semi-transparent so the previous page shows through.
          ══════════════════════════════════════════════════════ -->
 
     <FrameLayout
@@ -50,9 +48,6 @@
 
     <!-- ══════════════════════════════════════════════════════
          ERROR OVERLAY
-         Shown when the PDF fails to open or a page fails to
-         render. Never silent — always tells the user what
-         went wrong and what they can do.
          ══════════════════════════════════════════════════════ -->
 
     <LinearLayout
@@ -112,8 +107,6 @@
 
     <!-- ══════════════════════════════════════════════════════
          TOP BAR
-         Auto-hides after 3 seconds. Contains back button,
-         file name, and open-new button.
          ══════════════════════════════════════════════════════ -->
 
     <LinearLayout
@@ -161,10 +154,7 @@
     </LinearLayout>
 
     <!-- ══════════════════════════════════════════════════════
-         CONTROL BAR  (bottom)
-         Auto-hides with the top bar. Contains page counter
-         and scrub slider. Both snap-hide together so the
-         reading surface is completely clean.
+         CONTROL BAR (bottom)
          ══════════════════════════════════════════════════════ -->
 
     <LinearLayout
@@ -179,7 +169,6 @@
         android:paddingBottom="24dp"
         android:background="@drawable/bg_bar_bottom">
 
-        <!-- Page counter + chapter label row -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -200,7 +189,6 @@
 
         </LinearLayout>
 
-        <!-- Scrub slider -->
         <com.google.android.material.slider.Slider
             android:id="@+id/pageSlider"
             android:layout_width="match_parent"
