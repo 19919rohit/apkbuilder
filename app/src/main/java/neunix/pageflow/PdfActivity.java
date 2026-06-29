@@ -35,14 +35,12 @@ public class PdfActivity extends AppCompatActivity {
     // =========================================================
     // PREFS
     // =========================================================
-
     private static final String PREFS_NAME    = "pageflow_prefs";
     private static final String KEY_LAST_PAGE = "last_page_";
 
     // =========================================================
     // VIEWS
     // =========================================================
-
     private CurlView    curlView;
     private Slider      slider;
     private TextView    pageText;
@@ -58,7 +56,6 @@ public class PdfActivity extends AppCompatActivity {
     // =========================================================
     // AUDIO (SOUNDPOOL)
     // =========================================================
-
     private SoundPool soundPool;
     private int       flipSoundId = -1;
 
@@ -66,12 +63,19 @@ public class PdfActivity extends AppCompatActivity {
     private long    touchDownTime             = 0L;
     private boolean isUserTouching            = false;
     private int     indexAtTouchDown          = 0;
-    private boolean soundPlayedForCurrentFlip = false;
+
+    // Proportional Audio Engine Configurations
+    private float startX = 0f;
+    private float maxPercentReached = 0f;
+    private int flipStreamId = 0;
+    private long playedDurationMs = 0;
+    private long lastUpdateTime = 0;
+    private boolean isSoundPlaying = false;
+    private static final long SOUND_DURATION_MS = 600L; // Estimated playback length of page_flip.ogg
 
     // =========================================================
     // PDF STATE
     // =========================================================
-
     private PdfCore core;
     private Uri     currentUri;
     private String  currentFileName = "";
@@ -80,28 +84,22 @@ public class PdfActivity extends AppCompatActivity {
     private int currentPage = 0;
     private int totalPages  = 0;
 
-    // Bitmap dimensions — set once on first updatePage() call
-    // from GL thread. Volatile because read on main thread too.
+    // Bitmap dimensions
     private volatile int bitmapWidth  = 0;
     private volatile int bitmapHeight = 0;
 
     // =========================================================
     // RENDER STATE
     // =========================================================
-
-    private final Handler         uiHandler      =
-            new Handler(Looper.getMainLooper());
-    private final ExecutorService renderExecutor =
-            Executors.newSingleThreadExecutor(r ->
+    private final Handler         uiHandler      = new Handler(Looper.getMainLooper());
+    private final ExecutorService renderExecutor = Executors.newSingleThreadExecutor(r ->
                     new Thread(r, "PdfActivity-Render"));
 
-    // AtomicBoolean — read from GL thread AND main thread safely
     private final AtomicBoolean coreReady = new AtomicBoolean(false);
 
     // =========================================================
     // SLIDER DEBOUNCE
     // =========================================================
-
     private boolean         internalSliderUpdate = false;
     private Runnable        sliderDebounce;
     private List<Future<?>> prefetchFutures;
@@ -109,7 +107,6 @@ public class PdfActivity extends AppCompatActivity {
     // =========================================================
     // CONTROLS AUTO-HIDE
     // =========================================================
-
     private static final long HIDE_DELAY_MS   = 3_000L;
     private boolean           controlsVisible = true;
     private final Runnable    hideControls    = () -> setControlsVisible(false);
@@ -117,20 +114,42 @@ public class PdfActivity extends AppCompatActivity {
     // =========================================================
     // FILE PICKER
     // =========================================================
-
     private ActivityResultLauncher<Intent> pdfPickerLauncher;
+
+    // =========================================================
+    // TIME-SLICED AUDIO LOOP RUNNABLE
+    // =========================================================
+    private final Runnable soundProgressUpdater = new Runnable() {
+        @Override
+        public void run() {
+            if (!isSoundPlaying || flipStreamId == 0) return;
+
+            long now = System.currentTimeMillis();
+            playedDurationMs += (now - lastUpdateTime);
+            lastUpdateTime = now;
+
+            long targetDuration = (long) (maxPercentReached * SOUND_DURATION_MS);
+            if (playedDurationMs >= targetDuration) {
+                if (soundPool != null && flipStreamId != 0) {
+                    soundPool.pause(flipStreamId);
+                }
+                isSoundPlaying = false;
+                playedDurationMs = targetDuration; // Clamp bounds
+            } else {
+                uiHandler.postDelayed(this, 16); // Sync to ~60Hz frames
+            }
+        }
+    };
 
     // =========================================================
     // LIFECYCLE
     // =========================================================
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         enterImmersiveMode();
-
         setContentView(R.layout.activity_pdf);
 
         initSoundPool();
@@ -165,22 +184,27 @@ public class PdfActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
-        super.onDestroy();
+        // 1. Clear UI updates immediately
         uiHandler.removeCallbacksAndMessages(null);
-        renderExecutor.shutdownNow();
+        
+        // 2. Safely close PdfCore resources first
         closePdfCore();
         
+        // 3. Terminate executor safely 
+        renderExecutor.shutdownNow();
+        
+        // 4. Teardown audio engine
         if (soundPool != null) {
             soundPool.release();
             soundPool = null;
         }
+        super.onDestroy();
     }
 
     // =========================================================
     // TOUCH INTERCEPT MOTION DISPATCH
-    // Intercepts touch states safely before reaching CurlView listeners
+    // Precise calculations for proportional page curl soundscapes
     // =========================================================
-
     @Override
     public boolean dispatchTouchEvent(MotionEvent ev) {
         switch (ev.getActionMasked()) {
@@ -188,20 +212,87 @@ public class PdfActivity extends AppCompatActivity {
                 touchDownTime = System.currentTimeMillis();
                 isUserTouching = true;
                 indexAtTouchDown = currentPage;
-                soundPlayedForCurrentFlip = false;
+
+                // Set up baseline coordinates
+                startX = ev.getX();
+                maxPercentReached = 0f;
+                playedDurationMs = 0;
+                isSoundPlaying = false;
+                uiHandler.removeCallbacks(soundProgressUpdater);
+
+                if (flipStreamId != 0) {
+                    soundPool.stop(flipStreamId);
+                    flipStreamId = 0;
+                }
+                break;
+
+            case MotionEvent.ACTION_MOVE:
+                if (isUserTouching) {
+                    int width = getWindow().getDecorView().getWidth();
+                    if (width <= 0) width = 1080; // Safety scale fallback
+
+                    float deltaX = startX - ev.getX();
+                    float currentPercent = Math.min(1.0f, Math.max(0.0f, Math.abs(deltaX) / width));
+
+                    if (currentPercent > maxPercentReached) {
+                        maxPercentReached = currentPercent;
+                        long targetDuration = (long) (maxPercentReached * SOUND_DURATION_MS);
+
+                        if (playedDurationMs < targetDuration) {
+                            if (!isSoundPlaying && soundPool != null) {
+                                isSoundPlaying = true;
+                                lastUpdateTime = System.currentTimeMillis();
+                                if (flipStreamId == 0) {
+                                    flipStreamId = soundPool.play(flipSoundId, 1.0f, 1.0f, 1, 0, 1.0f);
+                                } else {
+                                    soundPool.resume(flipStreamId);
+                                }
+                                uiHandler.post(soundProgressUpdater);
+                            }
+                        }
+                    } else {
+                        // User stopped moving forward or dragged backward: freeze audio track
+                        if (isSoundPlaying) {
+                            long now = System.currentTimeMillis();
+                            playedDurationMs += (now - lastUpdateTime);
+                            if (soundPool != null && flipStreamId != 0) {
+                                soundPool.pause(flipStreamId);
+                            }
+                            isSoundPlaying = false;
+                            uiHandler.removeCallbacks(soundProgressUpdater);
+                        }
+                    }
+                }
                 break;
 
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL:
                 isUserTouching = false;
-                // If they dragged slowly ("for fun") and structural index changed,
-                // trigger a clean snap flip audio effect right as they let go.
-                uiHandler.postDelayed(() -> {
-                    if (!soundPlayedForCurrentFlip && currentPage != indexAtTouchDown) {
-                        playFlipSound();
-                        soundPlayedForCurrentFlip = true;
+                uiHandler.removeCallbacks(soundProgressUpdater);
+                if (isSoundPlaying) {
+                    if (soundPool != null && flipStreamId != 0) {
+                        soundPool.pause(flipStreamId);
                     }
-                }, 50);
+                    isSoundPlaying = false;
+                }
+
+                // Wait slightly to verify if the page flip transaction completed structurally
+                uiHandler.postDelayed(() -> {
+                    if (currentPage != indexAtTouchDown) {
+                        // Complete Success! Finish playing out the remainder of the soundscape
+                        if (flipStreamId != 0 && soundPool != null) {
+                            soundPool.resume(flipStreamId);
+                        } else {
+                            playFlipSound();
+                        }
+                    } else {
+                        // Flip was aborted or turned back: instantly kill audio stream
+                        if (flipStreamId != 0 && soundPool != null) {
+                            soundPool.stop(flipStreamId);
+                            flipStreamId = 0;
+                        }
+                    }
+                }, 80);
                 break;
         }
 
@@ -215,13 +306,12 @@ public class PdfActivity extends AppCompatActivity {
 
     @Override
     public void onUserInteraction() {
-        // Handled directly inside dispatchTouchEvent for seamless syncing
+        // Managed inside dispatchTouchEvent
     }
 
     // =========================================================
     // INITIALIZATION HELPERS
     // =========================================================
-
     private void initSoundPool() {
         AudioAttributes audioAttributes = new AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
@@ -251,14 +341,12 @@ public class PdfActivity extends AppCompatActivity {
         btnOpenNew     = findViewById(R.id.btnOpenNew);
         btnBack        = findViewById(R.id.btnBack);
 
-        findViewById(R.id.btnRetryOpen)
-                .setOnClickListener(v -> openFilePicker());
+        findViewById(R.id.btnRetryOpen).setOnClickListener(v -> openFilePicker());
     }
 
     // =========================================================
     // FILE PICKER
     // =========================================================
-
     private void registerFilePicker() {
         pdfPickerLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
@@ -283,7 +371,6 @@ public class PdfActivity extends AppCompatActivity {
     // =========================================================
     // OPEN PDF
     // =========================================================
-
     private void openPdf(Uri uri) {
         showLoading(true);
         hideError();
@@ -292,7 +379,6 @@ public class PdfActivity extends AppCompatActivity {
         coreReady.set(false);
         bitmapWidth  = 0;
         bitmapHeight = 0;
-
         currentUri = uri;
 
         renderExecutor.execute(() -> {
@@ -301,7 +387,6 @@ public class PdfActivity extends AppCompatActivity {
                 newCore.open(this, uri);
 
                 int pages = newCore.pageCount();
-
                 if (pages <= 0) {
                     newCore.close();
                     uiHandler.post(() -> {
@@ -350,20 +435,14 @@ public class PdfActivity extends AppCompatActivity {
     // =========================================================
     // PAGE PROVIDER
     // =========================================================
-
-    private final CurlView.PageProvider pageProvider =
-            new CurlView.PageProvider() {
-
+    private final CurlView.PageProvider pageProvider = new CurlView.PageProvider() {
         @Override
         public int getPageCount() {
             return totalPages;
         }
 
         @Override
-        public void updatePage(CurlPage page,
-                               int width, int height,
-                               int index) {
-
+        public void updatePage(CurlPage page, int width, int height, int index) {
             if (bitmapWidth == 0 || bitmapHeight == 0) {
                 bitmapWidth  = Math.max(width,  1);
                 bitmapHeight = Math.max(height, 1);
@@ -374,23 +453,18 @@ public class PdfActivity extends AppCompatActivity {
             final int w = Math.max(width,  1);
             final int h = Math.max(height, 1);
 
-            if (!coreReady.get() || core == null) {
-                page.setTexture(blankBitmap(w, h), CurlPage.SIDE_BOTH);
-                return;
-            }
-
-            if (index < 0 || index >= totalPages) {
+            if (!coreReady.get() || core == null || index < 0 || index >= totalPages) {
                 page.setTexture(blankBitmap(w, h), CurlPage.SIDE_BOTH);
                 return;
             }
 
             try {
-                // ── FRONT FACE ────────────────────────────────
+                // Front Face
                 Bitmap front     = core.renderPage(index, w, h);
                 Bitmap frontCopy = safeCopy(front, w, h);
                 page.setTexture(frontCopy, CurlPage.SIDE_FRONT);
 
-                // ── BACK FACE ─────────────────────────────────
+                // Back Face
                 if (index + 1 < totalPages) {
                     Bitmap back     = core.renderPage(index + 1, w, h);
                     Bitmap backCopy = safeCopy(back, w, h);
@@ -402,7 +476,7 @@ public class PdfActivity extends AppCompatActivity {
                     page.setColor(0xFFE8E4DF, CurlPage.SIDE_BACK);
                 }
 
-                // ── UPDATE UI ─────────────────────────────────
+                // Sync Layout State to Main UI thread
                 final int capturedIndex = index;
                 uiHandler.post(() -> {
                     if (isDestroyed()) return;
@@ -411,31 +485,18 @@ public class PdfActivity extends AppCompatActivity {
                         updatePageText(capturedIndex);
                         syncSlider(capturedIndex);
                         
-                        // Adaptive Audio Processing Window
-                        long dragDuration = System.currentTimeMillis() - touchDownTime;
-                        
+                        // Programmatic Trigger (only when jumping/clicking slider directly)
                         if (!isUserTouching) {
-                            // Automatic program trigger (Slider drop or jump settle)
                             playFlipSound();
-                        } else if (dragDuration < 300) {
-                            // Intentional swift swipe layout translation: trigger instantly
-                            if (!soundPlayedForCurrentFlip) {
-                                playFlipSound();
-                                soundPlayedForCurrentFlip = true;
-                            }
-                        } else {
-                            // Suppressed: User is actively wiggling or holding layout page for fun.
-                            // Audio will play seamlessly at ACTION_UP instead.
                         }
 
-                        // Prefetch neighbours in background
+                        // Background prefetching optimization
                         PdfCore snap = core;
                         if (snap != null && bitmapWidth > 0) {
                             if (prefetchFutures != null) {
                                 snap.cancelPrefetch(prefetchFutures);
                             }
-                            prefetchFutures = snap.prefetchAround(
-                                    capturedIndex, 2);
+                            prefetchFutures = snap.prefetchAround(capturedIndex, 2);
                         }
                     }
                 });
@@ -449,7 +510,6 @@ public class PdfActivity extends AppCompatActivity {
     // =========================================================
     // AUDIO ENGINE PLAYBACK
     // =========================================================
-
     private void playFlipSound() {
         if (soundPool != null && flipSoundId != -1) {
             soundPool.play(flipSoundId, 1.0f, 1.0f, 1, 0, 1.0f);
@@ -459,7 +519,6 @@ public class PdfActivity extends AppCompatActivity {
     // =========================================================
     // SETUP
     // =========================================================
-
     private void setupCurlView() {
         curlView.setBackgroundColor(0xFF0A0A0A);
         curlView.setAllowLastPageCurl(true);
@@ -530,12 +589,10 @@ public class PdfActivity extends AppCompatActivity {
     // =========================================================
     // UI HELPERS
     // =========================================================
-
     private void syncSlider(int page) {
         if (totalPages <= 1) return;
         internalSliderUpdate = true;
-        float v = Math.max(slider.getValueFrom(),
-                  Math.min(page, slider.getValueTo()));
+        float v = Math.max(slider.getValueFrom(), Math.min(page, slider.getValueTo()));
         slider.setValue(v);
         internalSliderUpdate = false;
     }
@@ -561,7 +618,6 @@ public class PdfActivity extends AppCompatActivity {
     // =========================================================
     // CONTROLS AUTO-HIDE
     // =========================================================
-
     private void setControlsVisible(boolean visible) {
         controlsVisible = visible;
         float alpha = visible ? 1f : 0f;
@@ -586,7 +642,6 @@ public class PdfActivity extends AppCompatActivity {
     // =========================================================
     // IMMERSIVE MODE
     // =========================================================
-
     private void enterImmersiveMode() {
         getWindow().getDecorView().setSystemUiVisibility(
                 View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
@@ -601,7 +656,6 @@ public class PdfActivity extends AppCompatActivity {
     // =========================================================
     // LAST PAGE PERSISTENCE
     // =========================================================
-
     private void saveLastPage() {
         if (currentUri == null || totalPages <= 0) return;
         getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -620,13 +674,9 @@ public class PdfActivity extends AppCompatActivity {
     // =========================================================
     // BITMAP HELPERS
     // =========================================================
-
     private Bitmap blankBitmap(int w, int h) {
         try {
-            Bitmap b = Bitmap.createBitmap(
-                    Math.max(w, 1),
-                    Math.max(h, 1),
-                    Bitmap.Config.ARGB_8888);
+            Bitmap b = Bitmap.createBitmap(Math.max(w, 1), Math.max(h, 1), Bitmap.Config.ARGB_8888);
             b.eraseColor(Color.WHITE);
             return b;
         } catch (OutOfMemoryError e) {
@@ -649,7 +699,6 @@ public class PdfActivity extends AppCompatActivity {
     // =========================================================
     // STRING HELPERS
     // =========================================================
-
     private String cleanFileName(String name) {
         if (name == null || name.isEmpty()) return "PDF";
         return name.replaceAll("(?i)\\.pdf$", "")
@@ -664,17 +713,25 @@ public class PdfActivity extends AppCompatActivity {
     }
 
     // =========================================================
-    // CLEANUP
+    // CLEANUP (Thread-Safe Crash Avoidance Execution)
     // =========================================================
-
     private void closePdfCore() {
         coreReady.set(false);
         PdfCore old = core;
         core = null;
         if (old != null) {
-            renderExecutor.execute(() -> {
-                try { old.close(); } catch (Exception ignored) { }
-            });
+            // Check if the current render executor can still process requests
+            if (!renderExecutor.isShutdown()) {
+                renderExecutor.execute(() -> {
+                    try { old.close(); } catch (Exception ignored) { }
+                });
+            } else {
+                // Safe Fallback: Handle asynchronous destruction on a quick custom thread 
+                // to completely bypass RejectedExecutionExceptions inside onDestroy()
+                new Thread(() -> {
+                    try { old.close(); } catch (Exception ignored) { }
+                }, "PdfClose-Fallback").start();
+            }
         }
     }
 }
