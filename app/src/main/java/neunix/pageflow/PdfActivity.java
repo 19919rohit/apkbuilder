@@ -20,10 +20,10 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.material.slider.Slider;
 
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.List;
 
 public class PdfActivity extends AppCompatActivity {
 
@@ -38,17 +38,17 @@ public class PdfActivity extends AppCompatActivity {
     // VIEWS
     // =========================================================
 
-    private CurlView       curlView;
-    private Slider         slider;
-    private TextView       pageText;
-    private TextView       titleText;
-    private View           topBar;
-    private View           controlBar;
-    private View           loadingOverlay;
-    private View           errorView;
-    private TextView       errorMessage;
-    private ImageButton    btnOpenNew;
-    private ImageButton    btnBack;
+    private CurlView    curlView;
+    private Slider      slider;
+    private TextView    pageText;
+    private TextView    titleText;
+    private View        topBar;
+    private View        controlBar;
+    private View        loadingOverlay;
+    private View        errorView;
+    private TextView    errorMessage;
+    private ImageButton btnOpenNew;
+    private ImageButton btnBack;
 
     // =========================================================
     // PDF STATE
@@ -65,13 +65,14 @@ public class PdfActivity extends AppCompatActivity {
     // RENDER
     // =========================================================
 
-    private final Handler         uiHandler      = new Handler(Looper.getMainLooper());
+    private final Handler         uiHandler      =
+            new Handler(Looper.getMainLooper());
     private final ExecutorService renderExecutor =
             Executors.newSingleThreadExecutor(r ->
                     new Thread(r, "PdfActivity-Render"));
 
-    private volatile Future<?> pendingRender = null;
     private volatile boolean   coreReady     = false;
+    private volatile Future<?> pendingRender = null;
 
     // =========================================================
     // SLIDER DEBOUNCE
@@ -208,19 +209,10 @@ public class PdfActivity extends AppCompatActivity {
                 PdfCore newCore = new PdfCore();
                 newCore.open(this, uri);
 
-                // Set screen size for correct aspect ratio rendering
-                int w = curlView.getWidth();
-                int h = curlView.getHeight();
-                if (w > 0 && h > 0) {
-                    newCore.setScreenSize(w, h);
-                } else {
-                    // View not laid out yet — wait for it
-                    curlView.post(() -> {
-                        int w2 = curlView.getWidth();
-                        int h2 = curlView.getHeight();
-                        if (w2 > 0 && h2 > 0) newCore.setScreenSize(w2, h2);
-                    });
-                }
+                // DO NOT call setScreenSize here.
+                // CurlView passes exact bitmap dimensions into updatePage()
+                // and we use those directly. setScreenSize is only used by
+                // prefetchAround which we set after the first render.
 
                 String fileName = FileUtils.getFileName(this, uri);
 
@@ -234,8 +226,6 @@ public class PdfActivity extends AppCompatActivity {
                     titleText.setText(currentFileName);
                     setupSliderRange();
 
-                    // Wire up Harism's PageProvider — this is the bridge
-                    // between PdfCore and CurlView
                     curlView.setPageProvider(pageProvider);
                     curlView.setCurrentIndex(currentPage);
                     curlView.setViewMode(CurlView.SHOW_ONE_PAGE);
@@ -254,92 +244,69 @@ public class PdfActivity extends AppCompatActivity {
     }
 
     // =========================================================
-    // HARISM PAGE PROVIDER
-    // This is the entire integration point.
-    // CurlView calls updatePage() whenever it needs a bitmap.
-    // We render via PdfCore and hand the result to CurlPage.
+    // PAGE PROVIDER
+    // The entire integration point with CurlView.
+    // updatePage() is called on the GL thread — must be sync.
     // =========================================================
 
-    private final CurlView.PageProvider pageProvider = new CurlView.PageProvider() {
+    private final CurlView.PageProvider pageProvider =
+            new CurlView.PageProvider() {
 
         @Override
         public int getPageCount() {
             return totalPages;
         }
 
-        /**
-         * Called by CurlView on the GL thread whenever it needs a page bitmap.
-         * width/height are the exact pixel dimensions CurlView wants rendered.
-         *
-         * We MUST be synchronous here — CurlView expects the bitmap to be
-         * set on the CurlPage before this method returns.
-         * PdfCore.renderPage() is thread-safe via renderLock so this is fine.
-         */
         @Override
-        public void updatePage(CurlPage page, int width, int height, int index) {
+        public void updatePage(CurlPage page,
+                               int width, int height, int index) {
 
             if (!coreReady || core == null) {
-                // Core not ready yet — give CurlPage a white blank
-                Bitmap blank = Bitmap.createBitmap(
-                        Math.max(width, 1),
-                        Math.max(height, 1),
-                        Bitmap.Config.ARGB_8888);
-                blank.eraseColor(Color.WHITE);
-                page.setTexture(blank, CurlPage.SIDE_BOTH);
+                page.setTexture(blankBitmap(width, height), CurlPage.SIDE_BOTH);
                 return;
             }
 
             try {
-                // Render the front face of this page
+                // Use the exact dimensions CurlView requests —
+                // this is the correct page size for the GL surface.
+                // Also update PdfCore's screen size so prefetch
+                // renders at the right resolution.
+                core.setScreenSize(width, height);
+
+                // Front face — current page
                 Bitmap front = core.renderPage(index, width, height);
+                // Copy so PdfCore cache eviction never affects CurlPage
+                page.setTexture(
+                        front.copy(Bitmap.Config.ARGB_8888, false),
+                        CurlPage.SIDE_FRONT);
 
-                // Make an independent copy — CurlPage will recycle
-                // the bitmap when done, and we don't want PdfCore's
-                // cache entry to get recycled underneath us.
-                Bitmap frontCopy = front.copy(Bitmap.Config.ARGB_8888, false);
-                page.setTexture(frontCopy, CurlPage.SIDE_FRONT);
-
-                // Render the back face — this is the next page showing
-                // through as the curl peels back. Harism renders both
-                // sides independently which is what makes his backside
-                // look correct (not a mirror of the front).
+                // Back face — next page visible through the curl
                 if (index + 1 < totalPages) {
                     Bitmap back = core.renderPage(index + 1, width, height);
-                    Bitmap backCopy = back.copy(Bitmap.Config.ARGB_8888, false);
-                    page.setTexture(backCopy, CurlPage.SIDE_BACK);
+                    page.setTexture(
+                            back.copy(Bitmap.Config.ARGB_8888, false),
+                            CurlPage.SIDE_BACK);
                 } else {
-                    // Last page — back is blank white
-                    Bitmap blank = Bitmap.createBitmap(
-                            Math.max(width, 1),
-                            Math.max(height, 1),
-                            Bitmap.Config.ARGB_8888);
-                    blank.eraseColor(Color.WHITE);
-                    page.setTexture(blank, CurlPage.SIDE_BACK);
+                    page.setTexture(
+                            blankBitmap(width, height),
+                            CurlPage.SIDE_BACK);
                 }
 
-                // Update page counter on UI thread
-                // CurlView's currentIndex reflects the right-side page
+                // Update UI on main thread
                 uiHandler.post(() -> {
                     if (index != currentPage) {
                         currentPage = index;
                         updatePageText(index);
                         syncSlider(index);
-
-                        // Trigger prefetch around new position
                         if (core != null) {
-                            prefetchFutures = core.prefetchAround(index, 2);
+                            prefetchFutures =
+                                    core.prefetchAround(index, 2);
                         }
                     }
                 });
 
             } catch (Exception e) {
-                // Render failed — show white page rather than crash
-                Bitmap blank = Bitmap.createBitmap(
-                        Math.max(width, 1),
-                        Math.max(height, 1),
-                        Bitmap.Config.ARGB_8888);
-                blank.eraseColor(Color.WHITE);
-                page.setTexture(blank, CurlPage.SIDE_BOTH);
+                page.setTexture(blankBitmap(width, height), CurlPage.SIDE_BOTH);
             }
         }
     };
@@ -351,23 +318,37 @@ public class PdfActivity extends AppCompatActivity {
     private void setupCurlView() {
         curlView.setBackgroundColor(0xFF0A0A0A);
         curlView.setAllowLastPageCurl(true);
-        curlView.setRenderLeftPage(false);  // single page mode
-        curlView.setMargins(0.05f, 0.05f, 0.05f, 0.05f);
 
-        // Show/hide controls on touch
+        // Single page mode — no left page rendered
+        curlView.setRenderLeftPage(false);
+
+        // Small margins so the page fills the screen properly
+        // without being stretched or cut off
+        curlView.setMargins(0.0f, 0.0f, 0.0f, 0.0f);
+
+        // Update screen size when GL surface dimensions are known
         curlView.setSizeChangedObserver((w, h) -> {
             if (core != null) core.setScreenSize(w, h);
         });
 
-        // Intercept touch to show controls
-        curlView.setOnTouchListener((v, event) -> {
-            if (!controlsVisible) {
-                setControlsVisible(true);
-                scheduleHideControls();
-            }
-            // Let CurlView handle the actual event
-            return false;
-        });
+        // CRITICAL: Do NOT call setOnTouchListener on CurlView.
+        // CurlView sets itself as its own touch listener in init()
+        // via setOnTouchListener(this). Overwriting that with our
+        // own listener breaks all page flip gestures.
+        // Instead we intercept touches via onUserInteraction() below.
+    }
+
+    @Override
+    public void onUserInteraction() {
+        // Called on every touch event at the Activity level —
+        // use this instead of setOnTouchListener on CurlView
+        // so we don't break CurlView's internal gesture handling.
+        if (!controlsVisible) {
+            setControlsVisible(true);
+            scheduleHideControls();
+        } else {
+            scheduleHideControls();
+        }
     }
 
     private void setupSlider() {
@@ -416,6 +397,15 @@ public class PdfActivity extends AppCompatActivity {
     // UI HELPERS
     // =========================================================
 
+    private Bitmap blankBitmap(int width, int height) {
+        Bitmap b = Bitmap.createBitmap(
+                Math.max(width, 1),
+                Math.max(height, 1),
+                Bitmap.Config.ARGB_8888);
+        b.eraseColor(Color.WHITE);
+        return b;
+    }
+
     private void syncSlider(int page) {
         internalSliderUpdate = true;
         if (page >= slider.getValueFrom() && page <= slider.getValueTo()) {
@@ -451,12 +441,12 @@ public class PdfActivity extends AppCompatActivity {
         int   vis   = visible ? View.VISIBLE : View.INVISIBLE;
 
         topBar.animate()
-                .alpha(alpha).setDuration(220)
+                .alpha(alpha).setDuration(200)
                 .withEndAction(() -> topBar.setVisibility(vis))
                 .start();
 
         controlBar.animate()
-                .alpha(alpha).setDuration(220)
+                .alpha(alpha).setDuration(200)
                 .withEndAction(() -> controlBar.setVisibility(vis))
                 .start();
     }
