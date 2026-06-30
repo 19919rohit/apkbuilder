@@ -2,14 +2,17 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="neunix.pageflow">
 
-    <!-- Required to open PDFs from other apps -->
+    <!-- Storage: needed below API 33 to read PDFs from file manager -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32"/>
 
     <!-- Keep screen on while reading -->
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
 
-    <!-- OpenGL ES 2.0 requirement -->
+    <!-- TTS engine communication -->
+    <uses-permission android:name="android.permission.VIBRATE"/>
+
+    <!-- OpenGL ES 2.0 for page curl -->
     <uses-feature
         android:glEsVersion="0x00020000"
         android:required="true"/>
@@ -22,8 +25,12 @@
         android:allowBackup="true"
         android:supportsRtl="true">
 
-        <!-- ── HOME SCREEN ─────────────────────────────── -->
+        <!-- pdfbox-android font cache — required by com.tom-roush:pdfbox-android -->
+        <meta-data
+            android:name="pdfbox.fontcache"
+            android:value="${applicationId}"/>
 
+        <!-- HOME SCREEN -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -35,7 +42,7 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
 
-            <!-- Accept PDF files opened from other apps -->
+            <!-- Accept PDFs opened from file managers / email / browser -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
@@ -45,13 +52,12 @@
 
         </activity>
 
-        <!-- ── PDF READER ──────────────────────────────── -->
-
+        <!-- PDF READER -->
         <activity
             android:name=".PdfActivity"
             android:exported="false"
             android:screenOrientation="portrait"
-            android:windowSoftInputMode="stateHidden"
+            android:windowSoftInputMode="adjustPan|stateHidden"
             android:configChanges="orientation|screenSize|keyboardHidden"/>
 
     </application>
