@@ -103,7 +103,7 @@
                 android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:hint="Search text in PDF…"
-                android:hintTextColor="#444444"
+                android:textColorHint="#444444"
                 android:textColor="#FFFFFF"
                 android:textSize="14sp"
                 android:paddingStart="14dp"
@@ -356,7 +356,7 @@
     <LinearLayout
         android:id="@+id/tocSheet"
         android:layout_width="match_parent"
-        android:layout_height="68%"
+        android:layout_height="500dp"
         android:layout_gravity="bottom"
         android:orientation="vertical"
         android:background="@drawable/bg_continue_card"
@@ -403,7 +403,7 @@
     <LinearLayout
         android:id="@+id/bookmarkSheet"
         android:layout_width="match_parent"
-        android:layout_height="60%"
+        android:layout_height="450dp"
         android:layout_gravity="bottom"
         android:orientation="vertical"
         android:background="@drawable/bg_continue_card"
