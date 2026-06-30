@@ -54,10 +54,6 @@ class PdfCore {
             new: Bitmap?
         ) {
             // Intentionally empty — do NOT recycle here.
-            // The bitmap may still be referenced by an ImageView
-            // or by MainActivity's thumbnailCache. Recycling here
-            // causes RuntimeException: Canvas: trying to use a
-            // recycled bitmap. Let the GC handle it.
         }
     }
 
@@ -80,12 +76,49 @@ class PdfCore {
     // OPEN / CLOSE
     // =========================================================
 
+    /**
+     * Opens the PDF with retry logic. Android's PdfRenderer can throw
+     * transiently right after a content URI copy finishes (the file
+     * handle hasn't fully settled on some storage backends), even
+     * though the underlying bytes are completely valid. Retrying with
+     * a short backoff eliminates the "Failed to load" false negative
+     * users see on perfectly good PDFs.
+     */
     fun open(context: Context, uri: Uri) {
         val file = FileUtils.getFileFromUri(context, uri)
+
+        if (!file.exists() || file.length() <= 0L) {
+            throw IllegalStateException("PDF file is empty or not yet available: ${file.length()} bytes")
+        }
+
         cacheFile = file
-        pfd       = ParcelFileDescriptor.open(
-            file, ParcelFileDescriptor.MODE_READ_ONLY)
-        renderer  = PdfRenderer(pfd!!)
+
+        var lastError: Exception? = null
+        for (attempt in 1..3) {
+            try {
+                val descriptor = ParcelFileDescriptor.open(
+                    file, ParcelFileDescriptor.MODE_READ_ONLY)
+                val r = PdfRenderer(descriptor)
+
+                if (r.pageCount <= 0) {
+                    safeClose { r.close() }
+                    safeClose { descriptor.close() }
+                    throw IllegalStateException("PDF opened but reports 0 pages")
+                }
+
+                pfd      = descriptor
+                renderer = r
+                return
+            } catch (e: Exception) {
+                lastError = e
+                safeClose { pfd?.close() }
+                pfd = null
+                if (attempt < 3) {
+                    try { Thread.sleep(120L * attempt) } catch (_: InterruptedException) {}
+                }
+            }
+        }
+        throw lastError ?: IllegalStateException("Failed to open PDF after retries")
     }
 
     fun pageCount(): Int = renderer?.pageCount ?: 0
@@ -97,8 +130,6 @@ class PdfCore {
             safeClose { renderer?.close() }
             safeClose { pfd?.close() }
         }
-        // Just evict cache entries — do NOT recycle the bitmaps.
-        // Callers that hold references will let GC clean up naturally.
         bitmapCache.evictAll()
     }
 
@@ -114,7 +145,6 @@ class PdfCore {
 
         bitmapCache.get(key)?.let { cached ->
             if (!cached.isRecycled) return cached
-            // Stale entry — remove and re-render
             bitmapCache.remove(key)
         }
 
@@ -137,7 +167,6 @@ class PdfCore {
 
             val key = "${i}_${screenWidth}x${screenHeight}"
 
-            // Skip if already cached and not recycled
             val cached = bitmapCache.get(key)
             if (cached != null && !cached.isRecycled) continue
 

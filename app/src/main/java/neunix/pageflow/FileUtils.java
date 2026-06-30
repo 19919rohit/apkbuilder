@@ -32,14 +32,40 @@ public class FileUtils {
 
         File outFile = new File(cacheDir, sanitizeFileName(fileName));
 
-        // If an identical file is already cached, reuse it
-        if (outFile.exists() && outFile.length() > 0) {
+        // Reuse an identical cached file ONLY if its size matches the source.
+        // A previous interrupted copy (app killed mid-write, storage full,
+        // etc.) can leave a partial file that exists() and has length() > 0
+        // but is truncated — causing PdfRenderer to fail on a perfectly
+        // valid source PDF. Comparing against the real source length avoids
+        // ever trusting a corrupt cache entry.
+        long sourceLength = getUriLength(context, uri);
+        if (outFile.exists() && outFile.length() > 0
+                && (sourceLength <= 0 || outFile.length() == sourceLength)) {
             return outFile;
         }
 
         copyUriToFile(context, uri, outFile);
 
         return outFile;
+    }
+
+    /**
+     * Best-effort lookup of the source content's byte length, used to
+     * validate cache integrity. Returns -1 if unknown (some providers
+     * don't report size), in which case callers should not rely on it
+     * as the sole correctness check.
+     */
+    private static long getUriLength(Context context, Uri uri) {
+        try (Cursor cursor = context.getContentResolver().query(
+                uri, new String[]{ OpenableColumns.SIZE }, null, null, null)) {
+            if (cursor != null && cursor.moveToFirst()) {
+                int idx = cursor.getColumnIndex(OpenableColumns.SIZE);
+                if (idx >= 0 && !cursor.isNull(idx)) {
+                    return cursor.getLong(idx);
+                }
+            }
+        } catch (Exception ignored) { }
+        return -1L;
     }
 
     // =========================================================
@@ -93,7 +119,10 @@ public class FileUtils {
         long cutoff = System.currentTimeMillis() - maxAgeMs;
 
         for (File f : files) {
-            if (f.lastModified() < cutoff) {
+            // Always remove leftover .tmp files regardless of age — they are
+            // never valid, complete cache entries (see copyUriToFile).
+            boolean isStaleTemp = f.getName().endsWith(".tmp");
+            if (isStaleTemp || f.lastModified() < cutoff) {
                 //noinspection ResultOfMethodCallIgnored
                 f.delete();
             }
@@ -161,9 +190,11 @@ public class FileUtils {
 
     private static void copyUriToFile(Context context, Uri uri, File outFile) {
 
+        File tempFile = new File(outFile.getParentFile(), outFile.getName() + ".tmp");
+
         try (
             InputStream  in  = context.getContentResolver().openInputStream(uri);
-            OutputStream out = new FileOutputStream(outFile)
+            OutputStream out = new FileOutputStream(tempFile)
         ) {
             if (in == null) {
                 throw new RuntimeException("Cannot open input stream for URI: " + uri);
@@ -177,14 +208,28 @@ public class FileUtils {
             }
 
             out.flush();
+            ((FileOutputStream) out).getFD().sync(); // force bytes to disk before rename
 
         } catch (Exception e) {
-            // Clean up partial file on failure
-            if (outFile.exists()) {
+            // Clean up partial temp file on failure
+            if (tempFile.exists()) {
                 //noinspection ResultOfMethodCallIgnored
-                outFile.delete();
+                tempFile.delete();
             }
             throw new RuntimeException("Failed to copy URI to cache: " + e.getMessage(), e);
+        }
+
+        // Atomic-ish swap: only now does the "real" cache file exist,
+        // and only as a fully-written copy. If the app dies before this
+        // line, only the .tmp file is left behind (never the real name),
+        // so getFileFromUri() will never mistake a partial copy for a
+        // complete one.
+        if (outFile.exists()) {
+            //noinspection ResultOfMethodCallIgnored
+            outFile.delete();
+        }
+        if (!tempFile.renameTo(outFile)) {
+            throw new RuntimeException("Failed to finalize cached PDF file");
         }
     }
 

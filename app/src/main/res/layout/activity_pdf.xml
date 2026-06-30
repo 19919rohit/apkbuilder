@@ -7,7 +7,7 @@
     android:background="#0A0A0A">
 
     <!-- ZOOMABLE CONTAINER: CurlView + Drawing overlay -->
-    <neunix.pageflow.ZoomableFrameLayout
+    <neunix.pageflow.GalleryZoomView
         android:id="@+id/zoomContainer"
         android:layout_width="match_parent"
         android:layout_height="match_parent">
@@ -24,7 +24,7 @@
             android:clickable="false"
             android:focusable="false"/>
 
-    </neunix.pageflow.ZoomableFrameLayout>
+    </neunix.pageflow.GalleryZoomView>
 
     <!-- LOADING -->
     <FrameLayout
@@ -76,7 +76,7 @@
             android:clickable="true" android:focusable="true"/>
     </LinearLayout>
 
-    <!-- SEARCH PANEL — slides down from top -->
+    <!-- SEARCH PANEL -->
     <LinearLayout
         android:id="@+id/searchPanel"
         android:layout_width="match_parent"
@@ -90,7 +90,6 @@
         android:visibility="gone"
         android:translationY="-300dp">
 
-        <!-- Input row -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="46dp"
@@ -104,7 +103,7 @@
                 android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:hint="Search text in PDF…"
-                android:textColorHint="#444444"
+                android:hintTextColor="#444444"
                 android:textColor="#FFFFFF"
                 android:textSize="14sp"
                 android:paddingStart="14dp"
@@ -131,7 +130,6 @@
                 android:tint="#888888" android:contentDescription="Close"/>
         </LinearLayout>
 
-        <!-- Result count + snippet -->
         <TextView android:id="@+id/searchResultText"
             android:layout_width="match_parent" android:layout_height="wrap_content"
             android:textSize="11sp" android:textColor="#555555"
@@ -178,6 +176,13 @@
             android:background="?attr/selectableItemBackgroundBorderless"
             android:tint="#FFFFFF" android:contentDescription="Bookmark"/>
 
+        <!-- Long-press btnBookmark for quick toggle; tap btnBookmarkList opens the dedicated list -->
+        <ImageButton android:id="@+id/btnBookmarkList"
+            android:layout_width="44dp" android:layout_height="44dp"
+            android:src="@android:drawable/ic_menu_agenda"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:tint="#FFFFFF" android:contentDescription="All bookmarks"/>
+
         <ImageButton android:id="@+id/btnToc"
             android:layout_width="44dp" android:layout_height="44dp"
             android:src="@android:drawable/ic_menu_sort_by_size"
@@ -192,7 +197,7 @@
 
     </LinearLayout>
 
-    <!-- DRAW TOOLBAR — right edge pill -->
+    <!-- DRAW TOOLBAR -->
     <LinearLayout
         android:id="@+id/drawToolbar"
         android:layout_width="48dp"
@@ -205,14 +210,12 @@
         android:background="@drawable/bg_continue_card"
         android:visibility="gone">
 
-        <!-- Thin pen -->
         <ImageButton android:id="@+id/penThin"
             android:layout_width="36dp" android:layout_height="36dp"
             android:src="@android:drawable/ic_menu_edit"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:tint="#AAAAAA" android:contentDescription="Thin pen"/>
 
-        <!-- Thick pen -->
         <ImageButton android:id="@+id/penThick"
             android:layout_width="36dp" android:layout_height="36dp"
             android:src="@android:drawable/ic_menu_edit"
@@ -222,7 +225,6 @@
         <View android:layout_width="32dp" android:layout_height="1dp"
             android:background="#2A2A2A" android:layout_marginVertical="4dp"/>
 
-        <!-- Colors -->
         <View android:id="@+id/colorRed"
             android:layout_width="26dp" android:layout_height="26dp"
             android:background="#FF4444" android:layout_margin="4dp"/>
@@ -256,7 +258,7 @@
 
     </LinearLayout>
 
-    <!-- READ ALOUD MINI BAR — floats above control bar -->
+    <!-- READ ALOUD BAR -->
     <LinearLayout
         android:id="@+id/readAloudBar"
         android:layout_width="match_parent"
@@ -320,14 +322,12 @@
                 android:textColor="#AAAAAA" android:textStyle="bold"
                 android:letterSpacing="0.04"/>
 
-            <!-- Draw toggle -->
             <ImageButton android:id="@+id/btnDraw"
                 android:layout_width="40dp" android:layout_height="40dp"
                 android:src="@android:drawable/ic_menu_edit"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:tint="#555555" android:contentDescription="Draw"/>
 
-            <!-- Read aloud -->
             <ImageButton android:id="@+id/btnReadAloud"
                 android:layout_width="40dp" android:layout_height="40dp"
                 android:src="@android:drawable/ic_btn_speak_now"
@@ -348,16 +348,15 @@
 
     </LinearLayout>
 
-    <!-- TOC BACKDROP -->
+    <!-- TOC SHEET -->
     <FrameLayout android:id="@+id/tocSheetBackdrop"
         android:layout_width="match_parent" android:layout_height="match_parent"
         android:background="#99000000" android:visibility="gone"/>
 
-    <!-- TOC SHEET -->
     <LinearLayout
         android:id="@+id/tocSheet"
         android:layout_width="match_parent"
-        android:layout_height="500dp"
+        android:layout_height="68%"
         android:layout_gravity="bottom"
         android:orientation="vertical"
         android:background="@drawable/bg_continue_card"
@@ -393,6 +392,71 @@
             android:overScrollMode="never"
             android:paddingBottom="20dp"
             android:clipToPadding="false"/>
+
+    </LinearLayout>
+
+    <!-- BOOKMARKS SHEET — dedicated, separate from TOC -->
+    <FrameLayout android:id="@+id/bookmarkSheetBackdrop"
+        android:layout_width="match_parent" android:layout_height="match_parent"
+        android:background="#99000000" android:visibility="gone"/>
+
+    <LinearLayout
+        android:id="@+id/bookmarkSheet"
+        android:layout_width="match_parent"
+        android:layout_height="60%"
+        android:layout_gravity="bottom"
+        android:orientation="vertical"
+        android:background="@drawable/bg_continue_card"
+        android:visibility="gone"
+        android:translationY="2000dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="54dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="20dp"
+            android:paddingEnd="6dp">
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Bookmarks" android:textSize="17sp"
+                android:textStyle="bold" android:textColor="#F0F0F0"/>
+            <ImageButton android:id="@+id/btnBookmarkSheetClose"
+                android:layout_width="44dp" android:layout_height="44dp"
+                android:src="@drawable/ic_close"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:tint="#555555" android:contentDescription="Close"/>
+        </LinearLayout>
+
+        <View android:layout_width="match_parent" android:layout_height="1dp"
+            android:background="#1E1E1E"/>
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/bookmarkRecycler"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:overScrollMode="never"
+            android:paddingBottom="20dp"
+            android:clipToPadding="false"
+            android:visibility="gone"/>
+
+        <LinearLayout
+            android:id="@+id/bookmarkEmptyState"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:visibility="gone">
+            <TextView
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="★" android:textSize="40sp" android:textColor="#333333"/>
+            <TextView
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="No bookmarks yet" android:textSize="14sp"
+                android:textColor="#666666" android:layout_marginTop="12dp"/>
+        </LinearLayout>
 
     </LinearLayout>
 

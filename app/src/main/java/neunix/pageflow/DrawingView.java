@@ -16,9 +16,6 @@ import java.util.List;
 
 public class DrawingView extends View {
 
-    // =========================================================
-    // STROKE MODEL
-    // =========================================================
     public static class Stroke {
         public final Path  path;
         public final int   color;
@@ -28,9 +25,6 @@ public class DrawingView extends View {
         }
     }
 
-    // =========================================================
-    // STATE
-    // =========================================================
     private final List<Stroke> mStrokes     = new ArrayList<>();
     private final Paint        mPaint       = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint        mBitmapPaint = new Paint(Paint.DITHER_FLAG);
@@ -40,7 +34,11 @@ public class DrawingView extends View {
     private int                mPenColor    = Color.RED;
     private float              mPenWidth    = 6f;
     private boolean            mEnabled     = false;
-    private float              mLastX, mLastY;
+
+    /** Owning GalleryZoomView — used to convert raw touch points into content space so strokes stay aligned while zoomed. */
+    private GalleryZoomView mZoomHost;
+
+    private float mLastX, mLastY;
     private static final float TOUCH_TOLERANCE = 4f;
 
     public DrawingView(Context context) { super(context); init(); }
@@ -51,6 +49,11 @@ public class DrawingView extends View {
         mPaint.setStrokeJoin(Paint.Join.ROUND);
         mPaint.setStrokeCap(Paint.Cap.ROUND);
         setLayerType(LAYER_TYPE_SOFTWARE, null);
+    }
+
+    /** Call once after inflate — links this view to its zoom container for coordinate conversion. */
+    public void attachZoomHost(GalleryZoomView host) {
+        mZoomHost = host;
     }
 
     @Override
@@ -81,7 +84,22 @@ public class DrawingView extends View {
     @Override
     public boolean onTouchEvent(MotionEvent event) {
         if (!mEnabled) return false;
-        float x = event.getX(), y = event.getY();
+
+        // Convert raw touch coords (screen space, post-zoom-matrix) into
+        // content space so strokes land in the same place on the page
+        // regardless of current zoom level. Since this DrawingView is a
+        // child of GalleryZoomView, the canvas it draws into is ALREADY
+        // transformed by the zoom matrix during dispatchDraw — but raw
+        // MotionEvent coordinates are still in pre-transform screen space.
+        // We must invert the zoom matrix to map them correctly.
+        float rawX = event.getX();
+        float rawY = event.getY();
+        float x = rawX, y = rawY;
+        if (mZoomHost != null) {
+            android.graphics.PointF p = mZoomHost.screenToContent(rawX, rawY);
+            x = p.x; y = p.y;
+        }
+
         switch (event.getAction()) {
             case MotionEvent.ACTION_DOWN:
                 mCurrentPath = new Path();
@@ -128,25 +146,21 @@ public class DrawingView extends View {
 
     public void clearAll() {
         mStrokes.clear();
-        if (mBitmapCanvas != null)
-            mBitmapCanvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
+        if (mBitmapCanvas != null) mBitmapCanvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
         invalidate();
     }
 
     public boolean hasStrokes() { return !mStrokes.isEmpty(); }
 
-    /** Call when navigating away from a page — returns strokes to store. */
     public List<Stroke> detachStrokes() {
         List<Stroke> saved = new ArrayList<>(mStrokes);
         mStrokes.clear();
-        if (mBitmapCanvas != null)
-            mBitmapCanvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
+        if (mBitmapCanvas != null) mBitmapCanvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
         mCurrentPath = null;
         invalidate();
         return saved;
     }
 
-    /** Call when navigating back to a page — restores saved strokes. */
     public void attachStrokes(List<Stroke> strokes) {
         mStrokes.clear();
         if (strokes != null) mStrokes.addAll(strokes);
