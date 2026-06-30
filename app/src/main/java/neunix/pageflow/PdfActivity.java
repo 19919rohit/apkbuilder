@@ -617,7 +617,7 @@ public class PdfActivity extends AppCompatActivity {
                 if (isDestroyed()) return;
                 searchResults.addAll(found);
                 if (searchResults.isEmpty()) {
-                    searchResultText.setText("No results for "" + query + """);
+                    searchResultText.setText("No results for " + query);
                 } else {
                     searchResultIndex = 0;
                     updateSearchLabel();
