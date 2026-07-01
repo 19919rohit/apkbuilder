@@ -166,26 +166,26 @@
 
         <ImageButton android:id="@+id/btnSearch"
             android:layout_width="44dp" android:layout_height="44dp"
-            android:src="@android:drawable/ic_menu_search"
+            android:src="@drawable/ic_search"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:tint="#FFFFFF" android:contentDescription="Search"/>
 
         <ImageButton android:id="@+id/btnBookmark"
             android:layout_width="44dp" android:layout_height="44dp"
-            android:src="@android:drawable/btn_star_big_off"
+            android:src="@drawable/ic_star"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:tint="#FFFFFF" android:contentDescription="Bookmark"/>
 
         <!-- Long-press btnBookmark for quick toggle; tap btnBookmarkList opens the dedicated list -->
         <ImageButton android:id="@+id/btnBookmarkList"
             android:layout_width="44dp" android:layout_height="44dp"
-            android:src="@android:drawable/ic_menu_agenda"
+            android:src="@drawable/ic_bookmarks"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:tint="#FFFFFF" android:contentDescription="All bookmarks"/>
 
         <ImageButton android:id="@+id/btnToc"
             android:layout_width="44dp" android:layout_height="44dp"
-            android:src="@android:drawable/ic_menu_sort_by_size"
+            android:src="@drawable/ic_toc"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:tint="#FFFFFF" android:contentDescription="Contents"/>
 
@@ -212,13 +212,13 @@
 
         <ImageButton android:id="@+id/penThin"
             android:layout_width="36dp" android:layout_height="36dp"
-            android:src="@android:drawable/ic_menu_edit"
+            android:src="@drawable/ic_pen_thin"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:tint="#AAAAAA" android:contentDescription="Thin pen"/>
 
         <ImageButton android:id="@+id/penThick"
             android:layout_width="36dp" android:layout_height="36dp"
-            android:src="@android:drawable/ic_menu_edit"
+            android:src="@drawable/ic_pen_thick"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:tint="#FFFFFF" android:contentDescription="Thick pen"/>
 
@@ -246,13 +246,13 @@
 
         <ImageButton android:id="@+id/btnDrawUndo"
             android:layout_width="36dp" android:layout_height="36dp"
-            android:src="@android:drawable/ic_menu_revert"
+            android:src="@drawable/ic_undo"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:tint="#AAAAAA" android:contentDescription="Undo"/>
 
         <ImageButton android:id="@+id/btnDrawClear"
             android:layout_width="36dp" android:layout_height="36dp"
-            android:src="@android:drawable/ic_menu_delete"
+            android:src="@drawable/ic_delete"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:tint="#FF5555" android:contentDescription="Clear"/>
 
@@ -324,7 +324,7 @@
 
             <ImageButton android:id="@+id/btnDraw"
                 android:layout_width="40dp" android:layout_height="40dp"
-                android:src="@android:drawable/ic_menu_edit"
+                android:src="@drawable/ic_draw"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:tint="#555555" android:contentDescription="Draw"/>
 
