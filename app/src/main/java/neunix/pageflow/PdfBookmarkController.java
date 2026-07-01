@@ -123,12 +123,16 @@ public class PdfBookmarkController {
     }
 
     public void updateIcon() {
-        boolean on = bookmarkedPages.contains(reader.getSettledPage());
-        toggleButton.setImageResource(on
-                ? android.R.drawable.btn_star_big_on
-                : android.R.drawable.btn_star_big_off);
-        toggleButton.setColorFilter(on ? Color.parseColor("#FFD700") : Color.WHITE);
-    }
+    boolean on = bookmarkedPages.contains(reader.getSettledPage());
+
+    toggleButton.setImageResource(
+            on ? R.drawable.ic_star_filled
+               : R.drawable.ic_star
+    );
+
+    // Your vectors already contain their own colors.
+    toggleButton.clearColorFilter();
+}
 
     public boolean isBookmarked(int page) { return bookmarkedPages.contains(page); }
 
