@@ -196,12 +196,19 @@ public class PdfActivity extends AppCompatActivity implements PdfReaderControlle
     // SETUP
     // =========================================================
     private void setupCurlView() {
-        curlView.setBackgroundColor(0xFF0A0A0A);
-        curlView.setAllowLastPageCurl(true);
-        curlView.setRenderLeftPage(false);
-        curlView.setMargins(0f, 0f, 0f, 0f);
-        curlView.setSizeChangedObserver((w, h) -> reader.setScreenSize(w, h));
-    }
+    curlView.setBackgroundColor(0xFF0A0A0A);
+    curlView.setAllowLastPageCurl(true);
+    curlView.setRenderLeftPage(false);
+    curlView.setMargins(0f, 0f, 0f, 0f);
+    curlView.setSizeChangedObserver((w, h) -> reader.setScreenSize(w, h));
+
+    // THIS IS THE FIX: wire CurlView's settle callback into the reader so
+    // that after every swipe the authoritative settled page updates, which
+    // in turn keeps read-aloud, bookmarks, page counter, drawings, and the
+    // saved position all correct after gesture-based navigation.
+    curlView.setOnPageSettleListener(newIndex ->
+            reader.reportSettledFromGesture(newIndex, drawingView, pageStrokes));
+}
 
     private void setupSlider() {
         slider.addOnChangeListener((s, value, fromUser) -> {
