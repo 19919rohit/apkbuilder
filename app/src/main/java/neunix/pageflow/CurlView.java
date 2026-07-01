@@ -34,24 +34,32 @@ import android.view.View;
 public class CurlView extends GLSurfaceView implements View.OnTouchListener,
         CurlRenderer.Observer {
 
-    // Curl state. We are flipping none, left or right page.
+    // Curl state.
     private static final int CURL_LEFT  = 1;
     private static final int CURL_NONE  = 0;
     private static final int CURL_RIGHT = 2;
 
-    // Constants for mAnimationTargetEvent.
+    // Animation target events.
     private static final int SET_CURL_TO_LEFT  = 1;
     private static final int SET_CURL_TO_RIGHT = 2;
 
-    // Shows one page at the center of view.
     public static final int SHOW_ONE_PAGE  = 1;
-    // Shows two pages side by side.
     public static final int SHOW_TWO_PAGES = 2;
+
+    // Normal swipe animation duration (ms).
+    private static final long ANIMATION_DURATION_NORMAL = 300L;
+    // Fast tap-to-flip animation duration (ms) — feels snappy, not instant.
+    private static final long ANIMATION_DURATION_FAST   = 120L;
+
+    // A touch is treated as a tap if the finger moves less than this many
+    // renderer-space units AND lifts within TAP_TIMEOUT_MS.
+    private static final float TAP_MAX_MOVE_PX  = 20f;
+    private static final long  TAP_TIMEOUT_MS   = 200L;
 
     private boolean mAllowLastPageCurl = true;
 
     private boolean mAnimate = false;
-    private long    mAnimationDurationTime = 300;
+    private long    mAnimationDurationTime = ANIMATION_DURATION_NORMAL;
     private PointF  mAnimationSource = new PointF();
     private long    mAnimationStartTime;
     private PointF  mAnimationTarget = new PointF();
@@ -61,19 +69,20 @@ public class CurlView extends GLSurfaceView implements View.OnTouchListener,
     private PointF mCurlPos = new PointF();
     private int    mCurlState = CURL_NONE;
 
-    // Current bitmap index. This is always showed as front of right page.
+    // Current bitmap index. Always shown as front of right page.
     private int mCurrentIndex = 0;
 
-    // Start position for dragging.
     private PointF mDragStartPos = new PointF();
+
+    // Screen-space position of ACTION_DOWN, used for tap detection.
+    private float mDownRawX, mDownRawY;
+    private long  mDownTime;
 
     private boolean mEnableTouchPressure = false;
 
-    // Bitmap size. Updated from renderer once it's initialized.
     private int mPageBitmapHeight = -1;
     private int mPageBitmapWidth  = -1;
 
-    // Page meshes. Left and right are 'static'; curl is used for flipping.
     private CurlMesh mPageCurl;
     private CurlMesh mPageLeft;
     private CurlMesh mPageRight;
@@ -84,17 +93,10 @@ public class CurlView extends GLSurfaceView implements View.OnTouchListener,
     private boolean          mRenderLeftPage = true;
     private SizeChangedObserver mSizeChangedObserver;
 
-    // ---- Page-settle callback -------------------------------------------
-    // Notified exactly once, on the UI thread, whenever a swipe-driven curl
-    // animation finishes and mCurrentIndex actually changes value.
-    // Without this, callers (PdfReaderController) have no way to know the
-    // user has swiped to a new page, causing read-aloud, bookmarks, the page
-    // counter, drawings, and the saved position to all reference the WRONG page.
+    // Fired on the UI thread when a swipe or tap flip settles on a new page.
     private OnPageSettleListener mPageSettleListener;
     private final Handler mMainHandler = new Handler(Looper.getMainLooper());
-    // -----------------------------------------------------------------------
 
-    // One page is the default.
     private int mViewMode = SHOW_ONE_PAGE;
 
     // =========================================================
@@ -114,10 +116,6 @@ public class CurlView extends GLSurfaceView implements View.OnTouchListener,
     public CurlView(Context ctx, AttributeSet attrs, int defStyle) {
         this(ctx, attrs);
     }
-
-    // =========================================================
-    // INIT
-    // =========================================================
 
     private void init(Context ctx) {
         mRenderer = new CurlRenderer(this);
@@ -143,8 +141,6 @@ public class CurlView extends GLSurfaceView implements View.OnTouchListener,
         long currentTime = System.currentTimeMillis();
 
         if (currentTime >= mAnimationStartTime + mAnimationDurationTime) {
-            // Animation complete — settle the page.
-            // Capture the index BEFORE mutating so we can compare after.
             final int indexBefore = mCurrentIndex;
 
             if (mAnimationTargetEvent == SET_CURL_TO_RIGHT) {
@@ -156,7 +152,6 @@ public class CurlView extends GLSurfaceView implements View.OnTouchListener,
                 mRenderer.removeCurlMesh(curl);
                 mPageCurl  = curl;
                 mPageRight = right;
-                // Curling left page backwards → index decrements.
                 if (mCurlState == CURL_LEFT) {
                     --mCurrentIndex;
                 }
@@ -172,7 +167,6 @@ public class CurlView extends GLSurfaceView implements View.OnTouchListener,
                 }
                 mPageCurl  = curl;
                 mPageLeft  = left;
-                // Curling right page forwards → index increments.
                 if (mCurlState == CURL_RIGHT) {
                     ++mCurrentIndex;
                 }
@@ -180,11 +174,10 @@ public class CurlView extends GLSurfaceView implements View.OnTouchListener,
 
             mCurlState = CURL_NONE;
             mAnimate   = false;
+            // Reset to normal duration for the next gesture.
+            mAnimationDurationTime = ANIMATION_DURATION_NORMAL;
             requestRender();
 
-            // Fire the settle callback on the UI thread ONLY when the index
-            // actually changed (i.e. the user completed a real page flip, not
-            // an aborted drag that snapped back to the same page).
             final int indexAfter = mCurrentIndex;
             if (indexAfter != indexBefore && mPageSettleListener != null) {
                 final OnPageSettleListener listener = mPageSettleListener;
@@ -192,7 +185,6 @@ public class CurlView extends GLSurfaceView implements View.OnTouchListener,
             }
 
         } else {
-            // Animation still in progress — continue interpolating.
             mPointerPos.mPos.set(mAnimationSource);
             float t = 1f - ((float)(currentTime - mAnimationStartTime) / mAnimationDurationTime);
             t = 1f - (t * t * t * (3 - 2 * t));
@@ -231,7 +223,7 @@ public class CurlView extends GLSurfaceView implements View.OnTouchListener,
     }
 
     // =========================================================
-    // TOUCH
+    // TOUCH — tap-to-flip + drag-to-curl
     // =========================================================
 
     @Override
@@ -245,14 +237,15 @@ public class CurlView extends GLSurfaceView implements View.OnTouchListener,
 
         mPointerPos.mPos.set(me.getX(), me.getY());
         mRenderer.translate(mPointerPos.mPos);
-        if (mEnableTouchPressure) {
-            mPointerPos.mPressure = me.getPressure();
-        } else {
-            mPointerPos.mPressure = 0.8f;
-        }
+        mPointerPos.mPressure = mEnableTouchPressure ? me.getPressure() : 0.8f;
 
         switch (me.getAction()) {
             case MotionEvent.ACTION_DOWN: {
+                // Record raw screen position + time for tap detection.
+                mDownRawX = me.getRawX();
+                mDownRawY = me.getRawY();
+                mDownTime = System.currentTimeMillis();
+
                 mDragStartPos.set(mPointerPos.mPos);
 
                 if (mDragStartPos.y > rightRect.top) {
@@ -293,7 +286,7 @@ public class CurlView extends GLSurfaceView implements View.OnTouchListener,
                 if (mCurlState == CURL_NONE) {
                     return false;
                 }
-                // Fall through to MOVE to trigger first render.
+                // Fall through to trigger first render.
             }
             case MotionEvent.ACTION_MOVE: {
                 updateCurlPos(mPointerPos);
@@ -302,26 +295,58 @@ public class CurlView extends GLSurfaceView implements View.OnTouchListener,
             case MotionEvent.ACTION_CANCEL:
             case MotionEvent.ACTION_UP: {
                 if (mCurlState == CURL_LEFT || mCurlState == CURL_RIGHT) {
+
+                    // ── TAP DETECTION ──────────────────────────────────────
+                    // If the finger barely moved and lifted quickly, treat it
+                    // as a tap and complete the flip instantly at fast speed,
+                    // instead of relying on the finger's current midpoint
+                    // position (which would be near the start, causing the
+                    // page to snap BACK rather than flipping forward).
+                    float movedX = Math.abs(me.getRawX() - mDownRawX);
+                    float movedY = Math.abs(me.getRawY() - mDownRawY);
+                    boolean isTap = (movedX < TAP_MAX_MOVE_PX)
+                            && (movedY < TAP_MAX_MOVE_PX)
+                            && (System.currentTimeMillis() - mDownTime < TAP_TIMEOUT_MS);
+
                     mAnimationSource.set(mPointerPos.mPos);
                     mAnimationStartTime = System.currentTimeMillis();
 
-                    if ((mViewMode == SHOW_ONE_PAGE
-                            && mPointerPos.mPos.x > (rightRect.left + rightRect.right) / 2)
-                            || (mViewMode == SHOW_TWO_PAGES
-                            && mPointerPos.mPos.x > rightRect.left)) {
+                    if (isTap) {
+                        // Complete the flip that the tap started, fast.
+                        mAnimationDurationTime = ANIMATION_DURATION_FAST;
                         mAnimationTarget.set(mDragStartPos);
-                        mAnimationTarget.x = mRenderer
-                                .getPageRect(CurlRenderer.PAGE_RIGHT).right;
-                        mAnimationTargetEvent = SET_CURL_TO_RIGHT;
-                    } else {
-                        mAnimationTarget.set(mDragStartPos);
-                        if (mCurlState == CURL_RIGHT || mViewMode == SHOW_TWO_PAGES) {
+                        if (mCurlState == CURL_RIGHT) {
+                            // Tapped right side → flip forward.
                             mAnimationTarget.x = leftRect.left;
+                            mAnimationTargetEvent = SET_CURL_TO_LEFT;
                         } else {
-                            mAnimationTarget.x = rightRect.left;
+                            // Tapped left side → flip backward.
+                            mAnimationTarget.x = mRenderer
+                                    .getPageRect(CurlRenderer.PAGE_RIGHT).right;
+                            mAnimationTargetEvent = SET_CURL_TO_RIGHT;
                         }
-                        mAnimationTargetEvent = SET_CURL_TO_LEFT;
+                    } else {
+                        // Normal drag release — decide direction by midpoint.
+                        mAnimationDurationTime = ANIMATION_DURATION_NORMAL;
+                        if ((mViewMode == SHOW_ONE_PAGE
+                                && mPointerPos.mPos.x > (rightRect.left + rightRect.right) / 2)
+                                || (mViewMode == SHOW_TWO_PAGES
+                                && mPointerPos.mPos.x > rightRect.left)) {
+                            mAnimationTarget.set(mDragStartPos);
+                            mAnimationTarget.x = mRenderer
+                                    .getPageRect(CurlRenderer.PAGE_RIGHT).right;
+                            mAnimationTargetEvent = SET_CURL_TO_RIGHT;
+                        } else {
+                            mAnimationTarget.set(mDragStartPos);
+                            if (mCurlState == CURL_RIGHT || mViewMode == SHOW_TWO_PAGES) {
+                                mAnimationTarget.x = leftRect.left;
+                            } else {
+                                mAnimationTarget.x = rightRect.left;
+                            }
+                            mAnimationTargetEvent = SET_CURL_TO_LEFT;
+                        }
                     }
+
                     mAnimate = true;
                     requestRender();
                 }
@@ -368,12 +393,6 @@ public class CurlView extends GLSurfaceView implements View.OnTouchListener,
         mRenderer.setMargins(left, top, right, bottom);
     }
 
-    /**
-     * Register a listener that is called on the UI thread whenever a
-     * swipe-driven page flip animation completes and the visible page changes.
-     * This is the correct hook for updating page counters, bookmarks, TTS,
-     * drawings, and saved position after gesture navigation.
-     */
     public void setOnPageSettleListener(OnPageSettleListener listener) {
         mPageSettleListener = listener;
     }
@@ -433,8 +452,8 @@ public class CurlView extends GLSurfaceView implements View.OnTouchListener,
                 curlPos.x = pageRect.left;
             }
             if (curlDir.y != 0) {
-                float diffX  = curlPos.x - pageRect.left;
-                float leftY  = curlPos.y + (diffX * curlDir.x / curlDir.y);
+                float diffX = curlPos.x - pageRect.left;
+                float leftY = curlPos.y + (diffX * curlDir.x / curlDir.y);
                 if (curlDir.y < 0 && leftY < pageRect.top) {
                     curlDir.x = curlPos.y - pageRect.top;
                     curlDir.y = pageRect.left - curlPos.x;
@@ -474,7 +493,6 @@ public class CurlView extends GLSurfaceView implements View.OnTouchListener,
         } else {
             mPageCurl.reset();
         }
-
         requestRender();
     }
 
@@ -664,38 +682,26 @@ public class CurlView extends GLSurfaceView implements View.OnTouchListener,
     // INTERFACES
     // =========================================================
 
-    /**
-     * Provider for feeding 'book' with bitmaps used for rendering pages.
-     */
     public interface PageProvider {
         int getPageCount();
         void updatePage(CurlPage page, int width, int height, int index);
     }
 
     /**
-     * Called on the UI thread when a swipe-driven page flip settles on a
-     * new page. {@code newIndex} is the authoritative page index after the
-     * flip — identical to what {@link #getCurrentIndex()} will return.
-     *
-     * Wire this into {@link PdfReaderController#reportSettledFromGesture}
-     * so that read-aloud, bookmarks, the page counter, drawing strokes, and
-     * the saved position all stay in sync after gesture navigation.
+     * Called on the UI thread when a swipe or tap-driven page flip animation
+     * completes and the visible page changes. Wire into
+     * {@link PdfReaderController#reportSettledFromGesture} so read-aloud,
+     * bookmarks, page counter, drawings and saved position stay correct.
      */
     public interface OnPageSettleListener {
         void onPageSettled(int newIndex);
     }
 
-    /**
-     * Simple holder for pointer position.
-     */
     private class PointerPosition {
         PointF mPos = new PointF();
         float  mPressure;
     }
 
-    /**
-     * Observer interface for handling CurlView size changes.
-     */
     public interface SizeChangedObserver {
         void onSizeChanged(int width, int height);
     }

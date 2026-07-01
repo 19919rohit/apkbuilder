@@ -1,23 +1,31 @@
-apply plugin: 'com.android.application'
-apply plugin: 'org.jetbrains.kotlin.android'
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+}
 
 android {
 
     namespace 'neunix.pageflow'
-    compileSdkVersion 34
+    compileSdk 34
 
     defaultConfig {
         applicationId "neunix.pageflow"
-        minSdkVersion 21
-        targetSdkVersion 34
+
+        minSdk 21
+        targetSdk 34
+
         versionCode 1
         versionName "1.0"
+
+        vectorDrawables.useSupportLibrary = true
     }
 
     buildTypes {
 
         release {
+            debuggable false
             minifyEnabled true
+            shrinkResources true
 
             proguardFiles getDefaultProguardFile(
                     'proguard-android-optimize.txt'
@@ -26,10 +34,11 @@ android {
 
         debug {
             debuggable true
+            minifyEnabled false
+            shrinkResources true
         }
     }
 
-    // IMPORTANT FIX
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
@@ -37,6 +46,15 @@ android {
 
     kotlinOptions {
         jvmTarget = '17'
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    lint {
+        checkReleaseBuilds true
+        abortOnError false
     }
 }
 
