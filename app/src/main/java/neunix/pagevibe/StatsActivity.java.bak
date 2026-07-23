@@ -256,34 +256,21 @@ public class StatsActivity extends AppCompatActivity {
     }
 
     private String lookupTitleForDocKey(String docKey) {
-    try {
-        String json = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-                .getString(KEY_RECENT, "[]");
-        JSONArray arr = new JSONArray(json);
-        
-        for (int i = 0; i < arr.length(); i++) {
-            JSONObject obj = arr.getJSONObject(i);
-            String uriStr = obj.optString("uri", "");
-            
-            // Match directly against the stored URI string or its hashCode fallback
-            if (!uriStr.isEmpty() && (uriStr.equals(docKey) || String.valueOf(Uri.parse(uriStr).hashCode()).equals(docKey))) {
-                String name = obj.optString("name", "Unknown Document");
-                return name.replaceAll("(?i)\\.pdf$", "").replace("_", " ").trim();
+        try {
+            String json = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                    .getString(KEY_RECENT, "[]");
+            JSONArray arr = new JSONArray(json);
+            for (int i = 0; i < arr.length(); i++) {
+                JSONObject obj = arr.getJSONObject(i);
+                Uri uri = Uri.parse(obj.getString("uri"));
+                if (String.valueOf(uri.hashCode()).equals(docKey)) {
+                    String name = obj.getString("name");
+                    return name.replaceAll("(?i)\\.pdf$", "").replace("_", " ").trim();
+                }
             }
-        }
-        
-        // Ultimate Fallback: If stats exist but don't match an active recent file, 
-        // display the most recent item so the card is never blank if you have reading time logged.
-        if (arr.length() > 0 && stats.getTotalSeconds() > 0) {
-            JSONObject obj = arr.getJSONObject(0);
-            String name = obj.optString("name", "Recent Document");
-            return name.replaceAll("(?i)\\.pdf$", "").replace("_", " ").trim();
-        }
-    } catch (Exception ignored) {}
-    return null;
-}
-
-
+        } catch (Exception ignored) {}
+        return null;
+    }
 
     private int dpToPx(int dp) {
         float density = getResources().getDisplayMetrics().density;
