@@ -1,0 +1,59 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+}
+
+android {
+
+    namespace "neunix.pagevibe"
+    compileSdk 36
+
+    defaultConfig {
+        applicationId "neunix.pagevibe"
+
+        minSdk 24
+        targetSdk 35
+
+        versionCode 2
+        versionName "2.0"
+
+        vectorDrawables.useSupportLibrary = true
+    }
+
+    buildTypes {
+
+        release {
+            debuggable false
+            minifyEnabled true
+            shrinkResources true
+
+            proguardFiles getDefaultProguardFile(
+                    'proguard-android-optimize.txt'
+            ), 'proguard-rules.pro'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_21
+        targetCompatibility JavaVersion.VERSION_21
+    }
+
+    kotlinOptions {
+        jvmTarget = '21'
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    lint {
+        checkReleaseBuilds true
+        abortOnError false
+    }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'com.google.android.material:material:1.9.0'
+    implementation 'io.legere:pdfiumandroid:2.0.0'
+}

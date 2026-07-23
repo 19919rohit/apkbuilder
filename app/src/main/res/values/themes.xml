@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="Theme.PageVibe" parent="Theme.MaterialComponents.NoActionBar">
+
+        <!-- Backgrounds -->
+        <item name="android:windowBackground">#0F0F0F</item>
+        <item name="android:colorBackground">#0F0F0F</item>
+
+        <!-- Status bar -->
+        <item name="android:statusBarColor">#00000000</item>
+        <item name="android:windowLightStatusBar">false</item>
+
+        <!-- Navigation bar -->
+        <item name="android:navigationBarColor">#00000000</item>
+        <item name="android:windowLightNavigationBar">false</item>
+
+        <!-- Draw behind system bars -->
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+        <item name="android:windowTranslucentStatus">false</item>
+        <item name="android:windowTranslucentNavigation">false</item>
+
+        <!-- Material colors -->
+        <item name="colorPrimary">#FFFFFF</item>
+        <item name="colorPrimaryVariant">#222222</item>
+        <item name="colorOnPrimary">#000000</item>
+        <item name="colorSecondary">#AAAAAA</item>
+        <item name="colorSurface">#1A1A1A</item>
+        <item name="colorOnSurface">#FFFFFF</item>
+        <item name="colorError">#FF5555</item>
+
+        <!-- Slider -->
+        <item name="colorControlActivated">#FFFFFF</item>
+
+        <!-- Ripple -->
+        <item name="android:colorControlHighlight">#33FFFFFF</item>
+
+        <!-- No title bar anywhere -->
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+
+    </style>
+
+</resources>

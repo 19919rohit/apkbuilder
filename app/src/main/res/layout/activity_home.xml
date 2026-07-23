@@ -1,0 +1,376 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#080808">
+
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true"
+        android:overScrollMode="never"
+        android:paddingBottom="120dp"
+        android:clipToPadding="false">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <LinearLayout
+                android:id="@+id/headerSection"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingStart="24dp"
+                android:paddingEnd="24dp"
+                android:paddingTop="56dp"
+                android:paddingBottom="6dp">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/greetingText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textSize="13sp"
+                        android:textColor="#8A8A8A"
+                        android:letterSpacing="0.02"/>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="PageVibe"
+                        android:textSize="34sp"
+                        android:textStyle="bold"
+                        android:textColor="#FFFFFF"
+                        android:letterSpacing="-0.015"
+                        android:layout_marginTop="1dp"/>
+
+                </LinearLayout>
+
+                <ImageButton
+                    android:id="@+id/btnAbout"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:src="@drawable/ic_about"
+                    android:tint="#666666"
+                    android:scaleType="centerInside"
+                    android:background="@android:color/transparent"
+                    android:contentDescription="About application"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:foreground="?attr/selectableItemBackgroundBorderless"/>
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/insightsCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:padding="16dp"
+                android:layout_marginStart="24dp"
+                android:layout_marginEnd="24dp"
+                android:layout_marginTop="18dp"
+                android:background="@drawable/bg_continue_card"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground">
+
+                <ImageView
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:src="@drawable/ic_stats"
+                    android:tint="#4488FF"
+                    android:padding="9dp"
+                    android:scaleType="fitCenter"
+                    android:background="@drawable/bg_file_initial"/>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:layout_marginStart="14dp">
+
+                    <TextView
+                        android:id="@+id/insightsPrimaryText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Track your reading progress"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:textColor="#F0F0F0"/>
+
+                    <TextView
+                        android:id="@+id/insightsSecondaryText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Tap to see your stats"
+                        android:textSize="11sp"
+                        android:textColor="#7A7A7A"
+                        android:layout_marginTop="3dp"/>
+
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="›"
+                    android:textSize="22sp"
+                    android:textColor="#2A2A2A"/>
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/continueSection"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingStart="24dp"
+                android:paddingEnd="24dp"
+                android:paddingTop="28dp"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="CONTINUE READING"
+                    android:textSize="10sp"
+                    android:letterSpacing="0.16"
+                    android:textColor="#707070"
+                    android:layout_marginBottom="12dp"/>
+
+                <LinearLayout
+                    android:id="@+id/continueCard"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:padding="16dp"
+                    android:background="@drawable/bg_continue_card"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:foreground="?attr/selectableItemBackground">
+
+                    <FrameLayout
+                        android:layout_width="60dp"
+                        android:layout_height="80dp"
+                        android:background="@drawable/bg_recent_card">
+
+                        <ImageView
+                            android:id="@+id/continueThumbnail"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:scaleType="centerCrop"
+                            android:visibility="gone"/>
+
+                        <TextView
+                            android:id="@+id/continueInitial"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:textSize="24sp"
+                            android:textStyle="bold"
+                            android:textColor="#2A2A2A"/>
+
+                    </FrameLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:layout_marginStart="14dp"
+                        android:layout_marginEnd="8dp">
+
+                        <TextView
+                            android:id="@+id/continueTitle"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:textSize="14sp"
+                            android:textColor="#F0F0F0"
+                            android:textStyle="bold"
+                            android:maxLines="2"
+                            android:ellipsize="end"
+                            android:lineSpacingMultiplier="1.25"/>
+
+                        <TextView
+                            android:id="@+id/continueSubtitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:textSize="11sp"
+                            android:textColor="#7A7A7A"
+                            android:layout_marginTop="5dp"/>
+
+                        <FrameLayout
+                            android:id="@+id/progressTrack"
+                            android:layout_width="match_parent"
+                            android:layout_height="2dp"
+                            android:layout_marginTop="10dp"
+                            android:background="#1C1C1C">
+
+                            <View
+                                android:id="@+id/progressFill"
+                                android:layout_width="0dp"
+                                android:layout_height="match_parent"
+                                android:background="#FFFFFF"/>
+
+                        </FrameLayout>
+
+                        <TextView
+                            android:id="@+id/progressLabel"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:textSize="10sp"
+                            android:textColor="#6A6A6A"
+                            android:layout_marginTop="5dp"/>
+
+                    </LinearLayout>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="›"
+                        android:textSize="24sp"
+                        android:textColor="#2A2A2A"/>
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/recentSection"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingTop="28dp"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingStart="24dp"
+                    android:paddingEnd="24dp"
+                    android:layout_marginBottom="14dp">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="RECENT"
+                        android:textSize="10sp"
+                        android:letterSpacing="0.16"
+                        android:textColor="#707070"/>
+
+                    <TextView
+                        android:id="@+id/btnSeeAllRecent"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="See all in Library  ›"
+                        android:textSize="11sp"
+                        android:textColor="#4488FF"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:padding="4dp"/>
+
+                </LinearLayout>
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/recentStrip"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"
+                    android:clipToPadding="false"
+                    android:overScrollMode="never"/>
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/emptyState"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:gravity="center_horizontal"
+                android:paddingTop="80dp"
+                android:paddingStart="48dp"
+                android:paddingEnd="48dp"
+                android:visibility="gone"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground">
+
+                <ImageView
+    android:layout_width="72dp"
+    android:layout_height="72dp"
+    android:layout_gravity="center"
+    android:padding="16dp"
+    android:background="@drawable/bg_continue_card"
+    android:src="@drawable/ic_book"
+    android:scaleType="fitCenter"
+    android:contentDescription="@null"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Ready for your first read?"
+                    android:textSize="17sp"
+                    android:textStyle="bold"
+                    android:textColor="#DDDDDD"
+                    android:layout_marginTop="22dp"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Tap here to start your reading journey."
+                    android:textSize="13sp"
+                    android:textColor="#7A7A6A"
+                    android:gravity="center"
+                    android:lineSpacingMultiplier="1.6"
+                    android:layout_marginTop="10dp"/>
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+    </androidx.core.widget.NestedScrollView>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:orientation="vertical"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:paddingBottom="20dp"
+        android:paddingTop="20dp"
+        android:background="@drawable/bg_bar_bottom">
+
+        <TextView
+            android:id="@+id/btnOpenPdf"
+            android:layout_width="match_parent"
+            android:layout_height="54dp"
+            android:gravity="center"
+            android:text="Open PDF"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            android:textColor="#000000"
+            android:background="@drawable/bg_open_button"
+            android:clickable="true"
+            android:focusable="true"/>
+
+    </LinearLayout>
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

@@ -1,0 +1,4 @@
+builder_config.json
+outputs/
+.gradle/
+local.properties

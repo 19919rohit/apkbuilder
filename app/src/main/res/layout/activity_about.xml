@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#080808">
+
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true"
+        android:overScrollMode="never"
+        android:paddingBottom="96dp"
+        android:clipToPadding="false">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingStart="24dp"
+                android:paddingEnd="24dp"
+                android:paddingTop="56dp"
+                android:paddingBottom="6dp">
+
+                <ImageButton
+                    android:id="@+id/btnBack"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:layout_marginEnd="16dp"
+                    android:src="@drawable/ic_back"
+                    android:tint="#888888"
+                    android:background="@drawable/bg_file_initial"
+                    android:contentDescription="Go back"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:foreground="?attr/selectableItemBackgroundBorderless"/>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="ABOUT THE APP"
+                        android:textSize="11sp"
+                        android:textColor="#8A8A8A"
+                        android:letterSpacing="0.12"/>
+
+                    <TextView
+                        android:id="@+id/txtAppName"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="PageVibe"
+                        android:textSize="34sp"
+                        android:textStyle="bold"
+                        android:textColor="#FFFFFF"
+                        android:letterSpacing="-0.015"
+                        android:layout_marginTop="1dp"/>
+                </LinearLayout>
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingStart="24dp"
+                android:paddingEnd="24dp"
+                android:paddingTop="28dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="APP INFORMATION"
+                    android:textSize="10sp"
+                    android:letterSpacing="0.16"
+                    android:textColor="#707070"
+                    android:layout_marginBottom="12dp"/>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp"
+                    android:background="@drawable/bg_continue_card">
+
+                    <TextView
+                        android:id="@+id/txtPackageName"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="neunix.pagevibe"
+                        android:textSize="14sp"
+                        android:textColor="#F0F0F0"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/txtVersion"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Version 1.0.0"
+                        android:textSize="12sp"
+                        android:textColor="#7A7A7A"
+                        android:layout_marginTop="5dp"/>
+                </LinearLayout>
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingStart="24dp"
+                android:paddingEnd="24dp"
+                android:paddingTop="28dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="DESCRIPTION"
+                    android:textSize="10sp"
+                    android:letterSpacing="0.16"
+                    android:textColor="#707070"
+                    android:layout_marginBottom="12dp"/>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp"
+                    android:background="@drawable/bg_continue_card">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="PageVibe is built to give you a clean, distraction-free reading experience. It loads your documents instantly and saves your place automatically, making it easy to jump back into your favorite books right where you left off."
+                        android:textSize="13sp"
+                        android:textColor="#A0A0A0"
+                        android:lineSpacingMultiplier="1.4"/>
+                    
+                </LinearLayout>
+            </LinearLayout>
+            <TextView
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="24dp"
+    android:layout_marginBottom="16dp"
+    android:gravity="center"
+    android:text="Built by Neunix Studios"
+    android:textSize="12sp"
+    android:textColor="#5F5F5F"/>
+
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:orientation="vertical"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:paddingBottom="28dp"
+        android:paddingTop="20dp"
+        android:background="@drawable/bg_bar_bottom">
+
+        <TextView
+            android:id="@+id/btnLicenses"
+            android:layout_width="match_parent"
+            android:layout_height="54dp"
+            android:gravity="center"
+            android:text="Open Source Licenses"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            android:textColor="#FFFFFF"
+            android:clickable="true"
+            android:focusable="true"/>
+    </LinearLayout>
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

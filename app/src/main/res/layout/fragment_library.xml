@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#080808">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="24dp"
+            android:paddingEnd="16dp"
+            android:paddingTop="56dp"
+            android:paddingBottom="4dp">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="YOUR COLLECTION"
+                    android:textSize="11sp"
+                    android:textColor="#8A8A8A"
+                    android:letterSpacing="0.12"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Library"
+                    android:textSize="34sp"
+                    android:textStyle="bold"
+                    android:textColor="#FFFFFF"
+                    android:letterSpacing="-0.015"
+                    android:layout_marginTop="1dp"/>
+
+            </LinearLayout>
+
+            <ImageButton
+                android:id="@+id/btnLibraryOverflow"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:src="@drawable/ic_more_vert"
+                android:tint="#AAAAAA"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="More options"/>
+
+        </LinearLayout>
+
+        <EditText
+    android:id="@+id/librarySearchInput"
+    android:layout_width="match_parent"
+    android:layout_height="46dp"
+    android:layout_marginStart="24dp"
+    android:layout_marginTop="14dp"
+    android:layout_marginEnd="24dp"
+    android:background="@drawable/bg_button_dark"
+    android:hint="Search your library"
+    android:textColor="#FFFFFF"
+    android:textColorHint="#666666"
+    android:textSize="14sp"
+    android:paddingStart="16dp"
+    android:paddingEnd="16dp"
+    android:drawableStart="@drawable/ic_search"
+    android:drawablePadding="12dp"
+    android:singleLine="true"
+    android:imeOptions="actionSearch"
+    android:inputType="text" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp"
+            android:paddingTop="16dp"
+            android:paddingBottom="10dp">
+
+            <TextView
+                android:id="@+id/libraryCountLabel"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="0 PDFs"
+                android:textSize="11sp"
+                android:textColor="#707070"/>
+
+            <TextView
+                android:id="@+id/librarySortChip"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Sort: Recent"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="#DDDDDD"
+                android:background="@drawable/bg_button_dark"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp"
+                android:clickable="true"
+                android:focusable="true"/>
+
+        </LinearLayout>
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1">
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/libraryRecycler"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:paddingBottom="20dp"
+                android:clipToPadding="false"
+                android:overScrollMode="never"/>
+
+            <TextView
+                android:id="@+id/libraryNoResults"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="top"
+                android:layout_marginTop="40dp"
+                android:text="No PDFs match your search"
+                android:textSize="13sp"
+                android:textColor="#666666"
+                android:gravity="center"
+                android:visibility="gone"/>
+
+            <LinearLayout
+                android:id="@+id/libraryEmptyState"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:orientation="vertical"
+                android:gravity="center_horizontal"
+                android:paddingStart="48dp"
+                android:paddingEnd="48dp"
+                android:visibility="gone"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground">
+
+                <ImageView
+    android:layout_width="72dp"
+    android:layout_height="72dp"
+    android:layout_gravity="center"
+    android:padding="16dp"
+    android:background="@drawable/bg_continue_card"
+    android:src="@drawable/ic_library_img"
+    android:scaleType="fitCenter"
+    android:contentDescription="@null"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Your library is empty"
+                    android:textSize="17sp"
+                    android:textStyle="bold"
+                    android:textColor="#DDDDDD"
+                    android:layout_marginTop="22dp"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Every PDF you open in PageVibe will be saved here — with custom covers and names, if you want them."
+                    android:textSize="13sp"
+                    android:textColor="#7A7A6A"
+                    android:gravity="center"
+                    android:lineSpacingMultiplier="1.6"
+                    android:layout_marginTop="10dp"/>
+
+            </LinearLayout>
+
+        </FrameLayout>
+
+    </LinearLayout>
+
+</FrameLayout>
