@@ -19,7 +19,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class PdfReadAloudController {
+public class PdfReadAloudController implements TextToSpeech.OnInitListener {
 
     private final Context  context;
     private final PdfReaderController reader;
@@ -74,60 +74,23 @@ public class PdfReadAloudController {
     }
 
     private void init() {
-        // IMPORTANT: `newEngine` is a local, effectively-final reference to
-        // THIS SPECIFIC engine instance. The lambda below closes over
-        // `newEngine`, not the mutable `tts` field — so even if `tts` gets
-        // reassigned to null by shutdown() before this callback fires, the
-        // callback still has a valid, non-null object to call methods on.
-        // This is the actual fix for the reported NullPointerException.
-        TextToSpeech newEngine = new TextToSpeech(context, status -> {
-            try {
-                if (isShutdown.get()) {
-                    // shutdown() already ran before this async callback
-                    // arrived — this engine is orphaned. Shut it down
-                    // immediately rather than configuring a controller
-                    // that's already supposed to be dead.
-                    try { newEngine.shutdown(); } catch (Throwable ignored) {}
-                    return;
-                }
-                if (status != TextToSpeech.SUCCESS) return;
 
-                int langResult = newEngine.setLanguage(Locale.getDefault());
-                ttsReady = langResult != TextToSpeech.LANG_MISSING_DATA
-                        && langResult != TextToSpeech.LANG_NOT_SUPPORTED;
-                if (!ttsReady) return;
+    tts = new TextToSpeech(context, this);
 
-                try {
-                    Set<Voice> voices = newEngine.getVoices();
-                    if (voices != null) {
-                        Voice best = null;
-                        for (Voice v : voices) {
-                            if (v.isNetworkConnectionRequired()) continue;
-                            if (!v.getLocale().getLanguage()
-                                    .equals(Locale.getDefault().getLanguage())) continue;
-                            if (best == null || v.getQuality() > best.getQuality()) best = v;
-                        }
-                        if (best != null) newEngine.setVoice(best);
-                    }
-                } catch (Throwable ignored) {}
+    btnPlayPause.setOnClickListener(v -> {
+        if (ttsPlaying) {
+            pauseTts();
+        } else {
+            resumeTts();
+        }
+    });
 
-                newEngine.setSpeechRate(0.92f);
-                newEngine.setPitch(1.0f);
-            } catch (Throwable ignored) {
-                // The TTS init callback must never be able to crash the app.
-            }
-        });
+    btnStop.setOnClickListener(v -> stop());
 
-        tts = newEngine;
-
-        btnPlayPause.setOnClickListener(v -> { if (ttsPlaying) pauseTts(); else resumeTts(); });
-        btnStop.setOnClickListener(v -> stop());
-
-        TooltipUtil.apply(triggerButton, "Read this page aloud");
-        TooltipUtil.apply(btnPlayPause, "Play / Pause");
-        TooltipUtil.apply(btnStop, "Stop reading");
-    }
-
+    TooltipUtil.apply(triggerButton, "Read this page aloud");
+    TooltipUtil.apply(btnPlayPause, "Play / Pause");
+    TooltipUtil.apply(btnStop, "Stop reading");
+}
     public void toggle() {
         if (ttsPlaying) { stop(); return; }
         if (!ttsReady)  { toast("Text-to-speech engine not ready"); return; }
@@ -294,6 +257,78 @@ public class PdfReadAloudController {
         }
         return end;
     }
+    
+    @Override
+    public void onInit(int status) {
+
+    TextToSpeech engine = tts;
+
+    if (engine == null)
+        return;
+
+    try {
+
+        if (isShutdown.get()) {
+            try {
+                engine.stop();
+            } catch (Throwable ignored) {}
+
+            try {
+                engine.shutdown();
+            } catch (Throwable ignored) {}
+
+            return;
+        }
+
+        if (status != TextToSpeech.SUCCESS)
+            return;
+
+        int langResult = engine.setLanguage(Locale.getDefault());
+
+        ttsReady =
+                langResult != TextToSpeech.LANG_MISSING_DATA &&
+                langResult != TextToSpeech.LANG_NOT_SUPPORTED;
+
+        if (!ttsReady)
+            return;
+
+        try {
+
+            Set<Voice> voices = engine.getVoices();
+
+            if (voices != null) {
+
+                Voice best = null;
+
+                for (Voice voice : voices) {
+
+                    if (voice.isNetworkConnectionRequired())
+                        continue;
+
+                    if (!voice.getLocale().getLanguage()
+                            .equals(Locale.getDefault().getLanguage()))
+                        continue;
+
+                    if (best == null || voice.getQuality() > best.getQuality())
+                        best = voice;
+                }
+
+                if (best != null)
+                    engine.setVoice(best);
+            }
+
+        } catch (Throwable ignored) {
+        }
+
+        try {
+            engine.setSpeechRate(0.92f);
+            engine.setPitch(1.0f);
+        } catch (Throwable ignored) {
+        }
+
+    } catch (Throwable ignored) {
+    }
+}
 
     private void pauseTts() {
         if (!ttsPlaying) return;
