@@ -5,25 +5,26 @@
     <string name="recent_files">Recent</string>
     <string name="no_recent">No recent files</string>
     <string name="no_recent_sub">Tap Open PDF to get started</string>
-    <string name="loading">Opening PDF…</string>
+    <string name="loading">Opening PDF...</string>
     <string name="error_title">Something went wrong</string>
     <string name="error_open_another">Open another PDF</string>
     <string name="page_counter">%1$d / %2$d</string>
     <string name="btn_back">Back</string>
     <string name="btn_open_new">Open PDF</string>
     <string name="btn_remove">Remove</string>
+
     <string name="about_description"><![CDATA[
-PageVibe — User Guide
+PageVibe - User Guide
 
 PageVibe is a PDF reader for Android that turns pages like a real book, lets you write on your documents, reads them aloud to you, and helps you pull important pages from multiple PDFs into one single file.
 
 Opening a PDF
 
-From the Home screen, tap "Open PDF" and choose any PDF file on your device. It's automatically saved to your Library so you can find it again later.
+From the Home screen, tap "Open PDF" and choose any PDF file on your device. It is automatically saved to your Library so you can find it again later.
 
 Reading
 
-Swipe near the edge of the screen to turn a page — it curls just like a real page.
+Swipe near the edge of the screen to turn a page - it curls just like a real page.
 
 Pinch near the center of the screen to zoom in, then pan around while zoomed.
 
@@ -37,7 +38,7 @@ Tap the magnifying glass icon and type any word or phrase. Every place it appear
 
 Bookmarks
 
-Tap the star icon to bookmark the page you're on. Tap the bookmark list icon to see all your saved pages as visual thumbnail cards.
+Tap the star icon to bookmark the page you are on. Tap the bookmark list icon to see all your saved pages as visual thumbnail cards.
 
 Listening (Read Aloud)
 
@@ -47,7 +48,7 @@ Writing and Highlighting
 
 Tap the pen icon to open the drawing tools. Choose a pen or highlighter, pick a color, and write directly on the page. Your notes are saved automatically.
 
-Page Basket — Combine Pages from Different PDFs
+Page Basket - Combine Pages from Different PDFs
 
 This is PageVibe's most useful feature for studying.
 
@@ -55,23 +56,23 @@ While reading any PDF, tap the basket icon on a page you want to keep.
 
 Open a different PDF and add more pages. They all go into the same basket.
 
-Go to the Basket tab to see everything you've collected. Drag pages to reorder them.
+Go to the Basket tab to see everything you have collected. Drag pages to reorder them.
 
-Tap "Create PDF from Basket," give it a name, and a new merged PDF is saved directly to your phone's Documents folder, ready to share or print.
+Tap "Create PDF from Basket", give it a name, and a new merged PDF is saved directly to your phone's Documents folder, ready to share or print.
 
 Your Library
 
-The Library tab shows every PDF you've ever opened as a grid of covers.
+The Library tab shows every PDF you have ever opened as a grid of covers.
 
 Long-press any book to:
 
-Change Cover — Pick any photo as that book's cover image.
+Change Cover - Pick any photo as that book's cover image.
 
-Rename — Give it a name that makes sense to you.
+Rename - Give it a name that makes sense to you.
 
-Delete from Library — Remove it from the library. Your original file on your device is never touched.
+Delete from Library - Remove it from the library. Your original file on your device is never touched.
 
-Use the search bar at the top to find a book instantly, and tap "Sort By" in the top-right corner to switch between Recent and A–Z ordering.
+Use the search bar at the top to find a book instantly, and tap "Sort By" in the top-right corner to switch between Recent and A-Z ordering.
 
 Your Reading Stats
 
@@ -79,7 +80,7 @@ Tap the Insights card on the Home screen to see:
 
 Your current daily reading streak.
 
-How long you've read today and over the last 7 days.
+How long you have read today and over the last 7 days.
 
 Your most-read book overall.
 
@@ -87,7 +88,7 @@ A short motivational note that changes once per day.
 
 Privacy
 
-PageVibe works completely offline. Your PDFs, notes, and reading activity never leave your device. There's no account, no cloud sync, and nothing is ever uploaded anywhere.
+PageVibe works completely offline. Your PDFs, notes, and reading activity never leave your device. There is no account, no cloud sync, and nothing is ever uploaded anywhere.
 ]]></string>
-</resources>
 
+</resources>
