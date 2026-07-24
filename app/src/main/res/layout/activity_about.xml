@@ -140,7 +140,7 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="@string/about_description"
+                        android:text="PageVibe is built to give you a clean, distraction-free reading experience. It loads your documents instantly and saves your place automatically, making it easy to jump back into your favorite books right where you left off."
                         android:textSize="13sp"
                         android:textColor="#A0A0A0"
                         android:lineSpacingMultiplier="1.4"/>
