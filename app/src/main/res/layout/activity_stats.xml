@@ -178,9 +178,7 @@
                 </LinearLayout>
             </LinearLayout>
 
-            <!-- RECENT ACTIVITY — no fixed day count in the label; the
-                 chart itself only ever shows as many days as have real
-                 history, up to 7, starting with Today. -->
+            <!-- RECENT ACTIVITY -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -262,6 +260,49 @@
                 android:paddingEnd="40dp"
                 android:paddingTop="40dp"
                 android:visibility="gone"/>
+
+            <!-- DAILY MOTIVATION -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="DAILY MOTIVATION"
+                android:textSize="10sp"
+                android:letterSpacing="0.16"
+                android:textColor="#707070"
+                android:paddingStart="24dp"
+                android:paddingEnd="24dp"
+                android:layout_marginTop="28dp"
+                android:layout_marginBottom="12dp"/>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="20dp"
+                android:layout_marginStart="24dp"
+                android:layout_marginEnd="24dp"
+                android:layout_marginBottom="12dp"
+                android:background="@drawable/bg_continue_card">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="❝"
+                    android:textSize="22sp"
+                    android:textStyle="bold"
+                    android:textColor="#4488FF"/>
+
+                <TextView
+                    android:id="@+id/dailyQuoteText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:textSize="14sp"
+                    android:textColor="#DDDDDD"
+                    android:lineSpacingMultiplier="1.4"
+                    android:fontFamily="sans-serif-medium"/>
+
+            </LinearLayout>
 
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>

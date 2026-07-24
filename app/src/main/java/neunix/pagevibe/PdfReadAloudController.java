@@ -16,6 +16,7 @@ import android.widget.TextView;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class PdfReadAloudController {
@@ -36,6 +37,15 @@ public class PdfReadAloudController {
     private boolean      ttsReady   = false;
     private boolean      ttsPlaying = false;
     private boolean      ttsPaused  = false;
+
+    // Set true the instant shutdown() is called. The async TextToSpeech
+    // init callback can still fire AFTER shutdown() has already nulled
+    // the `tts` field (e.g. user opens a PDF and closes the reader before
+    // the TTS engine finishes binding) — this flag lets that late
+    // callback detect it's obsolete and cleanly shut itself down instead
+    // of proceeding to configure a dead controller, and is what fixes
+    // the NullPointerException on TextToSpeech.setLanguage().
+    private final AtomicBoolean isShutdown = new AtomicBoolean(false);
 
     private final AtomicInteger ttsLockedPage = new AtomicInteger(-1);
 
@@ -64,30 +74,51 @@ public class PdfReadAloudController {
     }
 
     private void init() {
-        tts = new TextToSpeech(context, status -> {
-            if (status != TextToSpeech.SUCCESS) return;
-            int langResult = tts.setLanguage(Locale.getDefault());
-            ttsReady = langResult != TextToSpeech.LANG_MISSING_DATA
-                    && langResult != TextToSpeech.LANG_NOT_SUPPORTED;
-            if (!ttsReady) return;
-
+        // IMPORTANT: `newEngine` is a local, effectively-final reference to
+        // THIS SPECIFIC engine instance. The lambda below closes over
+        // `newEngine`, not the mutable `tts` field — so even if `tts` gets
+        // reassigned to null by shutdown() before this callback fires, the
+        // callback still has a valid, non-null object to call methods on.
+        // This is the actual fix for the reported NullPointerException.
+        TextToSpeech newEngine = new TextToSpeech(context, status -> {
             try {
-                Set<Voice> voices = tts.getVoices();
-                if (voices != null) {
-                    Voice best = null;
-                    for (Voice v : voices) {
-                        if (v.isNetworkConnectionRequired()) continue;
-                        if (!v.getLocale().getLanguage()
-                                .equals(Locale.getDefault().getLanguage())) continue;
-                        if (best == null || v.getQuality() > best.getQuality()) best = v;
-                    }
-                    if (best != null) tts.setVoice(best);
+                if (isShutdown.get()) {
+                    // shutdown() already ran before this async callback
+                    // arrived — this engine is orphaned. Shut it down
+                    // immediately rather than configuring a controller
+                    // that's already supposed to be dead.
+                    try { newEngine.shutdown(); } catch (Throwable ignored) {}
+                    return;
                 }
-            } catch (Exception ignored) {}
+                if (status != TextToSpeech.SUCCESS) return;
 
-            tts.setSpeechRate(0.92f);
-            tts.setPitch(1.0f);
+                int langResult = newEngine.setLanguage(Locale.getDefault());
+                ttsReady = langResult != TextToSpeech.LANG_MISSING_DATA
+                        && langResult != TextToSpeech.LANG_NOT_SUPPORTED;
+                if (!ttsReady) return;
+
+                try {
+                    Set<Voice> voices = newEngine.getVoices();
+                    if (voices != null) {
+                        Voice best = null;
+                        for (Voice v : voices) {
+                            if (v.isNetworkConnectionRequired()) continue;
+                            if (!v.getLocale().getLanguage()
+                                    .equals(Locale.getDefault().getLanguage())) continue;
+                            if (best == null || v.getQuality() > best.getQuality()) best = v;
+                        }
+                        if (best != null) newEngine.setVoice(best);
+                    }
+                } catch (Throwable ignored) {}
+
+                newEngine.setSpeechRate(0.92f);
+                newEngine.setPitch(1.0f);
+            } catch (Throwable ignored) {
+                // The TTS init callback must never be able to crash the app.
+            }
         });
+
+        tts = newEngine;
 
         btnPlayPause.setOnClickListener(v -> { if (ttsPlaying) pauseTts(); else resumeTts(); });
         btnStop.setOnClickListener(v -> stop());
@@ -136,6 +167,8 @@ public class PdfReadAloudController {
     }
 
     private void speakChunked(String text, int pageIndex, int baseOffset) {
+        if (tts == null || isShutdown.get()) return;
+
         ttsPlaying = true;
         ttsPaused  = false;
         btnPlayPause.setImageResource(R.drawable.ic_pause);
@@ -181,7 +214,11 @@ public class PdfReadAloudController {
             }
         });
 
-        tts.stop();
+        try {
+            tts.stop();
+        } catch (Throwable ignored) {
+            return;
+        }
 
         mChunkOffsets.clear();
         int chunkSize = 3800;
@@ -200,7 +237,11 @@ public class PdfReadAloudController {
             mChunkOffsets.add(offset);
 
             Bundle params = new Bundle();
-            tts.speak(chunk, TextToSpeech.QUEUE_ADD, params, uid);
+            try {
+                tts.speak(chunk, TextToSpeech.QUEUE_ADD, params, uid);
+            } catch (Throwable ignored) {
+                break;
+            }
             offset = end;
             chunkIndex++;
         }
@@ -256,7 +297,7 @@ public class PdfReadAloudController {
 
     private void pauseTts() {
         if (!ttsPlaying) return;
-        if (tts != null) tts.stop();
+        if (tts != null) { try { tts.stop(); } catch (Throwable ignored) {} }
         ttsPlaying = false;
         ttsPaused  = true;
         if (highlightOverlay != null) highlightOverlay.clearTtsHighlight();
@@ -294,7 +335,7 @@ public class PdfReadAloudController {
     }
 
     public void stop() {
-        if (tts != null) tts.stop();
+        if (tts != null) { try { tts.stop(); } catch (Throwable ignored) {} }
         ttsPlaying         = false;
         ttsPaused          = false;
         ttsLockedPage.set(-1);
@@ -325,7 +366,12 @@ public class PdfReadAloudController {
     public boolean isPlaying() { return ttsPlaying; }
 
     public void shutdown() {
-        if (tts != null) { tts.stop(); tts.shutdown(); tts = null; }
+        isShutdown.set(true);
+        if (tts != null) {
+            try { tts.stop(); } catch (Throwable ignored) {}
+            try { tts.shutdown(); } catch (Throwable ignored) {}
+            tts = null;
+        }
     }
 
     private void toast(String msg) {

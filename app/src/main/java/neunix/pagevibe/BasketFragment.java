@@ -223,6 +223,7 @@ public class BasketFragment extends Fragment {
         dialog.show();
     }
 
+    // FIXED: was "PageFlow Basket " — now matches the app's actual name.
     private String defaultExportName() {
         return "PageVibe Basket " + new SimpleDateFormat("MMM d, yyyy", Locale.getDefault()).format(new Date());
     }

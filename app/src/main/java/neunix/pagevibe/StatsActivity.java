@@ -17,18 +17,13 @@ import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import org.json.JSONArray;
-import org.json.JSONObject;
-
 import java.util.ArrayList;
 import java.util.List;
 
 public class StatsActivity extends AppCompatActivity {
 
-    private static final String PREFS_NAME = "pagevibe_prefs";
-    private static final String KEY_RECENT = "recent_files";
-
     private ReadingStatsController stats;
+    private LibraryManager         libraryManager;
 
     private final List<ValueAnimator> activeAnimators = new ArrayList<>();
 
@@ -37,7 +32,8 @@ public class StatsActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_stats);
 
-        stats = new ReadingStatsController(this);
+        stats          = new ReadingStatsController(this);
+        libraryManager = new LibraryManager(this);
 
         findViewById(R.id.btnBack).setOnClickListener(v -> finish());
 
@@ -45,6 +41,7 @@ public class StatsActivity extends AppCompatActivity {
         bindStreak();
         bindWeekChart();
         bindMostRead();
+        bindDailyQuote();
     }
 
     @Override
@@ -81,6 +78,17 @@ public class StatsActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Two independent visual signals, deliberately not conflated:
+     *  - The historical BEST day gets a static amber tint (informational).
+     *  - TODAY always gets the animated glow + shimmer, regardless of
+     *    whether it happens to also be the best day — this is what
+     *    previously made the animation misleadingly look like "today is
+     *    always special" for new users, since a brand-new user's only
+     *    day of data IS today, so best-day and today were the same thing
+     *    every single time. Now the animation means "still counting",
+     *    and the amber tint alone means "your best day so far".
+     */
     private void bindWeekChart() {
         LinearLayout chart = findViewById(R.id.weekChart);
         chart.removeAllViews();
@@ -105,9 +113,16 @@ public class StatsActivity extends AppCompatActivity {
         int barWidthPx     = dpToPx(18);
         int glowExtraPx    = dpToPx(12);
 
+        final int amberColor = Color.parseColor("#FFC400");
+        final int blueColor  = Color.parseColor("#4488FF");
+        final int greyColor  = Color.parseColor("#222222");
+        final int amberGlow  = Color.parseColor("#77FFC400");
+        final int blueGlow   = Color.parseColor("#774488FF");
+
         for (int i = 0; i < entries.size(); i++) {
             ReadingStatsController.DayEntry entry = entries.get(i);
-            boolean isBest = (i == bestIndex);
+            boolean isBest  = (i == bestIndex);
+            boolean isToday = entry.isToday;
 
             LinearLayout column = new LinearLayout(this);
             column.setOrientation(LinearLayout.VERTICAL);
@@ -125,8 +140,11 @@ public class StatsActivity extends AppCompatActivity {
                     ? Math.max(dpToPx(4), (int) (maxBarHeightPx * ratio))
                     : dpToPx(4);
 
-            if (isBest) {
-                addBreathingGlow(barSlot, barWidthPx, barHeight, glowExtraPx);
+            int barColor  = isBest ? amberColor : (entry.seconds > 0 ? blueColor : greyColor);
+            int glowColor = isBest ? amberGlow  : blueGlow;
+
+            if (isToday) {
+                addBreathingGlow(barSlot, barWidthPx, barHeight, glowExtraPx, glowColor);
             }
 
             View bar = new View(this);
@@ -137,17 +155,11 @@ public class StatsActivity extends AppCompatActivity {
             GradientDrawable barBg = new GradientDrawable();
             barBg.setShape(GradientDrawable.RECTANGLE);
             barBg.setCornerRadius(dpToPx(5));
-            if (isBest) {
-                barBg.setColor(Color.parseColor("#FFC400"));
-            } else if (entry.seconds > 0) {
-                barBg.setColor(Color.parseColor("#4488FF"));
-            } else {
-                barBg.setColor(Color.parseColor("#222222"));
-            }
+            barBg.setColor(barColor);
             bar.setBackground(barBg);
             barSlot.addView(bar);
 
-            if (isBest) {
+            if (isToday) {
                 attachShimmer(barSlot, barWidthPx, barHeight);
             }
 
@@ -168,12 +180,14 @@ public class StatsActivity extends AppCompatActivity {
     }
 
     /**
-     * A soft rounded halo behind the best-day bar that breathes — alpha
-     * and scale animated together on one ValueAnimator so they stay
-     * perfectly in sync, using an ease-in/ease-out curve rather than
-     * linear so the pulse feels organic instead of mechanical.
+     * A soft rounded halo behind a bar that breathes — alpha and scale
+     * animated together on one ValueAnimator so they stay perfectly in
+     * sync, using an ease-in/ease-out curve so the pulse feels organic.
+     * Color is passed in so it can match either the "best day" (amber)
+     * or plain "today" (blue) styling.
      */
-    private void addBreathingGlow(FrameLayout barSlot, int barWidthPx, int barHeightPx, int glowExtraPx) {
+    private void addBreathingGlow(FrameLayout barSlot, int barWidthPx, int barHeightPx,
+                                   int glowExtraPx, int glowColor) {
         View glow = new View(this);
         FrameLayout.LayoutParams glowLp = new FrameLayout.LayoutParams(
                 barWidthPx + glowExtraPx * 2, barHeightPx + glowExtraPx);
@@ -183,7 +197,7 @@ public class StatsActivity extends AppCompatActivity {
         GradientDrawable glowBg = new GradientDrawable();
         glowBg.setShape(GradientDrawable.RECTANGLE);
         glowBg.setCornerRadius(dpToPx(14));
-        glowBg.setColor(Color.parseColor("#77FFC400"));
+        glowBg.setColor(glowColor);
         glow.setBackground(glowBg);
         barSlot.addView(glow, 0); // behind the bar, which is added next
 
@@ -204,11 +218,9 @@ public class StatsActivity extends AppCompatActivity {
     }
 
     /**
-     * A soft streak of light that travels up through the best-day bar and
+     * A soft streak of light that travels up through today's bar and
      * fades in/out at both ends via a sine curve — layered on top of the
-     * breathing glow above for a genuinely lively highlight, not just a
-     * static pulse. One small View + one ValueAnimator, cheap enough to
-     * run indefinitely for a single bar.
+     * breathing glow for a genuinely lively "still counting" indicator.
      */
     private void attachShimmer(FrameLayout barSlot, int barWidthPx, int barHeightPx) {
         View shimmer = new View(this);
@@ -241,6 +253,14 @@ public class StatsActivity extends AppCompatActivity {
         activeAnimators.add(travelAnim);
     }
 
+    /**
+     * FIXED: previously looked up the title via the old "recent_files"
+     * SharedPreferences key, which stopped being written to once the app
+     * moved to LibraryManager as the actual source of truth — so this
+     * search always came back empty and silently hid the Most Read card.
+     * Now resolves the title through LibraryManager, matching by the
+     * same uri.hashCode() key ReadingStatsController already uses.
+     */
     private void bindMostRead() {
         String docKey = stats.getMostReadDocKey();
         if (docKey == null) return;
@@ -256,34 +276,23 @@ public class StatsActivity extends AppCompatActivity {
     }
 
     private String lookupTitleForDocKey(String docKey) {
-    try {
-        String json = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-                .getString(KEY_RECENT, "[]");
-        JSONArray arr = new JSONArray(json);
-        
-        for (int i = 0; i < arr.length(); i++) {
-            JSONObject obj = arr.getJSONObject(i);
-            String uriStr = obj.optString("uri", "");
-            
-            // Match directly against the stored URI string or its hashCode fallback
-            if (!uriStr.isEmpty() && (uriStr.equals(docKey) || String.valueOf(Uri.parse(uriStr).hashCode()).equals(docKey))) {
-                String name = obj.optString("name", "Unknown Document");
-                return name.replaceAll("(?i)\\.pdf$", "").replace("_", " ").trim();
+        if (docKey == null || libraryManager == null) return null;
+        try {
+            for (LibraryManager.Entry entry : libraryManager.getAll()) {
+                if (entry.uri == null) continue;
+                if (String.valueOf(entry.uri.hashCode()).equals(docKey)) {
+                    return LibraryManager.displayName(entry);
+                }
             }
-        }
-        
-        // Ultimate Fallback: If stats exist but don't match an active recent file, 
-        // display the most recent item so the card is never blank if you have reading time logged.
-        if (arr.length() > 0 && stats.getTotalSeconds() > 0) {
-            JSONObject obj = arr.getJSONObject(0);
-            String name = obj.optString("name", "Recent Document");
-            return name.replaceAll("(?i)\\.pdf$", "").replace("_", " ").trim();
-        }
-    } catch (Exception ignored) {}
-    return null;
-}
+        } catch (Throwable ignored) {}
+        return null;
+    }
 
-
+    private void bindDailyQuote() {
+        TextView quoteView = findViewById(R.id.dailyQuoteText);
+        if (quoteView == null) return;
+        quoteView.setText(DailyQuoteProvider.getTodayQuote());
+    }
 
     private int dpToPx(int dp) {
         float density = getResources().getDisplayMetrics().density;
