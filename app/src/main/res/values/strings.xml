@@ -12,5 +12,6 @@
     <string name="btn_back">Back</string>
     <string name="btn_open_new">Open PDF</string>
     <string name="btn_remove">Remove</string>
+    <string name="fcm_default_channel_id">channel_announcements</string>
 
 </resources>
