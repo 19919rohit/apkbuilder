@@ -16,6 +16,7 @@ import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentTransaction;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
+import com.google.firebase.messaging.FirebaseMessaging;
 
 /**
  * Thin shell hosting three tabs — Home, Library, Basket — via a
@@ -39,6 +40,16 @@ public class MainActivity extends AppCompatActivity {
 
         NotificationScheduler.initialize(this);
         requestNotificationPermissionIfNeeded();
+        
+        FirebaseMessaging.getInstance()
+        .subscribeToTopic("all")
+        .addOnCompleteListener(task -> {
+            if (task.isSuccessful()) {
+                android.util.Log.d("PageVibe", "Subscribed to topic: all");
+            } else {
+                android.util.Log.e("PageVibe", "Failed to subscribe", task.getException());
+            }
+        });
 
         handleIncomingViewIntent(getIntent());
 
