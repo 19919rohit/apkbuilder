@@ -1,4 +1,4 @@
-package neunix.pageflow;
+package neunix.pagevibe;
 
 import android.content.ContentValues;
 import android.content.Context;

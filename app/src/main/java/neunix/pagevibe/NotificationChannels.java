@@ -1,4 +1,4 @@
-package neunix.pageflow;
+package neunix.pagevibe;
 
 import android.app.NotificationChannel;
 import android.app.NotificationManager;

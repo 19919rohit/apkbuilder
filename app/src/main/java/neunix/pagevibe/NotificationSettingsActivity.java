@@ -1,4 +1,4 @@
-package neunix.pageflow;
+package neunix.pagevibe;
 
 import android.os.Bundle;
 import android.widget.CompoundButton;

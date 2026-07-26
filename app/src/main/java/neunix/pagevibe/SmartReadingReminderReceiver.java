@@ -1,4 +1,4 @@
-package neunix.pageflow;
+package neunix.pagevibe;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
