@@ -57,6 +57,20 @@
                 </LinearLayout>
 
                 <ImageButton
+                    android:id="@+id/btnNotifSettings"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:layout_marginEnd="14dp"
+                    android:src="@drawable/ic_notifications"
+                    android:tint="#666666"
+                    android:scaleType="centerInside"
+                    android:background="@android:color/transparent"
+                    android:contentDescription="Notification settings"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:foreground="?attr/selectableItemBackgroundBorderless"/>
+
+                <ImageButton
                     android:id="@+id/btnAbout"
                     android:layout_width="32dp"
                     android:layout_height="32dp"
@@ -312,20 +326,18 @@
                 android:focusable="true"
                 android:foreground="?attr/selectableItemBackground">
 
-                <ImageView
-    android:layout_width="72dp"
-    android:layout_height="72dp"
-    android:layout_gravity="center"
-    android:padding="16dp"
-    android:background="@drawable/bg_continue_card"
-    android:src="@drawable/ic_book"
-    android:scaleType="fitCenter"
-    android:contentDescription="@null"/>
+                <TextView
+                    android:layout_width="72dp"
+                    android:layout_height="72dp"
+                    android:gravity="center"
+                    android:text="📖"
+                    android:textSize="34sp"
+                    android:background="@drawable/bg_continue_card"/>
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Ready for your first read?"
+                    android:text="Your library is empty"
                     android:textSize="17sp"
                     android:textStyle="bold"
                     android:textColor="#DDDDDD"
@@ -334,7 +346,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Tap here to start your reading journey."
+                    android:text="Tap here to open a PDF.\nIt'll appear on this screen so you can pick up right where you left off."
                     android:textSize="13sp"
                     android:textColor="#7A7A6A"
                     android:gravity="center"

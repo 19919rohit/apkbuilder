@@ -1,12 +1,16 @@
-package neunix.pagevibe;
+package neunix.pageflow;
 
-import android.app.AlertDialog;
+import android.Manifest;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 
-import androidx.activity.OnBackPressedCallback;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentTransaction;
@@ -25,10 +29,16 @@ public class MainActivity extends AppCompatActivity {
     private final LibraryFragment libraryFragment = new LibraryFragment();
     private final BasketFragment  basketFragment  = new BasketFragment();
 
+    private final ActivityResultLauncher<String> notifPermLauncher =
+            registerForActivityResult(new ActivityResultContracts.RequestPermission(), granted -> { /* no-op either way */ });
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main_shell);
+
+        NotificationScheduler.initialize(this);
+        requestNotificationPermissionIfNeeded();
 
         handleIncomingViewIntent(getIntent());
 
@@ -42,21 +52,12 @@ public class MainActivity extends AppCompatActivity {
             if (id == R.id.nav_basket)  { showTab(basketFragment);  return true; }
             return false;
         });
+    }
 
-        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
-            @Override
-            public void handleOnBackPressed() {
-
-                // If not on Home, go to Home first
-                if (bottomNav.getSelectedItemId() != R.id.nav_home) {
-                    bottomNav.setSelectedItemId(R.id.nav_home);
-                    return;
-                }
-
-                // Already on Home -> show exit dialog
-                showExitDialog();
-            }
-        });
+    @Override
+    protected void onResume() {
+        super.onResume();
+        new NotificationPreferences(this).recordAppOpenedNow();
     }
 
     @Override
@@ -66,17 +67,50 @@ public class MainActivity extends AppCompatActivity {
         handleIncomingViewIntent(intent);
     }
 
+    private void requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT >= 33) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                    != PackageManager.PERMISSION_GRANTED) {
+                notifPermLauncher.launch(Manifest.permission.POST_NOTIFICATIONS);
+            }
+        }
+    }
+
     /**
-     * External "open with PageVibe" intents launch the reader directly —
-     * PdfActivity itself registers the file into the Library on a
-     * successful open (see PdfActivity.onPdfOpened), so there's no need
-     * to duplicate that bookkeeping here.
+     * External "Open with PageVibe" intents: the incoming content:// URI
+     * may point at a TEMPORARY file (email attachment viewer cache,
+     * browser download cache, etc.) that can vanish once the source app
+     * closes. ExternalPdfPersister copies it into Documents/PageVibe/PDF
+     * first, and PdfActivity is launched against that permanent copy —
+     * so the file genuinely belongs to the device from that point on.
+     * PdfActivity itself still registers into the Library on successful
+     * open (see PdfActivity.onPdfOpened), so no duplicate bookkeeping
+     * is needed here.
      */
     private void handleIncomingViewIntent(Intent incoming) {
         if (incoming == null || !Intent.ACTION_VIEW.equals(incoming.getAction())
                 || incoming.getData() == null) return;
 
         Uri uri = incoming.getData();
+        String name = FileUtils.getFileName(this, uri);
+
+        ExternalPdfPersister.persistIfNeeded(this, uri, name, new ExternalPdfPersister.Callback() {
+            @Override
+            public void onPersisted(Uri persistedUri, String fileName) {
+                runOnUiThread(() -> launchReader(persistedUri));
+            }
+
+            @Override
+            public void onFailed(Uri originalUri, String originalName) {
+                // Persistence failed (no permission, IO error, etc.) —
+                // still open the original URI rather than blocking the
+                // user from reading the file at all.
+                runOnUiThread(() -> launchReader(originalUri));
+            }
+        });
+    }
+
+    private void launchReader(Uri uri) {
         Intent i = new Intent(this, PdfActivity.class);
         i.setData(uri);
         startActivity(i);
@@ -93,18 +127,6 @@ public class MainActivity extends AppCompatActivity {
         tx.hide(basketFragment);
         tx.show(target);
         tx.commitAllowingStateLoss();
-    }
-
-    private void showExitDialog() {
-        AlertDialog dialog = new AlertDialog.Builder(this)
-                .setTitle("Exit PageVibe")
-                .setMessage("Do you want to exit the app?")
-                .setPositiveButton("Exit", (d, which) -> finishAffinity())
-                .setNegativeButton("Cancel", null)
-                .create();
-
-        DialogUtil.applyDestructiveConfirm(dialog);
-        dialog.show();
     }
 
     public void switchToHomeTab() {

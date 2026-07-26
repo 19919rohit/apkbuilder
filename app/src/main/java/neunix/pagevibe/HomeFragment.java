@@ -1,4 +1,4 @@
-package neunix.pagevibe;
+package neunix.pageflow;
 
 import android.content.Context;
 import android.content.Intent;
@@ -34,13 +34,6 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/**
- * Home tab — a lightweight dashboard, not a duplicate of Library. Shows
- * the single most-recent book as a hero "Continue Reading" card, plus a
- * horizontal strip of the 5 most-recently-opened books. Search, sorting,
- * and full-library management (rename, cover, delete) all live in the
- * Library tab; Home only reads from LibraryManager, it never writes to it.
- */
 public class HomeFragment extends Fragment {
 
     private static final int RECENT_LIMIT = 5;
@@ -65,6 +58,7 @@ public class HomeFragment extends Fragment {
     private View          emptyState;
     private View          btnOpenPdf;
     private ImageButton   btnAbout;
+    private ImageButton   btnNotifSettings;
 
     private LibraryManager         libraryManager;
     private ReadingStatsController stats;
@@ -159,6 +153,7 @@ public class HomeFragment extends Fragment {
         emptyState      = root.findViewById(R.id.emptyState);
         btnOpenPdf      = root.findViewById(R.id.btnOpenPdf);
         btnAbout        = root.findViewById(R.id.btnAbout);
+        btnNotifSettings = root.findViewById(R.id.btnNotifSettings);
 
         greetingText.setText(greeting());
     }
@@ -174,6 +169,12 @@ public class HomeFragment extends Fragment {
     private void setupButtons() {
         btnAbout.setOnClickListener(v ->
                 startActivity(new Intent(requireContext(), AboutActivity.class)));
+
+        if (btnNotifSettings != null) {
+            btnNotifSettings.setOnClickListener(v ->
+                    startActivity(new Intent(requireContext(), NotificationSettingsActivity.class)));
+            TooltipUtil.apply(btnNotifSettings, "Notification settings");
+        }
 
         insightsCard.setOnClickListener(v -> {
             bouncePress(insightsCard);
@@ -458,7 +459,7 @@ public class HomeFragment extends Fragment {
             String name = LibraryManager.displayName(entry);
             h.title.setText(name);
             h.time.setText(relativeTime(entry.lastOpenedAt));
-            h.remove.setVisibility(View.GONE); // management lives in Library now
+            h.remove.setVisibility(View.GONE);
 
             applyThumb(h.cover, h.initial, entry, true);
 

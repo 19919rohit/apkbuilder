@@ -1,4 +1,4 @@
-package neunix.pagevibe;
+package neunix.pageflow;
 
 import android.content.Intent;
 import android.net.Uri;
@@ -98,8 +98,11 @@ public class PdfActivity extends AppCompatActivity implements PdfReaderControlle
         super.onResume();
         curlView.onResume();
         scheduleHideControls();
+        // Never notify while the user is actively reading.
+        NotificationHelper.isReaderForeground = true;
         if (reader.isReady() && !statsSessionActive) {
             stats.startSession(reader.getCurrentUri());
+            ReadingPatternLearner.recordSessionStart(this);
             statsSessionActive = true;
         }
     }
@@ -111,6 +114,7 @@ public class PdfActivity extends AppCompatActivity implements PdfReaderControlle
         uiHandler.removeCallbacks(hideControls);
         reader.saveLastPage();
         readAloud.stop();
+        NotificationHelper.isReaderForeground = false;
         if (statsSessionActive) {
             stats.endSession();
             statsSessionActive = false;
@@ -186,9 +190,6 @@ public class PdfActivity extends AppCompatActivity implements PdfReaderControlle
     @Override
     public void onPdfOpened(int totalPages, String title) {
         runOnUiThread(() -> {
-            // Register into the Library on SUCCESSFUL open only — this is
-            // the single place a file becomes part of "recent"/"library"
-            // now, so a file that fails to open never pollutes the list.
             Uri currentUri = reader.getCurrentUri();
             String rawFileName = FileUtils.getFileName(this, currentUri);
             libraryManager.addOrTouch(currentUri, rawFileName);
@@ -216,6 +217,7 @@ public class PdfActivity extends AppCompatActivity implements PdfReaderControlle
 
             if (!statsSessionActive) {
                 stats.startSession(reader.getCurrentUri());
+                ReadingPatternLearner.recordSessionStart(this);
                 statsSessionActive = true;
             }
         });
