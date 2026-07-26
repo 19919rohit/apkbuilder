@@ -1,83 +1,151 @@
 ############################################
-# BASIC ANDROID SAFETY
+# NEUNIX STUDIOS - RELEASE R8 RULES
+# Optimized for APK size reduction
 ############################################
 
--keep class androidx.** { *; }
--keep class com.google.android.material.** { *; }
 
 ############################################
-# VIEWPAGER / UI (IMPORTANT)
+# KEEP ATTRIBUTES REQUIRED FOR REFLECTION
 ############################################
 
--keep class androidx.viewpager2.** { *; }
+-keepattributes *Annotation*
+-keepattributes Signature
+-keepattributes InnerClasses
+-keepattributes EnclosingMethod
+
 
 ############################################
-# GLIDE (CRITICAL - DO NOT OBFUSCATE)
+# ANDROID COMPONENTS
 ############################################
 
--keep public class * implements com.bumptech.glide.module.AppGlideModule
--keep class com.bumptech.glide.** { *; }
--keep class com.bumptech.glide.load.engine.** { *; }
--keep class com.bumptech.glide.request.** { *; }
+# Activities, Services, Receivers, Providers
+# Referenced by AndroidManifest automatically
+-keep public class * extends android.app.Activity
+-keep public class * extends android.app.Service
+-keep public class * extends android.content.BroadcastReceiver
+-keep public class * extends android.content.ContentProvider
+
+
+############################################
+# VIEW BINDING / DATA BINDING SAFETY
+############################################
+
+-keepclassmembers class * {
+    public <init>(...);
+}
+
+
+############################################
+# VIEWPAGER2
+############################################
+
+-keep class androidx.viewpager2.widget.** { *; }
+
+
+############################################
+# GLIDE IMAGE LOADING
+############################################
+
+-keep public class * extends com.bumptech.glide.module.AppGlideModule
+-keep public class * implements com.bumptech.glide.module.GlideModule
 
 -dontwarn com.bumptech.glide.**
 
+
 ############################################
-# PDF RENDERER & PDFIUM 2.0.0 (CRITICAL)
+# PDFIUM RENDERER
 ############################################
 
--keep class android.graphics.pdf.** { *; }
-
-# Keep PDFium classes intact for JNI communication
+# JNI communication
 -keep class io.legere.pdfium.** { *; }
 
-# Prevent ProGuard from renaming native C++ method signatures across the app
+# Native methods
 -keepclasseswithmembernames class * {
     native <methods>;
 }
 
+
 ############################################
-# YOUR CORE APP CLASSES (IMPORTANT)
+# PDFBOX ANDROID
+############################################
+
+# Optional JPEG2000 support
+-dontwarn com.gemalto.jp2.**
+
+# PDFBox reflection/classes
+-keep class com.tom_roush.pdfbox.pdmodel.** { *; }
+-keep class com.tom_roush.pdfbox.filter.** { *; }
+-keep class com.tom_roush.pdfbox.cos.** { *; }
+
+
+############################################
+# YOUR CORE CLASSES
 ############################################
 
 -keep class neunix.pagevibe.PdfCore { *; }
 -keep class neunix.pagevibe.PdfPageAdapter { *; }
 -keep class neunix.pagevibe.PdfActivity { *; }
 
+
 ############################################
-# ANDROID FILE / URI HANDLING
+# FILE PROVIDER
 ############################################
 
 -keep class androidx.core.content.FileProvider { *; }
 
-############################################
-# REMOVE LOGS (OPTIONAL RELEASE CLEANUP)
-############################################
-
--assumenosideeffects class android.util.Log {
-    public static *** d(...);
-    public static *** v(...);
-    public static *** i(...);
-}
 
 ############################################
-# SAFE DEFAULT OPTIMIZATION RULES
+# FIREBASE CLOUD MESSAGING
 ############################################
 
--keepattributes *Annotation*
--keepattributes Signature
--keepattributes InnerClasses
+-keep class com.google.firebase.messaging.** { *; }
+
 
 ############################################
-# PREVENT CRITICAL REFLECTION ISSUES
+# WEBVIEW JAVASCRIPT INTERFACE
 ############################################
 
 -keepclassmembers class * {
     @android.webkit.JavascriptInterface <methods>;
 }
 
+
 ############################################
-# REMOVED / CLEANED UP DEPRECATED RULES
+# REMOVE LOGGING IN RELEASE
 ############################################
-# PDFBox dependencies and rules have been removed 
-# as your project now exclusively runs on PDFium.
+
+-assumenosideeffects class android.util.Log {
+    public static *** v(...);
+    public static *** d(...);
+    public static *** i(...);
+    public static *** w(...);
+}
+
+
+############################################
+# ENUM SAFETY
+############################################
+
+-keepclassmembers enum * {
+    public static **[] values();
+    public static ** valueOf(java.lang.String);
+}
+
+
+############################################
+# OPTIMIZATION
+############################################
+
+-optimizations !code/simplification/arithmetic,!field/*,!class/merging/*
+
+-allowaccessmodification
+-repackageclasses ''
+
+
+############################################
+# REMOVE UNUSED WARNINGS
+############################################
+
+-dontwarn javax.annotation.**
+-dontwarn org.jetbrains.annotations.**
+-dontwarn kotlin.**
