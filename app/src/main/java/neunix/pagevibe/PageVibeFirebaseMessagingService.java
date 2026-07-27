@@ -32,7 +32,13 @@ public class PageVibeFirebaseMessagingService extends FirebaseMessagingService {
         }
 
         NotificationChannels.ensureCreated(this);
-        NotificationHelper.showAnnouncement(this, title, body);
+        String type = message.getData().get("notification_type");
+        NotificationHelper.showAnnouncement(
+        this,
+        title,
+        body,
+        type
+);
     }
 
     @Override
