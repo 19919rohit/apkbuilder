@@ -41,49 +41,43 @@ protected void onCreate(Bundle savedInstanceState) {
     NotificationScheduler.initialize(this);
     requestNotificationPermissionIfNeeded();
     subscribeToFcmTopics();
+    // Logs only if the app was opened from a PageVibe notification.
+    AnalyticsHelper.logIfTagged(this, getIntent());
 
     handleIncomingViewIntent(getIntent());
 
     bottomNav = findViewById(R.id.bottomNav);
+    showTab(homeFragment);
 
     bottomNav.setOnItemSelectedListener(item -> {
         int id = item.getItemId();
-
         if (id == R.id.nav_home) {
             showTab(homeFragment);
             return true;
         }
-
         if (id == R.id.nav_library) {
             showTab(libraryFragment);
             return true;
         }
-
         if (id == R.id.nav_basket) {
             showTab(basketFragment);
             return true;
         }
-
         return false;
     });
 
-    // Show Home initially and keep BottomNavigation state in sync
-    bottomNav.setSelectedItemId(R.id.nav_home);
-
+    // Handle Back button
     getOnBackPressedDispatcher().addCallback(this,
             new androidx.activity.OnBackPressedCallback(true) {
                 @Override
                 public void handleOnBackPressed() {
 
-                    // If not on Home, switch to Home first
                     if (bottomNav.getSelectedItemId() != R.id.nav_home) {
                         bottomNav.setSelectedItemId(R.id.nav_home);
-                        return;
+                    } else {
+                        setEnabled(false);
+                        getOnBackPressedDispatcher().onBackPressed();
                     }
-
-                    // Already on Home -> normal back behaviour
-                    setEnabled(false);
-                    getOnBackPressedDispatcher().onBackPressed();
                 }
             });
 }
@@ -98,6 +92,8 @@ protected void onCreate(Bundle savedInstanceState) {
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
+        AnalyticsHelper.logIfTagged(this, intent);
+
         handleIncomingViewIntent(intent);
     }
 
@@ -153,17 +149,44 @@ protected void onCreate(Bundle savedInstanceState) {
     }
 
     private void showTab(Fragment target) {
-        FragmentManager fm = getSupportFragmentManager();
-        FragmentTransaction tx = fm.beginTransaction();
-        if (!homeFragment.isAdded())    tx.add(R.id.fragmentContainer, homeFragment, "home");
-        if (!libraryFragment.isAdded()) tx.add(R.id.fragmentContainer, libraryFragment, "library");
-        if (!basketFragment.isAdded())  tx.add(R.id.fragmentContainer, basketFragment, "basket");
-        tx.hide(homeFragment);
-        tx.hide(libraryFragment);
-        tx.hide(basketFragment);
-        tx.show(target);
-        tx.commitAllowingStateLoss();
+
+    FragmentManager fm = getSupportFragmentManager();
+
+    Fragment current = null;
+
+    if (homeFragment.isVisible()) {
+        current = homeFragment;
+    } else if (libraryFragment.isVisible()) {
+        current = libraryFragment;
+    } else if (basketFragment.isVisible()) {
+        current = basketFragment;
     }
+
+    // Already showing requested fragment
+    if (current == target) {
+        return;
+    }
+
+    FragmentTransaction tx = fm.beginTransaction();
+
+    if (homeFragment.isAdded()) {
+        tx.hide(homeFragment);
+    }
+
+    if (libraryFragment.isAdded()) {
+        tx.hide(libraryFragment);
+    }
+
+    if (basketFragment.isAdded()) {
+        tx.hide(basketFragment);
+    }
+
+    if (target.isAdded()) {
+        tx.show(target);
+    }
+
+    tx.commit();
+}
 
     public void switchToHomeTab() {
         if (bottomNav != null) bottomNav.setSelectedItemId(R.id.nav_home);
