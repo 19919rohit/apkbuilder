@@ -8,16 +8,8 @@ import android.net.Uri;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 
-/**
- * Single gatekeeper for actually showing a notification: every method
- * here checks its category's on/off toggle first, and (for local
- * reminders only — not FCM announcements) whether the reader is
- * currently in the foreground, so a user actively reading is never
- * interrupted mid-session.
- */
 public class NotificationHelper {
 
-    /** Set true while PdfActivity is foreground, false otherwise. */
     public static volatile boolean isReaderForeground = false;
 
     private static final int ID_DAILY_QUOTE      = 1001;
@@ -32,7 +24,8 @@ public class NotificationHelper {
         if (isReaderForeground) return;
 
         String quote = NotificationQuoteProvider.pickQuote(context);
-        show(context, NotificationChannels.DAILY_QUOTE, ID_DAILY_QUOTE, "PageVibe", quote, openAppIntent(context));
+        show(context, NotificationChannels.DAILY_QUOTE, ID_DAILY_QUOTE, "PageVibe", quote,
+                openAppIntent(context, AnalyticsHelper.TYPE_DAILY_QUOTE));
         prefs.setLastNotifiedAt(NotificationPreferences.CAT_DAILY_QUOTE, System.currentTimeMillis());
     }
 
@@ -43,7 +36,7 @@ public class NotificationHelper {
 
         String message = NotificationTemplates.pickReadingReminder(context);
         show(context, NotificationChannels.READING_REMINDER, ID_READING_REMINDER,
-                "Time to read", message, openAppIntent(context));
+                "Time to read", message, openAppIntent(context, AnalyticsHelper.TYPE_READING_REMINDER));
         prefs.setLastNotifiedAt(NotificationPreferences.CAT_READING_REMINDER, System.currentTimeMillis());
     }
 
@@ -63,7 +56,8 @@ public class NotificationHelper {
         if (isReaderForeground) return;
 
         String message = NotificationTemplates.pickStreak(context, streakDays);
-        show(context, NotificationChannels.STREAK, ID_STREAK, "Keep your streak", message, openAppIntent(context));
+        show(context, NotificationChannels.STREAK, ID_STREAK, "Keep your streak", message,
+                openAppIntent(context, AnalyticsHelper.TYPE_STREAK));
     }
 
     public static void showInactive(Context context, int daysInactive) {
@@ -72,17 +66,23 @@ public class NotificationHelper {
         if (isReaderForeground) return;
 
         String message = NotificationTemplates.pickInactive(context, daysInactive);
-        show(context, NotificationChannels.READING_REMINDER, ID_READING_REMINDER, "PageVibe", message, openAppIntent(context));
+        show(context, NotificationChannels.READING_REMINDER, ID_READING_REMINDER, "PageVibe", message,
+                openAppIntent(context, AnalyticsHelper.TYPE_INACTIVE));
     }
 
-    public static void showAnnouncement(Context context, String title, String body) {
+    /** type: pass the FCM payload's own "notification_type" data field if
+     *  present, otherwise TYPE_ANNOUNCEMENT — see
+     *  PageVibeFirebaseMessagingService. Source is always FCM here. */
+    public static void showAnnouncement(Context context, String title, String body, String type) {
         NotificationPreferences prefs = new NotificationPreferences(context);
         if (!prefs.isCategoryEnabled(NotificationPreferences.CAT_ANNOUNCEMENTS)) return;
         // Deliberately does NOT check isReaderForeground — announcements
-        // are rare and important by design (major update, security fix),
-        // not routine engagement pings.
+        // are rare and important by design, not routine engagement pings.
+
+        String resolvedType = (type != null && !type.trim().isEmpty()) ? type : AnalyticsHelper.TYPE_ANNOUNCEMENT;
         show(context, NotificationChannels.ANNOUNCEMENTS, ID_ANNOUNCEMENT,
-                title != null ? title : "PageVibe", body != null ? body : "", openAppIntent(context));
+                title != null ? title : "PageVibe", body != null ? body : "",
+                openAppIntentFcm(context, resolvedType));
     }
 
     private static void show(Context context, String channel, int id, String title, String body, PendingIntent intent) {
@@ -101,18 +101,28 @@ public class NotificationHelper {
         }
     }
 
-    private static PendingIntent openAppIntent(Context context) {
+    private static PendingIntent openAppIntent(Context context, String analyticsType) {
         Intent intent = new Intent(context, MainActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        AnalyticsHelper.tagIntent(intent, analyticsType, AnalyticsHelper.SOURCE_LOCAL);
+        return PendingIntent.getActivity(context, 0, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+    }
+
+    private static PendingIntent openAppIntentFcm(Context context, String analyticsType) {
+        Intent intent = new Intent(context, MainActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        AnalyticsHelper.tagIntent(intent, analyticsType, AnalyticsHelper.SOURCE_FCM);
         return PendingIntent.getActivity(context, 0, intent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
 
     private static PendingIntent openReaderIntent(Context context, Uri bookUri) {
-        if (bookUri == null) return openAppIntent(context);
+        if (bookUri == null) return openAppIntent(context, AnalyticsHelper.TYPE_CONTINUE_READING);
         Intent intent = new Intent(context, PdfActivity.class);
         intent.setData(bookUri);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        AnalyticsHelper.tagIntent(intent, AnalyticsHelper.TYPE_CONTINUE_READING, AnalyticsHelper.SOURCE_LOCAL);
         return PendingIntent.getActivity(context, 1, intent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }

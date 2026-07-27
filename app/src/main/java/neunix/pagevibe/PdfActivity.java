@@ -66,6 +66,11 @@ public class PdfActivity extends AppCompatActivity implements PdfReaderControlle
         enterImmersiveMode();
         setContentView(R.layout.activity_pdf);
 
+        // Logs "notification_opened" if this launch came from tapping a
+        // Continue Reading notification — see AnalyticsHelper. No PDF
+        // name/URI/page number is ever included in the logged event.
+        AnalyticsHelper.logIfTagged(this, getIntent());
+
         bindViews();
         registerFilePicker();
         setupCurlView();
@@ -94,11 +99,21 @@ public class PdfActivity extends AppCompatActivity implements PdfReaderControlle
     }
 
     @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        // Defensive — PdfActivity currently launches as a fresh instance
+        // per notification tap (standard launch mode), so this path is
+        // rarely hit today, but costs nothing and stays correct if the
+        // launch mode ever changes.
+        AnalyticsHelper.logIfTagged(this, intent);
+    }
+
+    @Override
     protected void onResume() {
         super.onResume();
         curlView.onResume();
         scheduleHideControls();
-        // Never notify while the user is actively reading.
         NotificationHelper.isReaderForeground = true;
         if (reader.isReady() && !statsSessionActive) {
             stats.startSession(reader.getCurrentUri());

@@ -41,6 +41,8 @@ protected void onCreate(Bundle savedInstanceState) {
     NotificationScheduler.initialize(this);
     requestNotificationPermissionIfNeeded();
     subscribeToFcmTopics();
+    // Logs only if the app was opened from a PageVibe notification.
+    AnalyticsHelper.logIfTagged(this, getIntent());
 
     handleIncomingViewIntent(getIntent());
 
@@ -90,6 +92,8 @@ protected void onCreate(Bundle savedInstanceState) {
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
+        AnalyticsHelper.logIfTagged(this, intent);
+
         handleIncomingViewIntent(intent);
     }
 
