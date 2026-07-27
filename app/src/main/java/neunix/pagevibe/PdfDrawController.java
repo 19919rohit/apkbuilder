@@ -38,39 +38,28 @@ public class PdfDrawController {
         this.btnPen         = btnPen;
         this.btnHighlighter = btnHighlighter;
 
-        // Link drawing view to zoom container for coordinate conversion
         drawingView.attachZoomHost(zoomHost);
 
-        // ── Main toggle ──────────────────────────────────────
         triggerButton.setOnClickListener(v -> toggle());
 
-        // ── Undo / Clear ─────────────────────────────────────
         btnUndo.setOnClickListener(v -> drawingView.undoLastStroke());
         btnClear.setOnClickListener(v -> {
             drawingView.clearAll();
             onClearCurrentPage.run();
         });
 
-        // ── Tool selection — ONLY changes tool + default width.
-        // Color is left untouched so switching tools never surprises
-        // the user by resetting a color they already picked. ────
         btnPen.setOnClickListener(v -> selectTool(DrawingView.Tool.PEN));
         btnHighlighter.setOnClickListener(v -> selectTool(DrawingView.Tool.HIGHLIGHTER));
 
-        // ── Pen thickness — only meaningful for the Pen tool ──
         penThin.setOnClickListener(v -> drawingView.setThinWidth());
         penThick.setOnClickListener(v -> drawingView.setThickWidth());
 
-        // ── Colors — ONLY set color. They never touch width or
-        // tool, so they work identically for Pen and Highlighter
-        // and never clobber a chosen pen thickness. ─────────────
         colorRed.setOnClickListener(v    -> drawingView.setPenColor(Color.parseColor("#FF4444")));
         colorBlue.setOnClickListener(v   -> drawingView.setPenColor(Color.parseColor("#4488FF")));
         colorYellow.setOnClickListener(v -> drawingView.setPenColor(Color.parseColor("#FFEE00")));
         colorWhite.setOnClickListener(v  -> drawingView.setPenColor(Color.WHITE));
         colorGreen.setOnClickListener(v  -> drawingView.setPenColor(Color.parseColor("#44DD88")));
 
-        // ── Tooltips ─────────────────────────────────────────
         TooltipUtil.apply(triggerButton,  "Draw on page");
         TooltipUtil.apply(btnUndo,        "Undo last stroke");
         TooltipUtil.apply(btnClear,       "Clear all drawings on this page");
@@ -79,7 +68,6 @@ public class PdfDrawController {
         TooltipUtil.apply(penThin,        "Thin");
         TooltipUtil.apply(penThick,       "Thick");
 
-        // Reflect the initial tool (Pen) in the toolbar icon tint.
         selectTool(DrawingView.Tool.PEN);
     }
 
@@ -96,10 +84,20 @@ public class PdfDrawController {
         active = !active;
         drawingView.setDrawingEnabled(active);
         toolbar.setVisibility(active ? View.VISIBLE : View.GONE);
-        triggerButton.setColorFilter(
-                active ? Color.parseColor("#4488FF") : Color.parseColor("#555555"));
-        // Pass single-finger touches to DrawingView while drawing is active,
-        // but still allow two-finger pinch to zoom.
+
+        if (active) {
+            triggerButton.setColorFilter(Color.parseColor("#4488FF"));
+        } else {
+            // FIXED: previously re-applied a dim grey (#555555) tint
+            // here, which — since the button's default XML tint was
+            // ALSO #555555 — never visually differed from a permanently
+            // "used up"/disabled look. Clearing the filter restores the
+            // button's real default appearance (now white, see
+            // activity_pdf.xml) instead of stacking another grey tint
+            // on top of it.
+            triggerButton.clearColorFilter();
+        }
+
         zoomHost.setDrawPassThrough(active);
     }
 

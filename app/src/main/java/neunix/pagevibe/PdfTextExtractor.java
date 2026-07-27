@@ -5,6 +5,13 @@ import android.graphics.RectF;
 import android.os.ParcelFileDescriptor;
 import android.util.Log;
 
+import com.tom_roush.pdfbox.android.PDFBoxResourceLoader;
+import com.tom_roush.pdfbox.pdmodel.PDDocument;
+import com.tom_roush.pdfbox.pdmodel.PDPage;
+import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.outline.PDDocumentOutline;
+import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.outline.PDOutlineItem;
+import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.outline.PDOutlineNode;
+
 import io.legere.pdfiumandroid.PdfDocument;
 import io.legere.pdfiumandroid.PdfPage;
 import io.legere.pdfiumandroid.PdfTextPage;
@@ -23,11 +30,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * Text/word extraction backed by PDFium (io.legere pdfiumandroid binding)
  * — the same native engine PdfCore.kt uses for rendering.
  *
- * TOC/bookmarks/document-metadata are intentionally NOT sourced from this
- * library (see extractOutline()/getTitle() below) — the app has its own
- * TOC/bookmark system and doesn't need this library's embedded-outline or
- * metadata surface, which was also the part of the 2.x API that isn't
- * stable across versions.
+ * TOC (extractOutline) is sourced from PDFBox-Android, opened separately
+ * and briefly from the same underlying file this instance already holds
+ * — PDFium's binding here has no bookmark/outline API, and PDFBox is
+ * already a project dependency (used for Page Basket export), so this
+ * reuses it rather than adding a second engine's worth of surface area.
  *
  * ROBUSTNESS MODEL: every public method returns a safe, non-null default
  * (empty string / empty list / null) rather than throw, and every native
@@ -40,33 +47,14 @@ public class PdfTextExtractor {
 
     private static final String TAG = "PdfTextExtractor";
 
-    // Hard ceiling on characters processed per page. A maliciously bloated
-    // "single page with millions of characters" PDF is a known technique
-    // for hanging text-extraction code; capping bounds the worst case.
     private static final int MAX_CHARS_PER_PAGE = 200_000;
-
-    // PDFium's native char-box API reports coordinates in PDF space,
-    // which has its origin at the BOTTOM-LEFT of the page with Y
-    // increasing upward — the opposite of Android's top-left canvas
-    // convention. Without flipping, a word near the top of the page gets
-    // placed near the bottom margin (usually blank — "highlight on empty
-    // area of page"), and every word's true line is inverted, which is
-    // also why the wrong word appeared highlighted. This MUST be true
-    // for a page-point-space RectF straight from the native layer.
     private static final boolean FLIP_VERTICAL = true;
-
-    // Small bounded cache of full-page word data. TTS and search both
-    // read the same page's word data, often within moments of each other
-    // (e.g. pressing Next/Prev repeatedly on the same page), so caching
-    // avoids re-walking every character on the page from scratch each
-    // time. Capped small and cleared on open()/close() so it can never
-    // grow unbounded or serve stale data from a previous document.
     private static final int WORD_DATA_CACHE_SIZE = 4;
 
+    private static final AtomicBoolean pdfBoxInitialized = new AtomicBoolean(false);
+
     // =========================================================
-    // MODELS — unchanged shapes for TocEntry/SearchResult/WordBox/
-    // PageWordData, so downstream callers keep working. MatchGroup is
-    // new (see findMatchGroups()).
+    // MODELS
     // =========================================================
 
     public static class TocEntry {
@@ -121,14 +109,6 @@ public class PdfTextExtractor {
         }
     }
 
-    /**
-     * One occurrence of a search query on a page, as the exact set of
-     * WordBox entries (in order) that make it up — one entry for a
-     * single-word query, several for a phrase. Every word in every group
-     * carries its own real, stable id from the page's canonical text, so
-     * callers can mark "this occurrence is the active one" by id rather
-     * than by fragile list position.
-     */
     public static class MatchGroup {
         public final List<WordBox> words;
         public MatchGroup(List<WordBox> words) { this.words = words; }
@@ -142,18 +122,13 @@ public class PdfTextExtractor {
     private PdfiumCore   core;
     private PdfDocument  document;
     private ParcelFileDescriptor pfd;
+    private File          currentFile; // kept only so extractOutline() can re-open the same file via PDFBox
     private final AtomicBoolean initialized = new AtomicBoolean(false);
 
-    // Native calls are not guaranteed thread-safe across concurrent
-    // callers; every method below synchronizes on this. In practice all
-    // callers already funnel through a single background executor
-    // (PdfReaderController.getBgExecutor()), but this is defense-in-depth.
     private final Object lock = new Object();
 
-    // Pages that threw once — never retried this session.
     private final Set<Integer> poisonedPages = ConcurrentHashMap.newKeySet();
 
-    // LRU-ish cache of full-page word data, guarded by `lock`.
     private final LinkedHashMap<Integer, PageWordData> pageWordDataCache =
             new LinkedHashMap<Integer, PageWordData>(WORD_DATA_CACHE_SIZE + 1, 0.75f, true) {
                 @Override
@@ -175,11 +150,15 @@ public class PdfTextExtractor {
         if (pdfFile == null || !pdfFile.exists() || pdfFile.length() <= 0L) {
             throw new IllegalStateException("PDF file missing or empty");
         }
+
+        if (pdfBoxInitialized.compareAndSet(false, true)) {
+            try { PDFBoxResourceLoader.init(appContext); } catch (Throwable ignored) {}
+        }
+
         synchronized (lock) {
             ParcelFileDescriptor descriptor = null;
             try {
                 descriptor = ParcelFileDescriptor.open(pdfFile, ParcelFileDescriptor.MODE_READ_ONLY);
-                // Uses the Kotlin bridge — see PdfiumFactory.kt for why.
                 PdfiumCore newCore = PdfiumFactory.createCore(appContext);
                 PdfDocument newDoc = newCore.newDocument(descriptor);
 
@@ -189,9 +168,10 @@ public class PdfTextExtractor {
                     throw new IllegalStateException("PDF opened but reports 0 pages");
                 }
 
-                this.pfd      = descriptor;
-                this.core     = newCore;
-                this.document = newDoc;
+                this.pfd         = descriptor;
+                this.core        = newCore;
+                this.document     = newDoc;
+                this.currentFile  = pdfFile;
                 poisonedPages.clear();
                 pageWordDataCache.clear();
                 initialized.set(true);
@@ -214,6 +194,7 @@ public class PdfTextExtractor {
             document    = null;
             core        = null;
             pfd         = null;
+            currentFile = null;
             initialized.set(false);
             poisonedPages.clear();
             pageWordDataCache.clear();
@@ -288,8 +269,7 @@ public class PdfTextExtractor {
     }
 
     // =========================================================
-    // WORD BOX EXTRACTION — per-character boxes from PDFium, grouped into
-    // words on whitespace boundaries.
+    // WORD BOX EXTRACTION
     // =========================================================
 
     public List<WordBox> extractWordBoxes(int pageIndex) {
@@ -348,8 +328,6 @@ public class PdfTextExtractor {
                         continue;
                     }
 
-                    // Normalise regardless of which field is numerically
-                    // larger — defends against either axis convention.
                     float glyphLeft   = Math.min(rawLeft, rawRight);
                     float glyphRight  = Math.max(rawLeft, rawRight);
                     float glyphTop    = Math.min(rawTop, rawBottom);
@@ -402,15 +380,6 @@ public class PdfTextExtractor {
                 word.isEmpty() ? "?" : word);
     }
 
-    /**
-     * Builds this page's word list WITH a stable per-word identity: each
-     * word gets a unique sequential id and an exact character range within
-     * a freshly-built canonical text string (words joined by single
-     * spaces, in order). This is THE single source of truth both TTS and
-     * search now read from, so "which occurrence you navigated to" and
-     * "which word gets highlighted" can never disagree — they're computed
-     * from the exact same text. Cached per page (see class docs).
-     */
     public PageWordData extractPageWordData(int pageIndex) {
         synchronized (lock) {
             PageWordData cached = pageWordDataCache.get(pageIndex);
@@ -440,13 +409,6 @@ public class PdfTextExtractor {
         return data;
     }
 
-    /**
-     * Finds every occurrence of query on a page, each as the exact group
-     * of WordBox entries that make it up, found by scanning the SAME
-     * canonical text searchAll() scans — so occurrence N here is always
-     * occurrence N in the SearchResult list for this page, guaranteed by
-     * construction rather than by hoping two separate extractions agree.
-     */
     public List<MatchGroup> findMatchGroups(int pageIndex, String query) {
         List<MatchGroup> groups = new ArrayList<>();
         if (query == null || query.trim().isEmpty()) return groups;
@@ -483,11 +445,6 @@ public class PdfTextExtractor {
         return groups;
     }
 
-    // =========================================================
-    // SEARCH — reads the SAME canonical text findMatchGroups() reads, so
-    // result count/order/offsets always line up with the boxes drawn.
-    // =========================================================
-
     public List<SearchResult> searchAll(String query, int totalPages) {
         List<SearchResult> results = new ArrayList<>();
         if (!isOpen() || query == null || query.trim().isEmpty()) return results;
@@ -507,7 +464,7 @@ public class PdfTextExtractor {
             }
             if (data == null || data.text == null || data.text.isEmpty()) continue;
 
-            String text = data.text; // already single-space-joined — no extra normalising needed
+            String text = data.text;
             String lowerText = text.toLowerCase();
 
             int searchFrom = 0;
@@ -526,20 +483,113 @@ public class PdfTextExtractor {
         return results;
     }
 
-    // =========================================================
-    // TOC — INTENTIONALLY EMPTY. This app has its own TOC/bookmark
-    // system (PdfTocController / PdfBookmarkController). PdfTocController
-    // .buildFor() already falls back to auto-generated, evenly-spaced
-    // page milestones whenever this returns an empty list.
-    // =========================================================
+    public List<WordBox> findQueryBoxes(int pageIndex, String query) {
+        List<WordBox> all     = extractWordBoxes(pageIndex);
+        List<WordBox> matches = new ArrayList<>();
+        if (query == null || query.isEmpty()) return matches;
 
-    public List<TocEntry> extractOutline() {
-        return new ArrayList<>();
+        String lowerQuery = query.toLowerCase().trim();
+        String[] queryWords = lowerQuery.split("\\s+");
+
+        if (queryWords.length == 1) {
+            for (WordBox wb : all) {
+                if (wb.word.toLowerCase().contains(lowerQuery)) {
+                    matches.add(wb);
+                }
+            }
+            return matches;
+        }
+
+        for (int i = 0; i <= all.size() - queryWords.length; i++) {
+            boolean match = true;
+            for (int j = 0; j < queryWords.length; j++) {
+                if (!all.get(i + j).word.toLowerCase().contains(queryWords[j])) {
+                    match = false; break;
+                }
+            }
+            if (match) {
+                WordBox first = all.get(i);
+                WordBox last  = all.get(i + queryWords.length - 1);
+                float l = first.left;
+                float t = Math.min(first.top, last.top);
+                float r = last.right;
+                float b = Math.max(first.bottom, last.bottom);
+                matches.add(new WordBox(l, t, r, b, query));
+            }
+        }
+        return matches;
     }
 
     // =========================================================
-    // DOCUMENT INFO — INTENTIONALLY DISABLED. PdfReaderController already
-    // falls back to a cleaned-up filename whenever this returns null.
+    // TOC — real embedded-outline extraction via PDFBox.
+    //
+    // FIXED: previously always returned an empty list (a deliberate
+    // stub, see history), which meant PdfTocController always fell back
+    // to its own evenly-spaced page-milestone builder — hence "only page
+    // numbers show, no real contents." Since PDFium's binding has no
+    // bookmark API and PDFBox is already a project dependency (used for
+    // Page Basket export), this reopens the same underlying file briefly
+    // through PDFBox purely to read its outline tree, then closes it —
+    // it does not stay open for the session, unlike the PDFium document.
+    // =========================================================
+
+    public List<TocEntry> extractOutline() {
+        List<TocEntry> entries = new ArrayList<>();
+        if (currentFile == null || !currentFile.exists()) return entries;
+
+        synchronized (lock) {
+            PDDocument outlineDoc = null;
+            try {
+                outlineDoc = PDDocument.load(currentFile);
+                PDDocumentOutline outline = outlineDoc.getDocumentCatalog().getDocumentOutline();
+                if (outline != null) {
+                    collectOutlineItems(outlineDoc, outline, entries, 0);
+                }
+            } catch (Throwable t) {
+                Log.e(TAG, "extractOutline failed: " + t.getMessage());
+            } finally {
+                if (outlineDoc != null) {
+                    try { outlineDoc.close(); } catch (Throwable ignored) {}
+                }
+            }
+        }
+        return entries;
+    }
+
+    private void collectOutlineItems(PDDocument doc, PDOutlineNode node, List<TocEntry> out, int depth) {
+        if (depth > 12) return; // guard against a malicious/cyclic outline tree
+        try {
+            PDOutlineItem item = node.getFirstChild();
+            while (item != null) {
+                String title = item.getTitle();
+                if (title == null || title.trim().isEmpty()) title = "Section";
+
+                int pageNum = 0;
+                try {
+                    if (item.getDestination() != null) {
+                        PDPage destPage = item.findDestinationPage(doc);
+                        if (destPage != null) {
+                            int idx = doc.getPages().indexOf(destPage);
+                            if (idx >= 0) pageNum = idx;
+                        }
+                    }
+                } catch (Throwable ignored) {
+                    // A single broken destination shouldn't drop the whole entry.
+                }
+
+                out.add(new TocEntry(title.trim(), Math.max(0, pageNum), depth));
+                collectOutlineItems(doc, item, out, depth + 1);
+                item = item.getNextSibling();
+            }
+        } catch (Throwable ignored) {
+            // Never let a malformed outline node crash TOC building.
+        }
+    }
+
+    // =========================================================
+    // DOCUMENT INFO — intentionally disabled; PdfReaderController
+    // already falls back to a cleaned-up filename whenever this
+    // returns null.
     // =========================================================
 
     public String getTitle() {

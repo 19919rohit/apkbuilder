@@ -18,6 +18,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -25,24 +26,19 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Merges an ordered list of basket entries — each potentially from a
- * DIFFERENT source PDF — into one new, standalone PDF.
+ * DIFFERENT source PDF — into one new, standalone PDF using PDFBox's
+ * PDDocument.importPage(), which preserves real, extractable text/fonts/
+ * vector content (unlike bitmap rendering).
  *
- * FIXED (previously produced image-only, non-searchable output): the old
- * implementation rendered every source page to a bitmap via PdfCore
- * (PDFium) and drew that bitmap onto a fresh android.graphics.pdf.
- * PdfDocument page. A bitmap carries no text layer at all — TTS, search,
- * and copy-paste on the exported file all correctly reported "no text",
- * because there genuinely was none. Android's built-in PdfDocument can
- * only draw NEW content via Canvas; it cannot copy another PDF's actual
- * content stream.
- *
- * This now uses PDFBox-Android's PDDocument.importPage(PDPage) — which
- * copies the REAL page object (content stream, fonts, embedded text,
- * vector graphics — everything) into the output document, preserving
- * genuine extractable text. PDFium is untouched and still used for all
- * rendering/reading/search elsewhere in the app; this is the one place
- * that needs true page-copying rather than rendering, so it uses the
- * one library capable of that.
+ * ROBUSTNESS FIX (was the source of "COSStream has been closed and cannot
+ * be read" crashes): every source PDDocument is now kept open for the
+ * ENTIRE merge — not closed right after its page is imported. PDFBox's
+ * importPage() does not necessarily deep-copy the page's underlying
+ * content stream at call time; closing the source document too early can
+ * leave the imported page referencing an already-closed COSStream, which
+ * only surfaces later at save() time. All source documents are now
+ * closed together, in one place, only after the merged output has
+ * actually been written to disk.
  */
 public class PageBasketExporter {
 
@@ -87,28 +83,28 @@ public class PageBasketExporter {
         }
 
         PDDocument outDoc = new PDDocument();
+        // Every opened source document is tracked here and kept alive
+        // until save() completes — see class doc for why this fixes the
+        // "COSStream has been closed" crash.
+        List<PDDocument> openSourceDocs = new ArrayList<>();
+
         try {
             int added = 0;
             for (PageBasketManager.BasketEntry entry : entries) {
                 try {
                     File srcFile = FileUtils.getFileFromUri(context, entry.sourceUri);
-                    PDDocument srcDoc = null;
-                    try {
-                        srcDoc = PDDocument.load(srcFile);
-                        if (entry.pageIndex < 0 || entry.pageIndex >= srcDoc.getNumberOfPages()) continue;
-                        PDPage sourcePage = srcDoc.getPage(entry.pageIndex);
-                        // importPage copies the page's content stream and
-                        // resources into outDoc — this is what preserves
-                        // real, extractable text (unlike bitmap rendering).
-                        outDoc.importPage(sourcePage);
-                        added++;
-                    } finally {
-                        if (srcDoc != null) srcDoc.close();
-                    }
+                    PDDocument srcDoc = PDDocument.load(srcFile);
+                    openSourceDocs.add(srcDoc);
+
+                    if (entry.pageIndex < 0 || entry.pageIndex >= srcDoc.getNumberOfPages()) continue;
+                    PDPage sourcePage = srcDoc.getPage(entry.pageIndex);
+                    outDoc.importPage(sourcePage);
+                    added++;
                 } catch (Throwable pageErr) {
-                    // Skip a page that fails to import rather than aborting
-                    // the whole merge — one corrupt source PDF shouldn't
-                    // ruin a basket built from several good ones.
+                    // Skip a page/source that fails to load or import
+                    // rather than aborting the whole merge — one corrupt
+                    // source PDF shouldn't ruin a basket built from
+                    // several good ones.
                 }
             }
 
@@ -125,7 +121,10 @@ public class PageBasketExporter {
             outDoc.save(tempFile);
             return tempFile;
         } finally {
-            outDoc.close();
+            for (PDDocument doc : openSourceDocs) {
+                try { doc.close(); } catch (Throwable ignored) {}
+            }
+            try { outDoc.close(); } catch (Throwable ignored) {}
         }
     }
 
@@ -141,19 +140,26 @@ public class PageBasketExporter {
             Uri itemUri = context.getContentResolver().insert(collection, values);
             if (itemUri == null) throw new IllegalStateException("Could not create a Documents entry");
 
-            try (OutputStream out = context.getContentResolver().openOutputStream(itemUri);
-                 InputStream in = new FileInputStream(sourceFile)) {
-                if (out == null) throw new IllegalStateException("Could not open output stream");
-                byte[] buffer = new byte[8192];
-                int read;
-                while ((read = in.read(buffer)) != -1) out.write(buffer, 0, read);
+            try {
+                try (OutputStream out = context.getContentResolver().openOutputStream(itemUri);
+                     InputStream in = new FileInputStream(sourceFile)) {
+                    if (out == null) throw new IllegalStateException("Could not open output stream");
+                    byte[] buffer = new byte[8192];
+                    int read;
+                    while ((read = in.read(buffer)) != -1) out.write(buffer, 0, read);
+                }
+
+                values.clear();
+                values.put(MediaStore.Files.FileColumns.IS_PENDING, 0);
+                context.getContentResolver().update(itemUri, values, null, null);
+
+                return itemUri;
+            } catch (Exception writeErr) {
+                // Robustness: don't leave a zero-byte/pending, corrupt
+                // MediaStore row behind if the copy itself failed partway.
+                try { context.getContentResolver().delete(itemUri, null, null); } catch (Throwable ignored) {}
+                throw writeErr;
             }
-
-            values.clear();
-            values.put(MediaStore.Files.FileColumns.IS_PENDING, 0);
-            context.getContentResolver().update(itemUri, values, null, null);
-
-            return itemUri;
         } else {
             File docsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS);
             if (!docsDir.exists()) {

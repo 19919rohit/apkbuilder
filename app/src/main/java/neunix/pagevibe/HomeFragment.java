@@ -57,8 +57,7 @@ public class HomeFragment extends Fragment {
     private RecyclerView  recentStrip;
     private View          emptyState;
     private View          btnOpenPdf;
-    private ImageButton   btnAbout;
-    private ImageButton   btnNotifSettings;
+    private ImageButton   btnSettings;
 
     private LibraryManager         libraryManager;
     private ReadingStatsController stats;
@@ -152,8 +151,7 @@ public class HomeFragment extends Fragment {
         recentStrip     = root.findViewById(R.id.recentStrip);
         emptyState      = root.findViewById(R.id.emptyState);
         btnOpenPdf      = root.findViewById(R.id.btnOpenPdf);
-        btnAbout        = root.findViewById(R.id.btnAbout);
-        btnNotifSettings = root.findViewById(R.id.btnNotifSettings);
+        btnSettings     = root.findViewById(R.id.btnSettings);
 
         greetingText.setText(greeting());
     }
@@ -167,13 +165,10 @@ public class HomeFragment extends Fragment {
     }
 
     private void setupButtons() {
-        btnAbout.setOnClickListener(v ->
-                startActivity(new Intent(requireContext(), AboutActivity.class)));
-
-        if (btnNotifSettings != null) {
-            btnNotifSettings.setOnClickListener(v ->
-                    startActivity(new Intent(requireContext(), NotificationSettingsActivity.class)));
-            TooltipUtil.apply(btnNotifSettings, "Notification settings");
+        if (btnSettings != null) {
+            btnSettings.setOnClickListener(v ->
+                    startActivity(new Intent(requireContext(), SettingsActivity.class)));
+            TooltipUtil.apply(btnSettings, "Settings");
         }
 
         insightsCard.setOnClickListener(v -> {

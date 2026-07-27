@@ -57,28 +57,14 @@
                 </LinearLayout>
 
                 <ImageButton
-                    android:id="@+id/btnNotifSettings"
+                    android:id="@+id/btnSettings"
                     android:layout_width="32dp"
                     android:layout_height="32dp"
-                    android:layout_marginEnd="14dp"
-                    android:src="@drawable/ic_notifications"
+                    android:src="@drawable/ic_settings"
                     android:tint="#666666"
                     android:scaleType="centerInside"
                     android:background="@android:color/transparent"
-                    android:contentDescription="Notification settings"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:foreground="?attr/selectableItemBackgroundBorderless"/>
-
-                <ImageButton
-                    android:id="@+id/btnAbout"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:src="@drawable/ic_about"
-                    android:tint="#666666"
-                    android:scaleType="centerInside"
-                    android:background="@android:color/transparent"
-                    android:contentDescription="About application"
+                    android:contentDescription="Settings"
                     android:clickable="true"
                     android:focusable="true"
                     android:foreground="?attr/selectableItemBackgroundBorderless"/>

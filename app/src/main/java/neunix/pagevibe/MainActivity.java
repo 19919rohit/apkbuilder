@@ -40,16 +40,7 @@ public class MainActivity extends AppCompatActivity {
 
         NotificationScheduler.initialize(this);
         requestNotificationPermissionIfNeeded();
-        
-        FirebaseMessaging.getInstance()
-        .subscribeToTopic("all")
-        .addOnCompleteListener(task -> {
-            if (task.isSuccessful()) {
-                android.util.Log.d("PageVibe", "Subscribed to topic: all");
-            } else {
-                android.util.Log.e("PageVibe", "Failed to subscribe", task.getException());
-            }
-        });
+        subscribeToFcmTopics();
 
         handleIncomingViewIntent(getIntent());
 
@@ -88,16 +79,21 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * External "Open with PageVibe" intents: the incoming content:// URI
-     * may point at a TEMPORARY file (email attachment viewer cache,
-     * browser download cache, etc.) that can vanish once the source app
-     * closes. ExternalPdfPersister copies it into Documents/PageVibe/PDF
-     * first, and PdfActivity is launched against that permanent copy —
-     * so the file genuinely belongs to the device from that point on.
-     * PdfActivity itself still registers into the Library on successful
-     * open (see PdfActivity.onPdfOpened), so no duplicate bookkeeping
-     * is needed here.
+     * "all" is the broadcast topic every install is subscribed to for
+     * rare FCM announcements (major updates, security notices) — this is
+     * the only topic the app subscribes to; it never targets individual
+     * users or segments, so there's nothing personally identifying about
+     * this subscription.
      */
+    private void subscribeToFcmTopics() {
+        try {
+            FirebaseMessaging.getInstance().subscribeToTopic("all");
+        } catch (Throwable ignored) {
+            // FCM not configured yet (e.g. google-services.json not
+            // present) — never let this block the rest of app startup.
+        }
+    }
+
     private void handleIncomingViewIntent(Intent incoming) {
         if (incoming == null || !Intent.ACTION_VIEW.equals(incoming.getAction())
                 || incoming.getData() == null) return;
@@ -113,9 +109,6 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void onFailed(Uri originalUri, String originalName) {
-                // Persistence failed (no permission, IO error, etc.) —
-                // still open the original URI rather than blocking the
-                // user from reading the file at all.
                 runOnUiThread(() -> launchReader(originalUri));
             }
         });

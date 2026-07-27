@@ -38,13 +38,6 @@ public class PdfReadAloudController implements TextToSpeech.OnInitListener {
     private boolean      ttsPlaying = false;
     private boolean      ttsPaused  = false;
 
-    // Set true the instant shutdown() is called. The async TextToSpeech
-    // init callback can still fire AFTER shutdown() has already nulled
-    // the `tts` field (e.g. user opens a PDF and closes the reader before
-    // the TTS engine finishes binding) — this flag lets that late
-    // callback detect it's obsolete and cleanly shut itself down instead
-    // of proceeding to configure a dead controller, and is what fixes
-    // the NullPointerException on TextToSpeech.setLanguage().
     private final AtomicBoolean isShutdown = new AtomicBoolean(false);
 
     private final AtomicInteger ttsLockedPage = new AtomicInteger(-1);
@@ -74,23 +67,23 @@ public class PdfReadAloudController implements TextToSpeech.OnInitListener {
     }
 
     private void init() {
+        tts = new TextToSpeech(context, this);
 
-    tts = new TextToSpeech(context, this);
+        btnPlayPause.setOnClickListener(v -> {
+            if (ttsPlaying) {
+                pauseTts();
+            } else {
+                resumeTts();
+            }
+        });
 
-    btnPlayPause.setOnClickListener(v -> {
-        if (ttsPlaying) {
-            pauseTts();
-        } else {
-            resumeTts();
-        }
-    });
+        btnStop.setOnClickListener(v -> stop());
 
-    btnStop.setOnClickListener(v -> stop());
+        TooltipUtil.apply(triggerButton, "Read this page aloud");
+        TooltipUtil.apply(btnPlayPause, "Play / Pause");
+        TooltipUtil.apply(btnStop, "Stop reading");
+    }
 
-    TooltipUtil.apply(triggerButton, "Read this page aloud");
-    TooltipUtil.apply(btnPlayPause, "Play / Pause");
-    TooltipUtil.apply(btnStop, "Stop reading");
-}
     public void toggle() {
         if (ttsPlaying) { stop(); return; }
         if (!ttsReady)  { toast("Text-to-speech engine not ready"); return; }
@@ -395,7 +388,18 @@ public class PdfReadAloudController implements TextToSpeech.OnInitListener {
     }
 
     private void setTriggerColor(boolean active) {
-        triggerButton.setColorFilter(Color.parseColor(active ? "#4488FF" : "#555555"));
+        if (active) {
+            triggerButton.setColorFilter(Color.parseColor("#4488FF"));
+        } else {
+            // FIXED: previously re-applied a dim grey (#555555) tint —
+            // identical to the button's own default XML tint, so once
+            // used, it visually never differed from a "stuck/disabled"
+            // look, which is what was reported as "permanently grey."
+            // Clearing the filter restores the button's real default
+            // (white, see activity_pdf.xml) instead of stacking another
+            // grey tint on top of it.
+            triggerButton.clearColorFilter();
+        }
     }
 
     public boolean isPlaying() { return ttsPlaying; }

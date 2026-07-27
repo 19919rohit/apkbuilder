@@ -17,10 +17,16 @@ import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
 import java.util.ArrayList;
 import java.util.List;
 
 public class StatsActivity extends AppCompatActivity {
+
+    private static final String PREFS_NAME = "pagevibe_prefs";
+    private static final String KEY_RECENT = "recent_files";
 
     private ReadingStatsController stats;
     private LibraryManager         libraryManager;
@@ -78,17 +84,6 @@ public class StatsActivity extends AppCompatActivity {
         }
     }
 
-    /**
-     * Two independent visual signals, deliberately not conflated:
-     *  - The historical BEST day gets a static amber tint (informational).
-     *  - TODAY always gets the animated glow + shimmer, regardless of
-     *    whether it happens to also be the best day — this is what
-     *    previously made the animation misleadingly look like "today is
-     *    always special" for new users, since a brand-new user's only
-     *    day of data IS today, so best-day and today were the same thing
-     *    every single time. Now the animation means "still counting",
-     *    and the amber tint alone means "your best day so far".
-     */
     private void bindWeekChart() {
         LinearLayout chart = findViewById(R.id.weekChart);
         chart.removeAllViews();
@@ -111,7 +106,6 @@ public class StatsActivity extends AppCompatActivity {
 
         int maxBarHeightPx = dpToPx(80);
         int barWidthPx     = dpToPx(18);
-        int glowExtraPx    = dpToPx(12);
 
         final int amberColor = Color.parseColor("#FFC400");
         final int blueColor  = Color.parseColor("#4488FF");
@@ -143,6 +137,16 @@ public class StatsActivity extends AppCompatActivity {
             int barColor  = isBest ? amberColor : (entry.seconds > 0 ? blueColor : greyColor);
             int glowColor = isBest ? amberGlow  : blueGlow;
 
+            // FIXED: glow/shimmer sizing used to be FIXED pixel values
+            // regardless of this specific bar's height — on a short bar
+            // (a day with only a few minutes read) that made the glow
+            // visually dwarf the bar it was supposed to be highlighting.
+            // Both are now scaled proportionally to THIS bar's own
+            // height, clamped to a sensible min/max so they never
+            // vanish entirely on a tiny bar or balloon on a tall one.
+            int glowExtraPx    = clampPx((int) (barHeight * 0.18f), dpToPx(4), dpToPx(12));
+            int shimmerHeight  = clampPx((int) (barHeight * 0.16f), dpToPx(4), dpToPx(10));
+
             if (isToday) {
                 addBreathingGlow(barSlot, barWidthPx, barHeight, glowExtraPx, glowColor);
             }
@@ -160,7 +164,7 @@ public class StatsActivity extends AppCompatActivity {
             barSlot.addView(bar);
 
             if (isToday) {
-                attachShimmer(barSlot, barWidthPx, barHeight);
+                attachShimmer(barSlot, barWidthPx, barHeight, shimmerHeight);
             }
 
             TextView label = new TextView(this);
@@ -179,13 +183,6 @@ public class StatsActivity extends AppCompatActivity {
         }
     }
 
-    /**
-     * A soft rounded halo behind a bar that breathes — alpha and scale
-     * animated together on one ValueAnimator so they stay perfectly in
-     * sync, using an ease-in/ease-out curve so the pulse feels organic.
-     * Color is passed in so it can match either the "best day" (amber)
-     * or plain "today" (blue) styling.
-     */
     private void addBreathingGlow(FrameLayout barSlot, int barWidthPx, int barHeightPx,
                                    int glowExtraPx, int glowColor) {
         View glow = new View(this);
@@ -199,7 +196,7 @@ public class StatsActivity extends AppCompatActivity {
         glowBg.setCornerRadius(dpToPx(14));
         glowBg.setColor(glowColor);
         glow.setBackground(glowBg);
-        barSlot.addView(glow, 0); // behind the bar, which is added next
+        barSlot.addView(glow, 0);
 
         ValueAnimator breathe = ValueAnimator.ofFloat(0f, 1f);
         breathe.setDuration(1000);
@@ -217,14 +214,8 @@ public class StatsActivity extends AppCompatActivity {
         activeAnimators.add(breathe);
     }
 
-    /**
-     * A soft streak of light that travels up through today's bar and
-     * fades in/out at both ends via a sine curve — layered on top of the
-     * breathing glow for a genuinely lively "still counting" indicator.
-     */
-    private void attachShimmer(FrameLayout barSlot, int barWidthPx, int barHeightPx) {
+    private void attachShimmer(FrameLayout barSlot, int barWidthPx, int barHeightPx, int shimmerHeight) {
         View shimmer = new View(this);
-        int shimmerHeight = dpToPx(10);
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(barWidthPx, shimmerHeight);
         lp.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
         shimmer.setLayoutParams(lp);
@@ -253,14 +244,10 @@ public class StatsActivity extends AppCompatActivity {
         activeAnimators.add(travelAnim);
     }
 
-    /**
-     * FIXED: previously looked up the title via the old "recent_files"
-     * SharedPreferences key, which stopped being written to once the app
-     * moved to LibraryManager as the actual source of truth — so this
-     * search always came back empty and silently hid the Most Read card.
-     * Now resolves the title through LibraryManager, matching by the
-     * same uri.hashCode() key ReadingStatsController already uses.
-     */
+    private int clampPx(int value, int min, int max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
     private void bindMostRead() {
         String docKey = stats.getMostReadDocKey();
         if (docKey == null) return;
