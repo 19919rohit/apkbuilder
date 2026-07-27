@@ -34,27 +34,51 @@ public class MainActivity extends AppCompatActivity {
             registerForActivityResult(new ActivityResultContracts.RequestPermission(), granted -> { /* no-op either way */ });
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main_shell);
+protected void onCreate(Bundle savedInstanceState) {
+    super.onCreate(savedInstanceState);
+    setContentView(R.layout.activity_main_shell);
 
-        NotificationScheduler.initialize(this);
-        requestNotificationPermissionIfNeeded();
-        subscribeToFcmTopics();
+    NotificationScheduler.initialize(this);
+    requestNotificationPermissionIfNeeded();
+    subscribeToFcmTopics();
 
-        handleIncomingViewIntent(getIntent());
+    handleIncomingViewIntent(getIntent());
 
-        bottomNav = findViewById(R.id.bottomNav);
-        showTab(homeFragment);
+    bottomNav = findViewById(R.id.bottomNav);
+    showTab(homeFragment);
 
-        bottomNav.setOnItemSelectedListener(item -> {
-            int id = item.getItemId();
-            if (id == R.id.nav_home)    { showTab(homeFragment);    return true; }
-            if (id == R.id.nav_library) { showTab(libraryFragment); return true; }
-            if (id == R.id.nav_basket)  { showTab(basketFragment);  return true; }
-            return false;
-        });
-    }
+    bottomNav.setOnItemSelectedListener(item -> {
+        int id = item.getItemId();
+        if (id == R.id.nav_home) {
+            showTab(homeFragment);
+            return true;
+        }
+        if (id == R.id.nav_library) {
+            showTab(libraryFragment);
+            return true;
+        }
+        if (id == R.id.nav_basket) {
+            showTab(basketFragment);
+            return true;
+        }
+        return false;
+    });
+
+    // Handle Back button
+    getOnBackPressedDispatcher().addCallback(this,
+            new androidx.activity.OnBackPressedCallback(true) {
+                @Override
+                public void handleOnBackPressed() {
+
+                    if (bottomNav.getSelectedItemId() != R.id.nav_home) {
+                        bottomNav.setSelectedItemId(R.id.nav_home);
+                    } else {
+                        setEnabled(false);
+                        getOnBackPressedDispatcher().onBackPressed();
+                    }
+                }
+            });
+}
 
     @Override
     protected void onResume() {
@@ -121,17 +145,44 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void showTab(Fragment target) {
-        FragmentManager fm = getSupportFragmentManager();
-        FragmentTransaction tx = fm.beginTransaction();
-        if (!homeFragment.isAdded())    tx.add(R.id.fragmentContainer, homeFragment, "home");
-        if (!libraryFragment.isAdded()) tx.add(R.id.fragmentContainer, libraryFragment, "library");
-        if (!basketFragment.isAdded())  tx.add(R.id.fragmentContainer, basketFragment, "basket");
-        tx.hide(homeFragment);
-        tx.hide(libraryFragment);
-        tx.hide(basketFragment);
-        tx.show(target);
-        tx.commitAllowingStateLoss();
+
+    FragmentManager fm = getSupportFragmentManager();
+
+    Fragment current = null;
+
+    if (homeFragment.isVisible()) {
+        current = homeFragment;
+    } else if (libraryFragment.isVisible()) {
+        current = libraryFragment;
+    } else if (basketFragment.isVisible()) {
+        current = basketFragment;
     }
+
+    // Already showing requested fragment
+    if (current == target) {
+        return;
+    }
+
+    FragmentTransaction tx = fm.beginTransaction();
+
+    if (homeFragment.isAdded()) {
+        tx.hide(homeFragment);
+    }
+
+    if (libraryFragment.isAdded()) {
+        tx.hide(libraryFragment);
+    }
+
+    if (basketFragment.isAdded()) {
+        tx.hide(basketFragment);
+    }
+
+    if (target.isAdded()) {
+        tx.show(target);
+    }
+
+    tx.commit();
+}
 
     public void switchToHomeTab() {
         if (bottomNav != null) bottomNav.setSelectedItemId(R.id.nav_home);
