@@ -85,6 +85,11 @@
             android:name=".AboutActivity"
             android:exported="false"
             android:screenOrientation="portrait"/>
+            
+        <activity
+            android:name=".NotesActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"/>
 
 
         <activity

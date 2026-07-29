@@ -66,6 +66,8 @@
 
             <LinearLayout
                 android:id="@+id/rowNotifications"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
                 style="@style/SettingsRow">
 
                 <ImageView
@@ -86,6 +88,8 @@
 
             <LinearLayout
                 android:id="@+id/rowBatteryOptimization"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
                 style="@style/SettingsRow">
 
                 <ImageView
@@ -126,6 +130,8 @@
 
             <LinearLayout
                 android:id="@+id/rowShareApp"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
                 style="@style/SettingsRow">
 
                 <ImageView
@@ -146,6 +152,8 @@
 
             <LinearLayout
                 android:id="@+id/rowFeedback"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
                 style="@style/SettingsRow">
 
                 <ImageView
@@ -178,6 +186,8 @@
 
             <LinearLayout
                 android:id="@+id/rowAbout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
                 style="@style/SettingsRow">
 
                 <ImageView
@@ -198,6 +208,8 @@
 
             <LinearLayout
                 android:id="@+id/rowLicenses"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
                 style="@style/SettingsRow">
 
                 <ImageView
