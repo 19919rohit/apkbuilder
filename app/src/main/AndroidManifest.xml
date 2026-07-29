@@ -31,6 +31,7 @@
 
 
     <application
+        android:name=".PageVibeApplication"
         android:label="@string/app_name"
         android:icon="@mipmap/ic_launcher"
         android:theme="@style/Theme.PageVibe"
