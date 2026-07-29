@@ -33,6 +33,7 @@ public class PdfActivity extends AppCompatActivity implements PdfReaderControlle
     private CurlView             curlView;
     private DrawingView          drawingView;
     private HighlightOverlayView highlightOverlay;
+    private TextSelectionView    textSelectionView;
     private Slider               slider;
     private TextView             pageText, titleText, errorMessage;
     private View                 topBar, controlBar, loadingOverlay, errorView;
@@ -44,6 +45,7 @@ public class PdfActivity extends AppCompatActivity implements PdfReaderControlle
     private PdfTocController       toc;
     private PdfReadAloudController readAloud;
     private PdfDrawController      draw;
+    private PdfSelectionController selection;
     private ReadingStatsController stats;
     private LibraryManager         libraryManager;
 
@@ -66,9 +68,6 @@ public class PdfActivity extends AppCompatActivity implements PdfReaderControlle
         enterImmersiveMode();
         setContentView(R.layout.activity_pdf);
 
-        // Logs "notification_opened" if this launch came from tapping a
-        // Continue Reading notification — see AnalyticsHelper. No PDF
-        // name/URI/page number is ever included in the logged event.
         AnalyticsHelper.logIfTagged(this, getIntent());
 
         bindViews();
@@ -85,7 +84,15 @@ public class PdfActivity extends AppCompatActivity implements PdfReaderControlle
         setupToc();
         setupReadAloud();
         setupDraw();
+        setupSelection();
         setupBasketButton();
+        setupNotesButton();
+
+        // Draw and text-selection are mutually exclusive — activating one
+        // cleanly deactivates the other rather than allowing both touch
+        // handlers to fight for the same gesture stream.
+        draw.setOnActivateCallback(() -> selection.deactivate());
+        selection.setOnActivateCallback(() -> draw.deactivate());
 
         findViewById(R.id.btnRetryOpen).setOnClickListener(v -> openFilePicker());
         findViewById(R.id.btnBack).setOnClickListener(v -> finish());
@@ -102,10 +109,6 @@ public class PdfActivity extends AppCompatActivity implements PdfReaderControlle
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
-        // Defensive — PdfActivity currently launches as a fresh instance
-        // per notification tap (standard launch mode), so this path is
-        // rarely hit today, but costs nothing and stays correct if the
-        // launch mode ever changes.
         AnalyticsHelper.logIfTagged(this, intent);
     }
 
@@ -152,18 +155,19 @@ public class PdfActivity extends AppCompatActivity implements PdfReaderControlle
     }
 
     private void bindViews() {
-        zoomContainer    = findViewById(R.id.zoomContainer);
-        curlView         = findViewById(R.id.curlView);
-        drawingView      = findViewById(R.id.drawingView);
-        highlightOverlay = findViewById(R.id.highlightOverlay);
-        slider           = findViewById(R.id.pageSlider);
-        pageText         = findViewById(R.id.pageText);
-        titleText        = findViewById(R.id.titleText);
-        topBar           = findViewById(R.id.topBar);
-        controlBar       = findViewById(R.id.controlBar);
-        loadingOverlay   = findViewById(R.id.loadingOverlay);
-        errorView        = findViewById(R.id.errorView);
-        errorMessage     = findViewById(R.id.errorMessage);
+        zoomContainer      = findViewById(R.id.zoomContainer);
+        curlView           = findViewById(R.id.curlView);
+        drawingView        = findViewById(R.id.drawingView);
+        highlightOverlay   = findViewById(R.id.highlightOverlay);
+        textSelectionView  = findViewById(R.id.textSelectionView);
+        slider             = findViewById(R.id.pageSlider);
+        pageText           = findViewById(R.id.pageText);
+        titleText          = findViewById(R.id.titleText);
+        topBar             = findViewById(R.id.topBar);
+        controlBar         = findViewById(R.id.controlBar);
+        loadingOverlay     = findViewById(R.id.loadingOverlay);
+        errorView          = findViewById(R.id.errorView);
+        errorMessage       = findViewById(R.id.errorMessage);
     }
 
     private void registerFilePicker() {
@@ -181,22 +185,20 @@ public class PdfActivity extends AppCompatActivity implements PdfReaderControlle
         Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
         i.setType("application/pdf");
         i.addCategory(Intent.CATEGORY_OPENABLE);
-        i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
-                | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+        i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
         pdfPickerLauncher.launch(i);
     }
 
     private void openPdf(Uri uri) {
-        if (statsSessionActive) {
-            stats.endSession();
-            statsSessionActive = false;
-        }
+        if (statsSessionActive) { stats.endSession(); statsSessionActive = false; }
         showLoading(true);
         hideError();
         pageStrokes.clear();
         if (highlightOverlay != null) {
             highlightOverlay.clearSearchHighlights();
             highlightOverlay.clearTtsHighlight();
+            highlightOverlay.clearSelectionHighlights();
+            highlightOverlay.clearPersistentHighlights();
         }
         search.reset();
         reader.open(uri);
@@ -216,8 +218,7 @@ public class PdfActivity extends AppCompatActivity implements PdfReaderControlle
             setupSliderRange();
 
             PdfTextExtractor extractor = reader.getExtractor();
-            List<PdfTextExtractor.TocEntry> outline =
-                    extractor != null ? extractor.extractOutline() : null;
+            List<PdfTextExtractor.TocEntry> outline = extractor != null ? extractor.extractOutline() : null;
             toc.buildFor(outline, totalPages);
 
             curlView.setPageProvider(reader.pageProvider);
@@ -229,6 +230,8 @@ public class PdfActivity extends AppCompatActivity implements PdfReaderControlle
             bookmarks.updateIcon();
             updateHighlightPageSize(reader.getSettledPage());
             updateBasketIcon();
+            selection.onPageChanged();
+            selection.refreshPersistentHighlightsForPage(reader.getSettledPage());
 
             if (!statsSessionActive) {
                 stats.startSession(reader.getCurrentUri());
@@ -240,10 +243,7 @@ public class PdfActivity extends AppCompatActivity implements PdfReaderControlle
 
     @Override
     public void onPdfOpenFailed(String message) {
-        runOnUiThread(() -> {
-            showLoading(false);
-            showError(message);
-        });
+        runOnUiThread(() -> { showLoading(false); showError(message); });
     }
 
     @Override
@@ -255,6 +255,8 @@ public class PdfActivity extends AppCompatActivity implements PdfReaderControlle
             updateHighlightPageSize(page);
             updateBasketIcon();
             search.onPageChanged(page);
+            selection.onPageChanged();
+            selection.refreshPersistentHighlightsForPage(page);
             if (highlightOverlay != null) highlightOverlay.clearTtsHighlight();
             if (statsSessionActive) stats.recordPageTurn();
         });
@@ -319,7 +321,6 @@ public class PdfActivity extends AppCompatActivity implements PdfReaderControlle
                 (ImageButton) findViewById(R.id.btnSearchClose),
                 (ImageButton) findViewById(R.id.btnSearch),
                 page -> reader.navigateToPage(curlView, drawingView, pageStrokes, page));
-
         search.attachHighlightOverlay(highlightOverlay);
     }
 
@@ -334,7 +335,6 @@ public class PdfActivity extends AppCompatActivity implements PdfReaderControlle
                 (RecyclerView) findViewById(R.id.bookmarkRecycler),
                 findViewById(R.id.bookmarkEmptyState),
                 page -> reader.navigateToPage(curlView, drawingView, pageStrokes, page));
-
         findViewById(R.id.btnBookmarkList).setOnClickListener(v -> bookmarks.showSheet());
         TooltipUtil.apply(findViewById(R.id.btnBookmarkList), "All bookmarks");
     }
@@ -356,16 +356,13 @@ public class PdfActivity extends AppCompatActivity implements PdfReaderControlle
                 (ImageButton) findViewById(R.id.btnTtsPlayPause),
                 (ImageButton) findViewById(R.id.btnTtsStop),
                 (ImageButton) findViewById(R.id.btnReadAloud));
-
         readAloud.attachHighlightOverlay(highlightOverlay);
-
         findViewById(R.id.btnReadAloud).setOnClickListener(v -> readAloud.toggle());
     }
 
     private void setupDraw() {
         draw = new PdfDrawController(
-                drawingView,
-                zoomContainer,
+                drawingView, zoomContainer,
                 findViewById(R.id.drawToolbar),
                 (ImageButton) findViewById(R.id.btnDraw),
                 (ImageButton) findViewById(R.id.btnDrawUndo),
@@ -380,6 +377,12 @@ public class PdfActivity extends AppCompatActivity implements PdfReaderControlle
                 findViewById(R.id.colorWhite),
                 findViewById(R.id.colorGreen),
                 () -> pageStrokes.remove(reader.getSettledPage()));
+    }
+
+    private void setupSelection() {
+        selection = new PdfSelectionController(this, reader, readAloud,
+                zoomContainer, textSelectionView, highlightOverlay,
+                (ImageButton) findViewById(R.id.btnSelectText));
     }
 
     private void setupBasketButton() {
@@ -407,13 +410,24 @@ public class PdfActivity extends AppCompatActivity implements PdfReaderControlle
         TooltipUtil.apply(basketButton, "Add to basket");
     }
 
+    private void setupNotesButton() {
+        ImageButton btnNotes = findViewById(R.id.btnNotes);
+        if (btnNotes == null) return;
+        btnNotes.setOnClickListener(v -> {
+            Uri uri = reader.getCurrentUri();
+            if (uri == null) return;
+            Intent i = new Intent(this, NotesActivity.class);
+            i.putExtra(NotesActivity.EXTRA_PDF_URI, uri.toString());
+            i.putExtra(NotesActivity.EXTRA_PDF_NAME, titleText.getText() != null ? titleText.getText().toString() : "PDF");
+            startActivity(i);
+        });
+        TooltipUtil.apply(btnNotes, "Notes");
+    }
+
     private void updateBasketIcon() {
         if (basketButton == null) return;
         Uri uri = reader.getCurrentUri();
-        if (uri == null) {
-            basketButton.setImageResource(R.drawable.ic_basket_outline);
-            return;
-        }
+        if (uri == null) { basketButton.setImageResource(R.drawable.ic_basket_outline); return; }
         boolean inBasket = new PageBasketManager(this).contains(uri, reader.getSettledPage());
         basketButton.setImageResource(inBasket ? R.drawable.ic_basket_filled : R.drawable.ic_basket_outline);
     }
@@ -423,18 +437,14 @@ public class PdfActivity extends AppCompatActivity implements PdfReaderControlle
         basketButton.animate().cancel();
         basketButton.setScaleX(0.7f);
         basketButton.setScaleY(0.7f);
-        basketButton.animate()
-                .scaleX(1f).scaleY(1f)
-                .setDuration(220)
-                .setInterpolator(new OvershootInterpolator(3f))
-                .start();
+        basketButton.animate().scaleX(1f).scaleY(1f).setDuration(220)
+                .setInterpolator(new OvershootInterpolator(3f)).start();
     }
 
     private void syncSlider(int page) {
         if (reader.getTotalPages() <= 1) return;
         internalSliderUpdate = true;
-        slider.setValue(Math.max(slider.getValueFrom(),
-                Math.min(page, slider.getValueTo())));
+        slider.setValue(Math.max(slider.getValueFrom(), Math.min(page, slider.getValueTo())));
         internalSliderUpdate = false;
     }
 
@@ -443,27 +453,16 @@ public class PdfActivity extends AppCompatActivity implements PdfReaderControlle
         pageText.setText((Math.max(0, Math.min(page, total - 1)) + 1) + " / " + total);
     }
 
-    private void showLoading(boolean show) {
-        loadingOverlay.setVisibility(show ? View.VISIBLE : View.GONE);
-    }
-
-    private void showError(String msg) {
-        errorView.setVisibility(View.VISIBLE);
-        errorMessage.setText(msg);
-    }
-
-    private void hideError() {
-        errorView.setVisibility(View.GONE);
-    }
+    private void showLoading(boolean show) { loadingOverlay.setVisibility(show ? View.VISIBLE : View.GONE); }
+    private void showError(String msg) { errorView.setVisibility(View.VISIBLE); errorMessage.setText(msg); }
+    private void hideError() { errorView.setVisibility(View.GONE); }
 
     private void setControlsVisible(boolean v) {
         controlsVisible = v;
-        float a   = v ? 1f : 0f;
-        int   vis = v ? View.VISIBLE : View.INVISIBLE;
-        topBar.animate().alpha(a).setDuration(200)
-                .withEndAction(() -> topBar.setVisibility(vis)).start();
-        controlBar.animate().alpha(a).setDuration(200)
-                .withEndAction(() -> controlBar.setVisibility(vis)).start();
+        float a = v ? 1f : 0f;
+        int vis = v ? View.VISIBLE : View.INVISIBLE;
+        topBar.animate().alpha(a).setDuration(200).withEndAction(() -> topBar.setVisibility(vis)).start();
+        controlBar.animate().alpha(a).setDuration(200).withEndAction(() -> controlBar.setVisibility(vis)).start();
     }
 
     private void scheduleHideControls() {
@@ -473,11 +472,8 @@ public class PdfActivity extends AppCompatActivity implements PdfReaderControlle
 
     private void enterImmersiveMode() {
         getWindow().getDecorView().setSystemUiVisibility(
-                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-                        | View.SYSTEM_UI_FLAG_FULLSCREEN
-                        | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                        | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                        | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                        | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN);
+                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_FULLSCREEN
+                        | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                        | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN);
     }
 }

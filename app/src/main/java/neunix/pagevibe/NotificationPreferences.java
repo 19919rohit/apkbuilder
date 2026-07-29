@@ -35,6 +35,16 @@ public class NotificationPreferences {
     private static final int ANTI_REPEAT_HISTORY_SIZE = 40;
 
     private final Context context;
+    
+    private static final String KEY_FCM_SUBSCRIBED = "fcm_topic_all_subscribed";
+
+    public boolean isFcmTopicSubscribed() {
+        return prefs().getBoolean(KEY_FCM_SUBSCRIBED, false);
+    }
+
+    public void setFcmTopicSubscribed(boolean subscribed) {
+        prefs().edit().putBoolean(KEY_FCM_SUBSCRIBED, subscribed).apply();
+    }
 
     public NotificationPreferences(Context context) {
         this.context = context.getApplicationContext();

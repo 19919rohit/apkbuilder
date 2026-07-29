@@ -6,131 +6,218 @@
     android:layout_height="match_parent"
     android:background="#080808">
 
-    <LinearLayout
+    <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical">
+        android:layout_height="match_parent"
+        android:fillViewport="true"
+        android:overScrollMode="never"
+        android:paddingBottom="24dp">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:paddingStart="24dp"
-            android:paddingEnd="24dp"
-            android:paddingTop="56dp"
-            android:paddingBottom="6dp">
+            android:orientation="vertical">
 
-            <ImageButton
-                android:id="@+id/btnBack"
-                android:layout_width="32dp"
-                android:layout_height="32dp"
-                android:layout_marginEnd="16dp"
-                android:src="@drawable/ic_back"
-                android:tint="#888888"
-                android:background="@drawable/bg_file_initial"
-                android:contentDescription="Go back"
-                android:clickable="true"
-                android:focusable="true"
-                android:foreground="?attr/selectableItemBackgroundBorderless"/>
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingStart="24dp"
+                android:paddingEnd="24dp"
+                android:paddingTop="56dp"
+                android:paddingBottom="6dp">
+
+                <ImageButton
+                    android:id="@+id/btnBack"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:layout_marginEnd="16dp"
+                    android:src="@drawable/ic_back"
+                    android:tint="#888888"
+                    android:background="@drawable/bg_file_initial"
+                    android:contentDescription="Go back"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:foreground="?attr/selectableItemBackgroundBorderless"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Settings"
+                    android:textSize="34sp"
+                    android:textStyle="bold"
+                    android:textColor="#FFFFFF"
+                    android:letterSpacing="-0.015"/>
+
+            </LinearLayout>
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Settings"
-                android:textSize="34sp"
-                android:textStyle="bold"
-                android:textColor="#FFFFFF"
-                android:letterSpacing="-0.015"/>
+                android:text="GENERAL"
+                android:textSize="10sp"
+                android:letterSpacing="0.16"
+                android:textColor="#707070"
+                android:paddingStart="24dp"
+                android:paddingEnd="24dp"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="10dp"/>
 
-        </LinearLayout>
+            <LinearLayout
+                android:id="@+id/rowNotifications"
+                style="@style/SettingsRow">
 
-        <LinearLayout
-            android:id="@+id/rowNotifications"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:padding="18dp"
-            android:layout_marginStart="24dp"
-            android:layout_marginEnd="24dp"
-            android:layout_marginTop="24dp"
-            android:background="@drawable/bg_continue_card"
-            android:clickable="true"
-            android:focusable="true"
-            android:foreground="?attr/selectableItemBackground">
+                <ImageView
+                    android:layout_width="36dp" android:layout_height="36dp"
+                    android:src="@drawable/ic_notifications" android:tint="#4488FF"
+                    android:padding="7dp" android:scaleType="fitCenter"
+                    android:background="@drawable/bg_file_initial"/>
 
-            <ImageView
-                android:layout_width="36dp"
-                android:layout_height="36dp"
-                android:src="@drawable/ic_notifications"
-                android:tint="#4488FF"
-                android:padding="7dp"
-                android:scaleType="fitCenter"
-                android:background="@drawable/bg_file_initial"/>
+                <TextView
+                    android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:layout_marginStart="14dp"
+                    android:text="Notifications" android:textSize="15sp"
+                    android:textStyle="bold" android:textColor="#F0F0F0"/>
 
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginStart="14dp"
-                android:text="Notifications"
-                android:textSize="15sp"
-                android:textStyle="bold"
-                android:textColor="#F0F0F0"/>
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="›" android:textSize="22sp" android:textColor="#2A2A2A"/>
+            </LinearLayout>
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="›"
-                android:textSize="22sp"
-                android:textColor="#2A2A2A"/>
+            <LinearLayout
+                android:id="@+id/rowBatteryOptimization"
+                style="@style/SettingsRow">
 
-        </LinearLayout>
+                <ImageView
+                    android:layout_width="36dp" android:layout_height="36dp"
+                    android:src="@drawable/ic_settings" android:tint="#4488FF"
+                    android:padding="7dp" android:scaleType="fitCenter"
+                    android:background="@drawable/bg_file_initial"/>
 
-        <LinearLayout
-            android:id="@+id/rowAbout"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:padding="18dp"
-            android:layout_marginStart="24dp"
-            android:layout_marginEnd="24dp"
-            android:layout_marginTop="12dp"
-            android:background="@drawable/bg_continue_card"
-            android:clickable="true"
-            android:focusable="true"
-            android:foreground="?attr/selectableItemBackground">
+                <LinearLayout
+                    android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:orientation="vertical"
+                    android:layout_marginStart="14dp">
+                    <TextView
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="Improve notification reliability"
+                        android:textSize="15sp" android:textStyle="bold" android:textColor="#F0F0F0"/>
+                    <TextView
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="Exempt PageVibe from battery optimization"
+                        android:textSize="11sp" android:textColor="#7A7A7A" android:layout_marginTop="3dp"/>
+                </LinearLayout>
 
-            <ImageView
-                android:layout_width="36dp"
-                android:layout_height="36dp"
-                android:src="@drawable/ic_about"
-                android:tint="#4488FF"
-                android:padding="7dp"
-                android:scaleType="fitCenter"
-                android:background="@drawable/bg_file_initial"/>
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginStart="14dp"
-                android:text="About PageVibe"
-                android:textSize="15sp"
-                android:textStyle="bold"
-                android:textColor="#F0F0F0"/>
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="›" android:textSize="22sp" android:textColor="#2A2A2A"/>
+            </LinearLayout>
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="›"
-                android:textSize="22sp"
-                android:textColor="#2A2A2A"/>
+                android:text="SUPPORT"
+                android:textSize="10sp"
+                android:letterSpacing="0.16"
+                android:textColor="#707070"
+                android:paddingStart="24dp"
+                android:paddingEnd="24dp"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="10dp"/>
+
+            <LinearLayout
+                android:id="@+id/rowShareApp"
+                style="@style/SettingsRow">
+
+                <ImageView
+                    android:layout_width="36dp" android:layout_height="36dp"
+                    android:src="@drawable/ic_share" android:tint="#4488FF"
+                    android:padding="7dp" android:scaleType="fitCenter"
+                    android:background="@drawable/bg_file_initial"/>
+
+                <TextView
+                    android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:layout_marginStart="14dp"
+                    android:text="Share PageVibe" android:textSize="15sp"
+                    android:textStyle="bold" android:textColor="#F0F0F0"/>
+
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="›" android:textSize="22sp" android:textColor="#2A2A2A"/>
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/rowFeedback"
+                style="@style/SettingsRow">
+
+                <ImageView
+                    android:layout_width="36dp" android:layout_height="36dp"
+                    android:src="@drawable/ic_notes" android:tint="#4488FF"
+                    android:padding="7dp" android:scaleType="fitCenter"
+                    android:background="@drawable/bg_file_initial"/>
+
+                <TextView
+                    android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:layout_marginStart="14dp"
+                    android:text="Send Feedback" android:textSize="15sp"
+                    android:textStyle="bold" android:textColor="#F0F0F0"/>
+
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="›" android:textSize="22sp" android:textColor="#2A2A2A"/>
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="ABOUT"
+                android:textSize="10sp"
+                android:letterSpacing="0.16"
+                android:textColor="#707070"
+                android:paddingStart="24dp"
+                android:paddingEnd="24dp"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="10dp"/>
+
+            <LinearLayout
+                android:id="@+id/rowAbout"
+                style="@style/SettingsRow">
+
+                <ImageView
+                    android:layout_width="36dp" android:layout_height="36dp"
+                    android:src="@drawable/ic_about" android:tint="#4488FF"
+                    android:padding="7dp" android:scaleType="fitCenter"
+                    android:background="@drawable/bg_file_initial"/>
+
+                <TextView
+                    android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:layout_marginStart="14dp"
+                    android:text="About PageVibe" android:textSize="15sp"
+                    android:textStyle="bold" android:textColor="#F0F0F0"/>
+
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="›" android:textSize="22sp" android:textColor="#2A2A2A"/>
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/rowLicenses"
+                style="@style/SettingsRow">
+
+                <ImageView
+                    android:layout_width="36dp" android:layout_height="36dp"
+                    android:src="@drawable/ic_toc" android:tint="#4488FF"
+                    android:padding="7dp" android:scaleType="fitCenter"
+                    android:background="@drawable/bg_file_initial"/>
+
+                <TextView
+                    android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:layout_marginStart="14dp"
+                    android:text="Open Source Licenses" android:textSize="15sp"
+                    android:textStyle="bold" android:textColor="#F0F0F0"/>
+
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="›" android:textSize="22sp" android:textColor="#2A2A2A"/>
+            </LinearLayout>
 
         </LinearLayout>
 
-    </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

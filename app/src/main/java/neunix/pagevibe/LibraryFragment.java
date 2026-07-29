@@ -2,6 +2,7 @@ package neunix.pagevibe;
 
 import android.app.AlertDialog;
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
@@ -13,7 +14,6 @@ import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.LruCache;
 import android.view.Gravity;
-import android.view.HapticFeedbackConstants;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -22,11 +22,13 @@ import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.PopupWindow;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.FileProvider;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -46,7 +48,10 @@ public class LibraryFragment extends Fragment {
     private static final int THUMB_H = 320;
     private static final int THUMB_CACHE_SIZE = 60;
 
-    private LibraryManager libraryManager;
+    private LibraryManager      libraryManager;
+    private PdfHighlightManager highlightManager;
+    private PdfNotesManager     notesManager;
+
     private final List<LibraryManager.Entry> allEntries     = new ArrayList<>();
     private final List<LibraryManager.Entry> displayEntries = new ArrayList<>();
 
@@ -58,6 +63,7 @@ public class LibraryFragment extends Fragment {
     private TextView       sortChip;
     private EditText       searchInput;
     private ImageButton    btnOverflow;
+    private View           importingOverlay;
 
     private String   searchQuery = "";
     private SortMode sortMode    = SortMode.RECENT;
@@ -99,26 +105,28 @@ public class LibraryFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        libraryManager = new LibraryManager(requireContext());
+        libraryManager   = new LibraryManager(requireContext());
+        highlightManager = new PdfHighlightManager(requireContext());
+        notesManager     = new PdfNotesManager(requireContext());
 
-        recycler      = view.findViewById(R.id.libraryRecycler);
-        emptyState    = view.findViewById(R.id.libraryEmptyState);
-        noResultsText = view.findViewById(R.id.libraryNoResults);
-        countLabel    = view.findViewById(R.id.libraryCountLabel);
-        sortChip      = view.findViewById(R.id.librarySortChip);
-        searchInput   = view.findViewById(R.id.librarySearchInput);
-        btnOverflow   = view.findViewById(R.id.btnLibraryOverflow);
+        recycler         = view.findViewById(R.id.libraryRecycler);
+        emptyState       = view.findViewById(R.id.libraryEmptyState);
+        noResultsText    = view.findViewById(R.id.libraryNoResults);
+        countLabel       = view.findViewById(R.id.libraryCountLabel);
+        sortChip         = view.findViewById(R.id.librarySortChip);
+        searchInput      = view.findViewById(R.id.librarySearchInput);
+        btnOverflow      = view.findViewById(R.id.btnLibraryOverflow);
+        importingOverlay = view.findViewById(R.id.libraryImportingOverlay);
 
         adapter = new LibraryAdapter();
         recycler.setLayoutManager(new GridLayoutManager(requireContext(), 2));
         recycler.setAdapter(adapter);
 
         emptyState.setOnClickListener(v -> {
-            android.content.Intent i = new android.content.Intent(android.content.Intent.ACTION_OPEN_DOCUMENT);
+            Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
             i.setType("application/pdf");
-            i.addCategory(android.content.Intent.CATEGORY_OPENABLE);
-            i.addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
-                     | android.content.Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+            i.addCategory(Intent.CATEGORY_OPENABLE);
+            i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
             startActivityForResult(i, 9001);
         });
 
@@ -138,36 +146,27 @@ public class LibraryFragment extends Fragment {
     }
 
     @Override
-    public void onActivityResult(int requestCode, int resultCode, android.content.Intent data) {
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == 9001 && resultCode == android.app.Activity.RESULT_OK
                 && data != null && data.getData() != null) {
             Uri uri = data.getData();
             try {
                 requireContext().getContentResolver().takePersistableUriPermission(
-                        uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                        uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
             } catch (Exception ignored) {}
             openReader(uri);
         }
     }
 
-    @Override
-    public void onResume() {
-        super.onResume();
-        reloadFromStorage();
-    }
+    @Override public void onResume() { super.onResume(); reloadFromStorage(); }
 
-    @Override
-    public void onHiddenChanged(boolean hidden) {
+    @Override public void onHiddenChanged(boolean hidden) {
         super.onHiddenChanged(hidden);
         if (!hidden) reloadFromStorage();
     }
 
-    @Override
-    public void onDestroyView() {
-        super.onDestroyView();
-        thumbnailCache.evictAll();
-    }
+    @Override public void onDestroyView() { super.onDestroyView(); thumbnailCache.evictAll(); }
 
     // =========================================================
     // DATA
@@ -224,13 +223,13 @@ public class LibraryFragment extends Fragment {
 
         optRecent.setOnClickListener(v -> {
             sortMode = SortMode.RECENT;
-            sortChip.setText("Sort: Recent");
+            sortChip.setText("Sort: Recent  ⌄");
             rebuildDisplayList();
             popup.dismiss();
         });
         optAlpha.setOnClickListener(v -> {
             sortMode = SortMode.ALPHA;
-            sortChip.setText("Sort: A–Z");
+            sortChip.setText("Sort: A–Z  ⌄");
             rebuildDisplayList();
             popup.dismiss();
         });
@@ -243,31 +242,95 @@ public class LibraryFragment extends Fragment {
     }
 
     // =========================================================
-    // OVERFLOW POPUP — Delete All PDFs
+    // OVERFLOW POPUP — Import from URL, Delete All PDFs
     // =========================================================
 
     private void showOverflowPopup(View anchor) {
         View content = LayoutInflater.from(requireContext()).inflate(R.layout.popup_library_overflow, null);
+        TextView importUrl = content.findViewById(R.id.btnImportFromUrl);
         TextView deleteAll = content.findViewById(R.id.btnDeleteAllPdfs);
 
         PopupWindow popup = new PopupWindow(content, ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT, true);
         popup.setElevation(16f);
 
-        deleteAll.setOnClickListener(v -> {
-            popup.dismiss();
-            confirmDeleteAll();
-        });
+        importUrl.setOnClickListener(v -> { popup.dismiss(); promptImportFromUrl(); });
+        deleteAll.setOnClickListener(v -> { popup.dismiss(); confirmDeleteAll(); });
 
         popup.showAsDropDown(anchor, 0, 8, Gravity.END);
+    }
+
+    private void promptImportFromUrl() {
+        Context ctx = requireContext();
+        EditText input = new EditText(ctx);
+        input.setHint("https://example.com/document.pdf");
+        input.setHintTextColor(Color.parseColor("#666666"));
+        input.setTextColor(Color.WHITE);
+        input.setSingleLine(true);
+        input.setInputType(android.text.InputType.TYPE_TEXT_VARIATION_URI);
+        int pad = dpToPx(20);
+        input.setPadding(pad, pad, pad, pad);
+
+        AlertDialog dialog = new AlertDialog.Builder(ctx, AlertDialog.THEME_DEVICE_DEFAULT_DARK)
+                .setTitle("Import from URL")
+                .setMessage("Paste a direct link to a PDF file. It will be downloaded and added to your library.")
+                .setView(input)
+                .setPositiveButton("Import", (d, w) -> {
+                    String url = input.getText().toString().trim();
+                    if (!url.isEmpty()) beginUrlImport(url);
+                })
+                .setNegativeButton("Cancel", (d, w) -> d.dismiss())
+                .create();
+        DialogUtil.whitenButtons(dialog);
+        dialog.show();
+    }
+
+    private void beginUrlImport(String url) {
+        if (importingOverlay != null) {
+            importingOverlay.setAlpha(0f);
+            importingOverlay.setVisibility(View.VISIBLE);
+            importingOverlay.animate().alpha(1f).setDuration(150).start();
+        }
+
+        UrlPdfImporter.importFromUrl(requireContext(), url, new UrlPdfImporter.Callback() {
+            @Override
+            public void onSuccess(Uri savedUri, String fileName) {
+                if (getActivity() == null) return;
+                requireActivity().runOnUiThread(() -> {
+                    hideImportingOverlay();
+                    libraryManager.addOrTouch(savedUri, fileName);
+                    reloadFromStorage();
+                    Toast.makeText(requireContext(), "Imported \"" + fileName + "\"", Toast.LENGTH_LONG).show();
+                });
+            }
+
+            @Override
+            public void onError(String message) {
+                if (getActivity() == null) return;
+                requireActivity().runOnUiThread(() -> {
+                    hideImportingOverlay();
+                    Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show();
+                });
+            }
+        });
+    }
+
+    private void hideImportingOverlay() {
+        if (importingOverlay == null) return;
+        importingOverlay.animate().alpha(0f).setDuration(150)
+                .withEndAction(() -> importingOverlay.setVisibility(View.GONE)).start();
     }
 
     private void confirmDeleteAll() {
         if (allEntries.isEmpty()) return;
         AlertDialog dialog = new AlertDialog.Builder(requireContext(), AlertDialog.THEME_DEVICE_DEFAULT_DARK)
                 .setTitle("Delete all PDFs?")
-                .setMessage("This removes every PDF from your PageVibe library, including any custom names and covers. Your original PDF files on your device are NOT deleted.")
+                .setMessage("This removes every PDF from your PageVibe library, including custom names, covers, notes, and highlights. Your original PDF files on your device are NOT deleted.")
                 .setPositiveButton("Delete All", (d, w) -> {
+                    for (LibraryManager.Entry e : allEntries) {
+                        highlightManager.clearForDocument(e.uri);
+                        notesManager.clearForDocument(e.uri);
+                    }
                     libraryManager.clearAll();
                     reloadFromStorage();
                 })
@@ -278,21 +341,25 @@ public class LibraryFragment extends Fragment {
     }
 
     // =========================================================
-    // ITEM LONG-PRESS OPTIONS
+    // PER-ITEM THREE-DOT MENU — replaces the earlier long-press dialog
+    // with a dropdown popup, matching the sort chip's interaction
+    // pattern so it's discoverable at a glance.
     // =========================================================
 
-    private void showItemOptions(LibraryManager.Entry entry, View anchorForHaptics) {
-        anchorForHaptics.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
+    private void showItemMenu(View anchor, LibraryManager.Entry entry) {
+        View content = LayoutInflater.from(requireContext()).inflate(R.layout.popup_library_item_menu, null);
 
-        String[] options = { "Change Cover", "Rename", "Delete from Library" };
-        new AlertDialog.Builder(requireContext(), AlertDialog.THEME_DEVICE_DEFAULT_DARK)
-                .setTitle(LibraryManager.displayName(entry))
-                .setItems(options, (dialog, which) -> {
-                    if (which == 0) startCoverPick(entry);
-                    else if (which == 1) showRenameDialog(entry);
-                    else confirmDeleteSingle(entry);
-                })
-                .show();
+        PopupWindow popup = new PopupWindow(content, ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT, true);
+        popup.setElevation(16f);
+
+        content.findViewById(R.id.itemMenuChangeCover).setOnClickListener(v -> { popup.dismiss(); startCoverPick(entry); });
+        content.findViewById(R.id.itemMenuRename).setOnClickListener(v -> { popup.dismiss(); showRenameDialog(entry); });
+        content.findViewById(R.id.itemMenuShare).setOnClickListener(v -> { popup.dismiss(); shareEntry(entry); });
+        content.findViewById(R.id.itemMenuNotes).setOnClickListener(v -> { popup.dismiss(); openNotes(entry); });
+        content.findViewById(R.id.itemMenuDelete).setOnClickListener(v -> { popup.dismiss(); confirmDeleteSingle(entry); });
+
+        popup.showAsDropDown(anchor, 0, 8, Gravity.END);
     }
 
     private void startCoverPick(LibraryManager.Entry entry) {
@@ -324,11 +391,42 @@ public class LibraryFragment extends Fragment {
         dialog.show();
     }
 
+    private void shareEntry(LibraryManager.Entry entry) {
+        try {
+            Uri shareUri = entry.uri;
+            // Content/MediaStore URIs are already shareable directly; a
+            // raw file:// URI (should be rare in this app, but defensive)
+            // needs FileProvider wrapping since Android blocks exposing
+            // file:// paths to other apps.
+            if ("file".equals(shareUri.getScheme())) {
+                shareUri = FileProvider.getUriForFile(requireContext(),
+                        requireContext().getPackageName() + ".fileprovider",
+                        new java.io.File(shareUri.getPath()));
+            }
+            Intent shareIntent = new Intent(Intent.ACTION_SEND);
+            shareIntent.setType("application/pdf");
+            shareIntent.putExtra(Intent.EXTRA_STREAM, shareUri);
+            shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivity(Intent.createChooser(shareIntent, "Share PDF"));
+        } catch (Throwable t) {
+            Toast.makeText(requireContext(), "Could not share this file", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void openNotes(LibraryManager.Entry entry) {
+        Intent i = new Intent(requireContext(), NotesActivity.class);
+        i.putExtra(NotesActivity.EXTRA_PDF_URI, entry.uri.toString());
+        i.putExtra(NotesActivity.EXTRA_PDF_NAME, LibraryManager.displayName(entry));
+        startActivity(i);
+    }
+
     private void confirmDeleteSingle(LibraryManager.Entry entry) {
         AlertDialog dialog = new AlertDialog.Builder(requireContext(), AlertDialog.THEME_DEVICE_DEFAULT_DARK)
                 .setTitle("Remove from library?")
-                .setMessage("\"" + LibraryManager.displayName(entry) + "\" will be removed from your PageVibe library. The original PDF file on your device is not affected.")
+                .setMessage("\"" + LibraryManager.displayName(entry) + "\" will be removed from your PageVibe library, including its notes and highlights. The original PDF file on your device is not affected.")
                 .setPositiveButton("Remove", (d, w) -> {
+                    highlightManager.clearForDocument(entry.uri);
+                    notesManager.clearForDocument(entry.uri);
                     libraryManager.removeEntry(entry.uri);
                     reloadFromStorage();
                 })
@@ -343,7 +441,7 @@ public class LibraryFragment extends Fragment {
     // =========================================================
 
     private void openReader(Uri uri) {
-        android.content.Intent i = new android.content.Intent(requireContext(), PdfActivity.class);
+        Intent i = new Intent(requireContext(), PdfActivity.class);
         i.setData(uri);
         startActivity(i);
     }
@@ -462,11 +560,10 @@ public class LibraryFragment extends Fragment {
                 openReader(displayEntries.get(p).uri);
             });
 
-            h.itemView.setOnLongClickListener(v -> {
+            h.overflow.setOnClickListener(v -> {
                 int p = h.getAdapterPosition();
-                if (p == RecyclerView.NO_POSITION) return true;
-                showItemOptions(displayEntries.get(p), v);
-                return true;
+                if (p == RecyclerView.NO_POSITION) return;
+                showItemMenu(v, displayEntries.get(p));
             });
         }
 
@@ -474,8 +571,9 @@ public class LibraryFragment extends Fragment {
         public int getItemCount() { return displayEntries.size(); }
 
         class VH extends RecyclerView.ViewHolder {
-            ImageView cover;
-            TextView  initial, pageBadge, title, subtitle;
+            ImageView   cover;
+            TextView    initial, pageBadge, title, subtitle;
+            ImageButton overflow;
 
             VH(View v) {
                 super(v);
@@ -484,6 +582,7 @@ public class LibraryFragment extends Fragment {
                 pageBadge = v.findViewById(R.id.libraryCardPageBadge);
                 title     = v.findViewById(R.id.libraryCardTitle);
                 subtitle  = v.findViewById(R.id.libraryCardSubtitle);
+                overflow  = v.findViewById(R.id.libraryCardOverflow);
             }
         }
     }

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content" android:layout_height="wrap_content"
+    android:orientation="horizontal" android:padding="10dp"
+    android:background="@drawable/bg_continue_card" android:elevation="10dp">
+
+    <View android:id="@+id/colorYellowDot" android:layout_width="32dp" android:layout_height="32dp"
+        android:background="#FFEE00" android:layout_margin="5dp" android:clickable="true" android:focusable="true"/>
+    <View android:id="@+id/colorGreenDot" android:layout_width="32dp" android:layout_height="32dp"
+        android:background="#44DD88" android:layout_margin="5dp" android:clickable="true" android:focusable="true"/>
+    <View android:id="@+id/colorBlueDot" android:layout_width="32dp" android:layout_height="32dp"
+        android:background="#4488FF" android:layout_margin="5dp" android:clickable="true" android:focusable="true"/>
+    <View android:id="@+id/colorPinkDot" android:layout_width="32dp" android:layout_height="32dp"
+        android:background="#FF6EC7" android:layout_margin="5dp" android:clickable="true" android:focusable="true"/>
+    <View android:id="@+id/colorOrangeDot" android:layout_width="32dp" android:layout_height="32dp"
+        android:background="#FF9944" android:layout_margin="5dp" android:clickable="true" android:focusable="true"/>
+
+</LinearLayout>

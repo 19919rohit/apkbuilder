@@ -269,6 +269,36 @@
             android:background="?attr/selectableItemBackgroundBorderless"
             android:tint="#FFFFFF"
             android:contentDescription="Table of contents"/>
+        
+        <neunix.pagevibe.HighlightOverlayView
+            android:id="@+id/highlightOverlay"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clickable="false"
+            android:focusable="false"/>
+
+        <neunix.pagevibe.TextSelectionView
+            android:id="@+id/textSelectionView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clickable="false"
+            android:focusable="false"/>
+
+        </neunix.pagevibe.GalleryZoomView>
+        
+        <ImageButton
+            android:id="@+id/btnSelectText"
+            android:layout_width="40dp" android:layout_height="40dp"
+            android:src="@drawable/ic_select_text"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:tint="#FFFFFF" android:contentDescription="Select text"/>
+
+        <ImageButton
+            android:id="@+id/btnNotes"
+            android:layout_width="40dp" android:layout_height="40dp"
+            android:src="@drawable/ic_notes"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:tint="#FFFFFF" android:contentDescription="Notes"/>
 
         <ImageButton
             android:id="@+id/btnOpenNew"

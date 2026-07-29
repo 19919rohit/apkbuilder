@@ -12,7 +12,9 @@ import android.speech.tts.Voice;
 import android.view.View;
 import android.widget.ImageButton;
 import android.widget.TextView;
+import android.widget.Toast;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -39,7 +41,6 @@ public class PdfReadAloudController implements TextToSpeech.OnInitListener {
     private boolean      ttsPaused  = false;
 
     private final AtomicBoolean isShutdown = new AtomicBoolean(false);
-
     private final AtomicInteger ttsLockedPage = new AtomicInteger(-1);
 
     private String                          ttsPageText  = "";
@@ -69,14 +70,7 @@ public class PdfReadAloudController implements TextToSpeech.OnInitListener {
     private void init() {
         tts = new TextToSpeech(context, this);
 
-        btnPlayPause.setOnClickListener(v -> {
-            if (ttsPlaying) {
-                pauseTts();
-            } else {
-                resumeTts();
-            }
-        });
-
+        btnPlayPause.setOnClickListener(v -> { if (ttsPlaying) pauseTts(); else resumeTts(); });
         btnStop.setOnClickListener(v -> stop());
 
         TooltipUtil.apply(triggerButton, "Read this page aloud");
@@ -103,7 +97,9 @@ public class PdfReadAloudController implements TextToSpeech.OnInitListener {
         showBar(true);
 
         reader.getBgExecutor().execute(() -> {
-            PdfTextExtractor.PageWordData data = extractor.extractPageWordData(page);
+            // Margin-filtered — strips header/footer bands so the app
+            // never reads a running page title or a footer URL out loud.
+            PdfTextExtractor.PageWordData data = extractor.extractPageWordDataForReading(page);
 
             uiHandler.post(() -> {
                 if (ttsLockedPage.get() != page) return;
@@ -120,6 +116,37 @@ public class PdfReadAloudController implements TextToSpeech.OnInitListener {
                 speakChunked(ttsPageText, page, 0);
             });
         });
+    }
+
+    /**
+     * Reads EXACTLY the words the user selected via text selection —
+     * deliberately does NOT go through the margin filter above, since a
+     * word the user explicitly picked should always be read verbatim
+     * regardless of where on the page it sits.
+     */
+    public void readCustomSelection(List<PdfTextExtractor.WordBox> selectedWords) {
+        if (selectedWords == null || selectedWords.isEmpty()) return;
+        if (!ttsReady) { toast("Text-to-speech engine not ready"); return; }
+
+        stop();
+
+        StringBuilder canonical = new StringBuilder();
+        List<PdfTextExtractor.WordBox> rebuilt = new ArrayList<>();
+        for (int i = 0; i < selectedWords.size(); i++) {
+            PdfTextExtractor.WordBox wb = selectedWords.get(i);
+            if (canonical.length() > 0) canonical.append(' ');
+            int start = canonical.length();
+            canonical.append(wb.word);
+            int end = canonical.length();
+            rebuilt.add(new PdfTextExtractor.WordBox(wb.left, wb.top, wb.right, wb.bottom, wb.word, i, start, end));
+        }
+
+        ttsPageText  = canonical.toString();
+        ttsWordBoxes = rebuilt;
+        mWordCursor  = 0;
+        mLastSpokenCharEnd = 0;
+        ttsLockedPage.set(reader.getSettledPage());
+        speakChunked(ttsPageText, reader.getSettledPage(), 0);
     }
 
     private void speakChunked(String text, int pageIndex, int baseOffset) {
@@ -203,7 +230,7 @@ public class PdfReadAloudController implements TextToSpeech.OnInitListener {
         }
     }
 
-    private final java.util.ArrayList<Integer> mChunkOffsets = new java.util.ArrayList<>();
+    private final ArrayList<Integer> mChunkOffsets = new ArrayList<>();
 
     private int chunkOffsetFromId(String uid) {
         try {
@@ -250,78 +277,46 @@ public class PdfReadAloudController implements TextToSpeech.OnInitListener {
         }
         return end;
     }
-    
+
     @Override
     public void onInit(int status) {
-
-    TextToSpeech engine = tts;
-
-    if (engine == null)
-        return;
-
-    try {
-
-        if (isShutdown.get()) {
-            try {
-                engine.stop();
-            } catch (Throwable ignored) {}
-
-            try {
-                engine.shutdown();
-            } catch (Throwable ignored) {}
-
-            return;
-        }
-
-        if (status != TextToSpeech.SUCCESS)
-            return;
-
-        int langResult = engine.setLanguage(Locale.getDefault());
-
-        ttsReady =
-                langResult != TextToSpeech.LANG_MISSING_DATA &&
-                langResult != TextToSpeech.LANG_NOT_SUPPORTED;
-
-        if (!ttsReady)
-            return;
+        TextToSpeech engine = tts;
+        if (engine == null) return;
 
         try {
-
-            Set<Voice> voices = engine.getVoices();
-
-            if (voices != null) {
-
-                Voice best = null;
-
-                for (Voice voice : voices) {
-
-                    if (voice.isNetworkConnectionRequired())
-                        continue;
-
-                    if (!voice.getLocale().getLanguage()
-                            .equals(Locale.getDefault().getLanguage()))
-                        continue;
-
-                    if (best == null || voice.getQuality() > best.getQuality())
-                        best = voice;
-                }
-
-                if (best != null)
-                    engine.setVoice(best);
+            if (isShutdown.get()) {
+                try { engine.stop(); } catch (Throwable ignored) {}
+                try { engine.shutdown(); } catch (Throwable ignored) {}
+                return;
             }
 
-        } catch (Throwable ignored) {
-        }
+            if (status != TextToSpeech.SUCCESS) return;
 
-        try {
-            engine.setSpeechRate(0.92f);
-            engine.setPitch(1.0f);
-        } catch (Throwable ignored) {
-        }
+            int langResult = engine.setLanguage(Locale.getDefault());
+            ttsReady = langResult != TextToSpeech.LANG_MISSING_DATA
+                    && langResult != TextToSpeech.LANG_NOT_SUPPORTED;
+            if (!ttsReady) return;
 
-    } catch (Throwable ignored) {
+            try {
+                Set<Voice> voices = engine.getVoices();
+                if (voices != null) {
+                    Voice best = null;
+                    for (Voice voice : voices) {
+                        if (voice.isNetworkConnectionRequired()) continue;
+                        if (!voice.getLocale().getLanguage().equals(Locale.getDefault().getLanguage())) continue;
+                        if (best == null || voice.getQuality() > best.getQuality()) best = voice;
+                    }
+                    if (best != null) engine.setVoice(best);
+                }
+            } catch (Throwable ignored) {}
+
+            try {
+                engine.setSpeechRate(0.92f);
+                engine.setPitch(1.0f);
+            } catch (Throwable ignored) {}
+
+        } catch (Throwable ignored) {}
     }
-}
 
     private void pauseTts() {
         if (!ttsPlaying) return;
@@ -337,9 +332,7 @@ public class PdfReadAloudController implements TextToSpeech.OnInitListener {
         if (ttsPlaying) return;
         if (!ttsReady) { toast("Text-to-speech engine not ready"); return; }
 
-        if (ttsPaused && ttsLockedPage.get() >= 0
-                && ttsPageText != null && !ttsPageText.isEmpty()) {
-
+        if (ttsPaused && ttsLockedPage.get() >= 0 && ttsPageText != null && !ttsPageText.isEmpty()) {
             int resumeFrom = Math.min(mLastSpokenCharEnd, ttsPageText.length());
             String remaining = ttsPageText.substring(resumeFrom);
 
@@ -382,24 +375,13 @@ public class PdfReadAloudController implements TextToSpeech.OnInitListener {
             bar.setAlpha(0f);
             bar.animate().alpha(1f).setDuration(200).start();
         } else {
-            bar.animate().alpha(0f).setDuration(180)
-                    .withEndAction(() -> bar.setVisibility(View.GONE)).start();
+            bar.animate().alpha(0f).setDuration(180).withEndAction(() -> bar.setVisibility(View.GONE)).start();
         }
     }
 
     private void setTriggerColor(boolean active) {
-        if (active) {
-            triggerButton.setColorFilter(Color.parseColor("#4488FF"));
-        } else {
-            // FIXED: previously re-applied a dim grey (#555555) tint —
-            // identical to the button's own default XML tint, so once
-            // used, it visually never differed from a "stuck/disabled"
-            // look, which is what was reported as "permanently grey."
-            // Clearing the filter restores the button's real default
-            // (white, see activity_pdf.xml) instead of stacking another
-            // grey tint on top of it.
-            triggerButton.clearColorFilter();
-        }
+        if (active) triggerButton.setColorFilter(Color.parseColor("#4488FF"));
+        else triggerButton.clearColorFilter();
     }
 
     public boolean isPlaying() { return ttsPlaying; }
@@ -414,6 +396,6 @@ public class PdfReadAloudController implements TextToSpeech.OnInitListener {
     }
 
     private void toast(String msg) {
-        android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show();
+        Toast.makeText(context, msg, Toast.LENGTH_SHORT).show();
     }
 }

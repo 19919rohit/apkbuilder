@@ -7,6 +7,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
@@ -34,70 +35,61 @@ public class MainActivity extends AppCompatActivity {
             registerForActivityResult(new ActivityResultContracts.RequestPermission(), granted -> { /* no-op either way */ });
 
     @Override
-protected void onCreate(Bundle savedInstanceState) {
-    super.onCreate(savedInstanceState);
-    setContentView(R.layout.activity_main_shell);
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main_shell);
 
-    NotificationScheduler.initialize(this);
-    requestNotificationPermissionIfNeeded();
-    subscribeToFcmTopics();
+        NotificationScheduler.initialize(this);
+        requestNotificationPermissionIfNeeded();
+        subscribeToFcmTopicsWithRetry();
 
-    handleIncomingViewIntent(getIntent());
+        AnalyticsHelper.logIfTagged(this, getIntent());
 
-    bottomNav = findViewById(R.id.bottomNav);
+        handleIncomingViewIntent(getIntent());
 
-    bottomNav.setOnItemSelectedListener(item -> {
-        int id = item.getItemId();
+        bottomNav = findViewById(R.id.bottomNav);
+        showTab(homeFragment);
 
-        if (id == R.id.nav_home) {
-            showTab(homeFragment);
-            return true;
-        }
+        bottomNav.setOnItemSelectedListener(item -> {
+            int id = item.getItemId();
+            if (id == R.id.nav_home)    { showTab(homeFragment);    return true; }
+            if (id == R.id.nav_library) { showTab(libraryFragment); return true; }
+            if (id == R.id.nav_basket)  { showTab(basketFragment);  return true; }
+            return false;
+        });
 
-        if (id == R.id.nav_library) {
-            showTab(libraryFragment);
-            return true;
-        }
-
-        if (id == R.id.nav_basket) {
-            showTab(basketFragment);
-            return true;
-        }
-
-        return false;
-    });
-
-    // Show Home initially and keep BottomNavigation state in sync
-    bottomNav.setSelectedItemId(R.id.nav_home);
-
-    getOnBackPressedDispatcher().addCallback(this,
-            new androidx.activity.OnBackPressedCallback(true) {
-                @Override
-                public void handleOnBackPressed() {
-
-                    // If not on Home, switch to Home first
-                    if (bottomNav.getSelectedItemId() != R.id.nav_home) {
-                        bottomNav.setSelectedItemId(R.id.nav_home);
-                        return;
-                    }
-
-                    // Already on Home -> normal back behaviour
+        // Back press from Library or Basket returns to Home instead of
+        // exiting the app directly — only exits (default system
+        // behavior) when already on Home.
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                if (bottomNav.getSelectedItemId() != R.id.nav_home) {
+                    bottomNav.setSelectedItemId(R.id.nav_home);
+                } else {
                     setEnabled(false);
                     getOnBackPressedDispatcher().onBackPressed();
                 }
-            });
-}
+            }
+        });
+    }
 
     @Override
     protected void onResume() {
         super.onResume();
         new NotificationPreferences(this).recordAppOpenedNow();
+        // Cheap to re-check every resume — if the earlier subscribe
+        // attempt failed (no network, Play Services updating, etc.),
+        // this keeps trying until it genuinely succeeds instead of
+        // giving up after one silent failure.
+        subscribeToFcmTopicsWithRetry();
     }
 
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
+        AnalyticsHelper.logIfTagged(this, intent);
         handleIncomingViewIntent(intent);
     }
 
@@ -111,18 +103,29 @@ protected void onCreate(Bundle savedInstanceState) {
     }
 
     /**
-     * "all" is the broadcast topic every install is subscribed to for
-     * rare FCM announcements (major updates, security notices) — this is
-     * the only topic the app subscribes to; it never targets individual
-     * users or segments, so there's nothing personally identifying about
-     * this subscription.
+     * FIXED: previously fire-and-forget, so a failed first attempt (no
+     * network at first launch, Play Services mid-update, etc.) meant that
+     * device was permanently NOT subscribed to "all" with no retry — the
+     * exact kind of silent failure that explains "works on my phone, not
+     * my friend's." Success is now persisted and checked before retrying,
+     * so this becomes a no-op the moment it has genuinely succeeded once.
      */
-    private void subscribeToFcmTopics() {
+    private void subscribeToFcmTopicsWithRetry() {
+        NotificationPreferences prefs = new NotificationPreferences(this);
+        if (prefs.isFcmTopicSubscribed()) return;
+
         try {
-            FirebaseMessaging.getInstance().subscribeToTopic("all");
+            FirebaseMessaging.getInstance().subscribeToTopic("all")
+                    .addOnCompleteListener(task -> {
+                        if (task.isSuccessful()) {
+                            prefs.setFcmTopicSubscribed(true);
+                        }
+                        // On failure, deliberately leave the flag false —
+                        // the next onResume() will simply try again.
+                    });
         } catch (Throwable ignored) {
-            // FCM not configured yet (e.g. google-services.json not
-            // present) — never let this block the rest of app startup.
+            // FCM not configured (e.g. google-services.json missing) —
+            // never block app startup on this.
         }
     }
 

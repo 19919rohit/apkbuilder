@@ -57,24 +57,22 @@
         </LinearLayout>
 
         <EditText
-    android:id="@+id/librarySearchInput"
-    android:layout_width="match_parent"
-    android:layout_height="46dp"
-    android:layout_marginStart="24dp"
-    android:layout_marginTop="14dp"
-    android:layout_marginEnd="24dp"
-    android:background="@drawable/bg_button_dark"
-    android:hint="Search your library"
-    android:textColor="#FFFFFF"
-    android:textColorHint="#666666"
-    android:textSize="14sp"
-    android:paddingStart="16dp"
-    android:paddingEnd="16dp"
-    android:drawableStart="@drawable/ic_search"
-    android:drawablePadding="12dp"
-    android:singleLine="true"
-    android:imeOptions="actionSearch"
-    android:inputType="text" />
+            android:id="@+id/librarySearchInput"
+            android:layout_width="match_parent"
+            android:layout_height="46dp"
+            android:layout_marginStart="24dp"
+            android:layout_marginEnd="24dp"
+            android:layout_marginTop="14dp"
+            android:background="@drawable/bg_button_dark"
+            android:hint="🔍  Search your library"
+            android:textColorHint="#666666"
+            android:textColor="#FFFFFF"
+            android:textSize="14sp"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:singleLine="true"
+            android:imeOptions="actionSearch"
+            android:inputType="text"/>
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -99,7 +97,7 @@
                 android:id="@+id/librarySortChip"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Sort: Recent"
+                android:text="Sort: Recent  ⌄"
                 android:textSize="12sp"
                 android:textStyle="bold"
                 android:textColor="#DDDDDD"
@@ -154,15 +152,13 @@
                 android:focusable="true"
                 android:foreground="?attr/selectableItemBackground">
 
-                <ImageView
-    android:layout_width="72dp"
-    android:layout_height="72dp"
-    android:layout_gravity="center"
-    android:padding="16dp"
-    android:background="@drawable/bg_continue_card"
-    android:src="@drawable/ic_library_img"
-    android:scaleType="fitCenter"
-    android:contentDescription="@null"/>
+                <TextView
+                    android:layout_width="72dp"
+                    android:layout_height="72dp"
+                    android:gravity="center"
+                    android:text="🗂"
+                    android:textSize="34sp"
+                    android:background="@drawable/bg_continue_card"/>
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -188,5 +184,38 @@
         </FrameLayout>
 
     </LinearLayout>
+
+    <FrameLayout
+        android:id="@+id/libraryImportingOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#CC000000"
+        android:visibility="gone"
+        android:clickable="true"
+        android:focusable="true">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:orientation="vertical"
+            android:gravity="center">
+
+            <ProgressBar
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:indeterminateTint="#FFFFFF"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="Downloading PDF…"
+                android:textSize="13sp"
+                android:textColor="#CCCCCC"/>
+
+        </LinearLayout>
+
+    </FrameLayout>
 
 </FrameLayout>

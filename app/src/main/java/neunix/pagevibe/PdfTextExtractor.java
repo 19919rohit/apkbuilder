@@ -50,6 +50,8 @@ public class PdfTextExtractor {
     private static final int MAX_CHARS_PER_PAGE = 200_000;
     private static final boolean FLIP_VERTICAL = true;
     private static final int WORD_DATA_CACHE_SIZE = 4;
+    private static final float TTS_TOP_MARGIN_FRACTION    = 0.06f;
+    private static final float TTS_BOTTOM_MARGIN_FRACTION  = 0.06f;
 
     private static final AtomicBoolean pdfBoxInitialized = new AtomicBoolean(false);
 
@@ -366,6 +368,25 @@ public class PdfTextExtractor {
             }
         }
         return boxes;
+    }
+    
+    public PageWordData extractPageWordDataForReading(int pageIndex) {
+        PageWordData full = extractPageWordData(pageIndex);
+        List<WordBox> filtered = new ArrayList<>();
+        StringBuilder canonical = new StringBuilder();
+
+        for (WordBox wb : full.words) {
+            float centerY = (wb.top + wb.bottom) / 2f;
+            if (centerY < TTS_TOP_MARGIN_FRACTION || centerY > (1f - TTS_BOTTOM_MARGIN_FRACTION)) continue;
+
+            if (canonical.length() > 0) canonical.append(' ');
+            int start = canonical.length();
+            canonical.append(wb.word);
+            int end = canonical.length();
+            filtered.add(new WordBox(wb.left, wb.top, wb.right, wb.bottom, wb.word, filtered.size(), start, end));
+        }
+
+        return new PageWordData(filtered, canonical.toString());
     }
 
     private WordBox makeWordBox(StringBuilder wordBuf, float left, float top, float right, float bottom,

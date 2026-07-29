@@ -9,6 +9,10 @@
 
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
+    <!-- Lets Settings request exemption from OEM battery-optimization
+     throttling, which is a real, common cause of FCM messages never
+     being delivered on Xiaomi/Oppo/Vivo/some Samsung configurations. -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
 
     <uses-permission
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"

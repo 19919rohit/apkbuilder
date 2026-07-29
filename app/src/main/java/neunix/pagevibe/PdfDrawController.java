@@ -13,6 +13,7 @@ public class PdfDrawController {
     private final ImageButton    btnPen;
     private final ImageButton    btnHighlighter;
     private boolean              active = false;
+    private Runnable             onActivateCallback;
 
     public PdfDrawController(DrawingView drawingView,
                               GalleryZoomView zoomHost,
@@ -71,35 +72,30 @@ public class PdfDrawController {
         selectTool(DrawingView.Tool.PEN);
     }
 
+    /** Called just before this mode activates — used to deactivate any
+     *  mutually-exclusive mode (e.g. text selection). */
+    public void setOnActivateCallback(Runnable r) { onActivateCallback = r; }
+
     private void selectTool(DrawingView.Tool tool) {
         drawingView.setTool(tool);
-
         int penColor = (tool == DrawingView.Tool.PEN)        ? Color.WHITE : Color.parseColor("#666666");
         int hlColor  = (tool == DrawingView.Tool.HIGHLIGHTER) ? Color.parseColor("#FFEE00") : Color.parseColor("#666666");
         btnPen.setColorFilter(penColor);
         btnHighlighter.setColorFilter(hlColor);
     }
 
-    public void toggle() {
-        active = !active;
+    public void toggle() { setActive(!active); }
+
+    public void setActive(boolean value) {
+        if (value && onActivateCallback != null) onActivateCallback.run();
+        active = value;
         drawingView.setDrawingEnabled(active);
         toolbar.setVisibility(active ? View.VISIBLE : View.GONE);
-
-        if (active) {
-            triggerButton.setColorFilter(Color.parseColor("#4488FF"));
-        } else {
-            // FIXED: previously re-applied a dim grey (#555555) tint
-            // here, which — since the button's default XML tint was
-            // ALSO #555555 — never visually differed from a permanently
-            // "used up"/disabled look. Clearing the filter restores the
-            // button's real default appearance (now white, see
-            // activity_pdf.xml) instead of stacking another grey tint
-            // on top of it.
-            triggerButton.clearColorFilter();
-        }
-
+        if (active) triggerButton.setColorFilter(Color.parseColor("#4488FF"));
+        else triggerButton.clearColorFilter();
         zoomHost.setDrawPassThrough(active);
     }
 
+    public void deactivate() { if (active) setActive(false); }
     public boolean isActive() { return active; }
 }

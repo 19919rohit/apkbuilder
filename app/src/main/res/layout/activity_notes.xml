@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:background="#080808">
+
+    <LinearLayout
+        android:layout_width="match_parent" android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <LinearLayout
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:gravity="center_vertical"
+            android:paddingStart="24dp" android:paddingEnd="24dp"
+            android:paddingTop="56dp" android:paddingBottom="18dp">
+
+            <ImageButton
+                android:id="@+id/btnBack"
+                android:layout_width="32dp" android:layout_height="32dp"
+                android:layout_marginEnd="16dp"
+                android:src="@drawable/ic_back" android:tint="#888888"
+                android:background="@drawable/bg_file_initial"
+                android:contentDescription="Go back"
+                android:clickable="true" android:focusable="true"
+                android:foreground="?attr/selectableItemBackgroundBorderless"/>
+
+            <LinearLayout
+                android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="NOTES" android:textSize="11sp"
+                    android:textColor="#8A8A8A" android:letterSpacing="0.12"/>
+
+                <TextView
+                    android:id="@+id/notesPdfName"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:textSize="24sp" android:textStyle="bold"
+                    android:textColor="#FFFFFF" android:maxLines="1" android:ellipsize="end"
+                    android:layout_marginTop="1dp"/>
+            </LinearLayout>
+        </LinearLayout>
+
+        <FrameLayout
+            android:layout_width="match_parent" android:layout_height="0dp"
+            android:layout_weight="1">
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/notesRecycler"
+                android:layout_width="match_parent" android:layout_height="match_parent"
+                android:paddingStart="24dp" android:paddingEnd="24dp"
+                android:paddingBottom="16dp"
+                android:clipToPadding="false" android:overScrollMode="never"/>
+
+            <LinearLayout
+                android:id="@+id/notesEmptyState"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_gravity="center" android:orientation="vertical"
+                android:gravity="center_horizontal"
+                android:paddingStart="48dp" android:paddingEnd="48dp"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="72dp" android:layout_height="72dp"
+                    android:gravity="center" android:text="📝" android:textSize="34sp"
+                    android:background="@drawable/bg_continue_card"/>
+
+                <TextView
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="No notes yet" android:textSize="17sp"
+                    android:textStyle="bold" android:textColor="#DDDDDD"
+                    android:layout_marginTop="22dp"/>
+
+                <TextView
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="Tap the button below to write your first note for this PDF."
+                    android:textSize="13sp" android:textColor="#7A7A6A"
+                    android:gravity="center" android:lineSpacingMultiplier="1.6"
+                    android:layout_marginTop="10dp"/>
+            </LinearLayout>
+        </FrameLayout>
+
+        <TextView
+            android:id="@+id/btnAddNote"
+            android:layout_width="match_parent" android:layout_height="54dp"
+            android:layout_margin="16dp" android:gravity="center"
+            android:text="+ Add Note" android:textSize="15sp" android:textStyle="bold"
+            android:textColor="#000000" android:background="@drawable/bg_open_button"
+            android:clickable="true" android:focusable="true"/>
+
+    </LinearLayout>
+</androidx.coordinatorlayout.widget.CoordinatorLayout>
