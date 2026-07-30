@@ -114,7 +114,41 @@
 
                 <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                     android:text="›" android:textSize="22sp" android:textColor="#2A2A2A"/>
+                
             </LinearLayout>
+            
+            <LinearLayout
+    android:id="@+id/rowThemes"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    style="@style/SettingsRow">
+
+    <ImageView
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:src="@drawable/ic_palette"
+        android:tint="#4488FF"
+        android:padding="7dp"
+        android:background="@drawable/bg_file_initial"/>
+
+    <TextView
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:layout_marginStart="14dp"
+        android:text="Themes"
+        android:textSize="15sp"
+        android:textStyle="bold"
+        android:textColor="#F0F0F0"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="›"
+        android:textSize="22sp"
+        android:textColor="#2A2A2A"/>
+
+</LinearLayout>
 
             <TextView
                 android:layout_width="wrap_content"
