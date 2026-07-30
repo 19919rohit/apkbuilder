@@ -1,6 +1,6 @@
 package neunix.pagevibe;
 
-import android.app.AlertDialog;
+import androidx.appcompat.app.AlertDialog;
 import android.graphics.Color;
 import android.widget.Button;
 
