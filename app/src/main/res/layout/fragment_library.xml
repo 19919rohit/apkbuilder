@@ -97,7 +97,7 @@
                 android:id="@+id/librarySortChip"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Sort: Recent  ⌄"
+                android:text="Sort: Recent"
                 android:textSize="12sp"
                 android:textStyle="bold"
                 android:textColor="#DDDDDD"

@@ -199,6 +199,16 @@
 
     </LinearLayout>
 
+    <!-- ══════════════════════════════════════════════
+         TOP BAR — reorganized: back / title / three-dot
+         menu only. Every action that used to live here as
+         its own icon (search, bookmark, bookmark list,
+         basket, TOC, select text, notes, open new) is now
+         one tap away in the overflow menu — see the hidden
+         trigger container below, which keeps every original
+         button (and its EXACT existing wiring) alive, just
+         off-screen.
+         ══════════════════════════════════════════════ -->
     <LinearLayout
         android:id="@+id/topBar"
         android:layout_width="match_parent"
@@ -233,11 +243,30 @@
             android:paddingEnd="4dp"/>
 
         <ImageButton
+            android:id="@+id/btnPdfOverflow"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@drawable/ic_more_vert"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:tint="#FFFFFF"
+            android:contentDescription="More options"/>
+
+    </LinearLayout>
+
+    <!-- Hidden trigger holder — every original button still exists with
+         its original id, still wired to its original controller exactly
+         as before. Only visibility changed; nothing here was deleted. -->
+    <LinearLayout
+        android:id="@+id/hiddenTriggers"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:visibility="gone">
+
+        <ImageButton
             android:id="@+id/btnSearch"
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:src="@drawable/ic_search"
-            android:background="?attr/selectableItemBackgroundBorderless"
             android:tint="#FFFFFF"
             android:contentDescription="Search"/>
 
@@ -246,7 +275,6 @@
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:src="@drawable/ic_star"
-            android:background="?attr/selectableItemBackgroundBorderless"
             android:tint="#FFFFFF"
             android:contentDescription="Bookmark this page"/>
 
@@ -255,7 +283,6 @@
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:src="@drawable/ic_bookmarks"
-            android:background="?attr/selectableItemBackgroundBorderless"
             android:tint="#FFFFFF"
             android:contentDescription="All bookmarks"/>
 
@@ -264,7 +291,6 @@
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:src="@drawable/ic_basket_outline"
-            android:background="?attr/selectableItemBackgroundBorderless"
             android:tint="#FFFFFF"
             android:contentDescription="Add page to basket"/>
 
@@ -273,7 +299,6 @@
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:src="@drawable/ic_toc"
-            android:background="?attr/selectableItemBackgroundBorderless"
             android:tint="#FFFFFF"
             android:contentDescription="Table of contents"/>
 
@@ -282,7 +307,6 @@
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:src="@drawable/ic_select_text"
-            android:background="?attr/selectableItemBackgroundBorderless"
             android:tint="#FFFFFF"
             android:contentDescription="Select text"/>
 
@@ -291,7 +315,6 @@
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:src="@drawable/ic_notes"
-            android:background="?attr/selectableItemBackgroundBorderless"
             android:tint="#FFFFFF"
             android:contentDescription="Notes"/>
 
@@ -300,11 +323,15 @@
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:src="@drawable/ic_open_new"
-            android:background="?attr/selectableItemBackgroundBorderless"
             android:tint="#FFFFFF"
             android:contentDescription="Open PDF"/>
 
     </LinearLayout>
+
+    <!-- ══════════════════════════════════════════════
+         drawToolbar, readAloudBar, controlBar — UNCHANGED.
+         Draw and Read Aloud stay exactly where they were.
+         ══════════════════════════════════════════════ -->
 
     <LinearLayout
         android:id="@+id/drawToolbar"

@@ -19,6 +19,9 @@ public class SettingsActivity extends AppCompatActivity {
 
         findViewById(R.id.btnBack).setOnClickListener(v -> finish());
 
+        findViewById(R.id.rowThemes).setOnClickListener(v ->
+                startActivity(new Intent(this, ThemesActivity.class)));
+
         findViewById(R.id.rowNotifications).setOnClickListener(v ->
                 startActivity(new Intent(this, NotificationSettingsActivity.class)));
 
@@ -35,13 +38,6 @@ public class SettingsActivity extends AppCompatActivity {
                 startActivity(new Intent(this, LicenseActivity.class)));
     }
 
-    /**
-     * Requests exemption from OEM battery-optimization throttling — a
-     * real, common reason push notifications and background reminders
-     * silently stop working on Xiaomi/Oppo/Vivo/some Samsung devices.
-     * This is a system dialog the user must explicitly approve; it can
-     * never be silently forced.
-     */
     private void requestBatteryExemption() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
             Toast.makeText(this, "Not needed on this Android version", Toast.LENGTH_SHORT).show();
@@ -57,9 +53,6 @@ public class SettingsActivity extends AppCompatActivity {
             intent.setData(Uri.parse("package:" + getPackageName()));
             startActivity(intent);
         } catch (Throwable t) {
-            // Some OEM builds block this intent entirely — fall back to
-            // the general battery settings screen so the user can still
-            // find the right toggle manually.
             try {
                 startActivity(new Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS));
             } catch (Throwable ignored) {

@@ -10,5 +10,46 @@
         <item name="android:focusable">true</item>
         <item name="android:foreground">?attr/selectableItemBackground</item>
     </style>
+    
+    <style name="ColorPickRow">
+    <item name="android:layout_width">match_parent</item>
+    <item name="android:layout_height">wrap_content</item>
+    <item name="android:orientation">horizontal</item>
+    <item name="android:gravity">center_vertical</item>
+    <item name="android:padding">16dp</item>
+    <item name="android:layout_marginStart">24dp</item>
+    <item name="android:layout_marginEnd">24dp</item>
+    <item name="android:layout_marginTop">10dp</item>
+    <item name="android:background">@drawable/bg_continue_card</item>
+    <item name="android:clickable">true</item>
+    <item name="android:focusable">true</item>
+    <item name="android:foreground">?attr/selectableItemBackground</item>
+</style>
+
+<style name="ColorPickRowLabel">
+    <item name="android:layout_width">0dp</item>
+    <item name="android:layout_height">wrap_content</item>
+    <item name="android:layout_weight">1</item>
+    <item name="android:textSize">14sp</item>
+    <item name="android:textStyle">bold</item>
+    <item name="android:textColor">#EEEEEE</item>
+</style>
+
+<style name="ColorPickDot">
+    <item name="android:layout_width">28dp</item>
+    <item name="android:layout_height">28dp</item>
+</style>
+
+<style name="TextSizeChoice">
+    <item name="android:layout_width">0dp</item>
+    <item name="android:layout_height">44dp</item>
+    <item name="android:layout_weight">1</item>
+    <item name="android:gravity">center</item>
+    <item name="android:textSize">13sp</item>
+    <item name="android:textColor">#AAAAAA</item>
+    <item name="android:background">@drawable/bg_button_dark</item>
+    <item name="android:clickable">true</item>
+    <item name="android:focusable">true</item>
+</style>
 
 </resources>

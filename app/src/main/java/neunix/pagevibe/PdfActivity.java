@@ -1,16 +1,21 @@
 package neunix.pagevibe;
 
 import android.content.Intent;
+import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.view.Gravity;
+import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.view.animation.OvershootInterpolator;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.PopupWindow;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -39,6 +44,11 @@ public class PdfActivity extends AppCompatActivity implements PdfReaderControlle
     private View                 topBar, controlBar, loadingOverlay, errorView;
     private ImageButton          basketButton;
 
+    // Hidden trigger buttons — still exist, still wired exactly as
+    // before, just moved off-screen into the overflow menu.
+    private ImageButton hiddenBtnSearch, hiddenBtnBookmark, hiddenBtnBookmarkList,
+            hiddenBtnAddToBasket, hiddenBtnToc, hiddenBtnSelectText, hiddenBtnNotes, hiddenBtnOpenNew;
+
     private PdfReaderController    reader;
     private PdfSearchController    search;
     private PdfBookmarkController  bookmarks;
@@ -48,6 +58,7 @@ public class PdfActivity extends AppCompatActivity implements PdfReaderControlle
     private PdfSelectionController selection;
     private ReadingStatsController stats;
     private LibraryManager         libraryManager;
+    private ThemeManager           themeManager;
 
     private final Handler  uiHandler            = new Handler(Looper.getMainLooper());
     private final Runnable hideControls         = () -> setControlsVisible(false);
@@ -78,6 +89,7 @@ public class PdfActivity extends AppCompatActivity implements PdfReaderControlle
         reader         = new PdfReaderController(this, this);
         stats          = new ReadingStatsController(this);
         libraryManager = new LibraryManager(this);
+        themeManager   = new ThemeManager(this);
 
         setupSearch();
         setupBookmarks();
@@ -87,18 +99,18 @@ public class PdfActivity extends AppCompatActivity implements PdfReaderControlle
         setupSelection();
         setupBasketButton();
         setupNotesButton();
+        setupOverflowMenu();
 
-        // Draw and text-selection are mutually exclusive — activating one
-        // cleanly deactivates the other rather than allowing both touch
-        // handlers to fight for the same gesture stream.
         draw.setOnActivateCallback(() -> selection.deactivate());
         selection.setOnActivateCallback(() -> draw.deactivate());
 
         findViewById(R.id.btnRetryOpen).setOnClickListener(v -> openFilePicker());
         findViewById(R.id.btnBack).setOnClickListener(v -> finish());
-        findViewById(R.id.btnOpenNew).setOnClickListener(v -> openFilePicker());
-        TooltipUtil.apply(findViewById(R.id.btnBack),    "Back");
-        TooltipUtil.apply(findViewById(R.id.btnOpenNew), "Open another PDF");
+        hiddenBtnOpenNew.setOnClickListener(v -> openFilePicker());
+        TooltipUtil.apply(findViewById(R.id.btnBack), "Back");
+        TooltipUtil.apply(hiddenBtnOpenNew, "Open another PDF");
+
+        applyTitleTheme();
 
         Uri incoming = getIntent().getData();
         if (incoming != null) openPdf(incoming);
@@ -118,6 +130,7 @@ public class PdfActivity extends AppCompatActivity implements PdfReaderControlle
         curlView.onResume();
         scheduleHideControls();
         NotificationHelper.isReaderForeground = true;
+        applyTitleTheme(); // covers the user changing theme in Settings mid-session, then returning here
         if (reader.isReady() && !statsSessionActive) {
             stats.startSession(reader.getCurrentUri());
             ReadingPatternLearner.recordSessionStart(this);
@@ -154,6 +167,21 @@ public class PdfActivity extends AppCompatActivity implements PdfReaderControlle
         return super.dispatchTouchEvent(ev);
     }
 
+    /**
+     * Light-touch theme application, scoped deliberately to just the
+     * title text for now — the topBar/controlBar backgrounds use a
+     * gradient-fade drawable (bg_bar_top/bg_bar_bottom) that would lose
+     * its fade edge if flattened to a solid theme color, so full reader-
+     * chrome retheming is left for a dedicated follow-up rather than
+     * risking a visual regression here.
+     */
+    private void applyTitleTheme() {
+        if (titleText == null || themeManager == null) return;
+        ThemeManager.AppTheme theme = themeManager.getActiveTheme();
+        titleText.setTextColor(theme.textPrimaryColor);
+        try { titleText.setTypeface(Typeface.create(theme.fontFamily, Typeface.NORMAL)); } catch (Throwable ignored) {}
+    }
+
     private void bindViews() {
         zoomContainer      = findViewById(R.id.zoomContainer);
         curlView           = findViewById(R.id.curlView);
@@ -168,6 +196,68 @@ public class PdfActivity extends AppCompatActivity implements PdfReaderControlle
         loadingOverlay     = findViewById(R.id.loadingOverlay);
         errorView          = findViewById(R.id.errorView);
         errorMessage       = findViewById(R.id.errorMessage);
+
+        hiddenBtnSearch        = findViewById(R.id.btnSearch);
+        hiddenBtnBookmark      = findViewById(R.id.btnBookmark);
+        hiddenBtnBookmarkList  = findViewById(R.id.btnBookmarkList);
+        hiddenBtnAddToBasket   = findViewById(R.id.btnAddToBasket);
+        hiddenBtnToc           = findViewById(R.id.btnToc);
+        hiddenBtnSelectText    = findViewById(R.id.btnSelectText);
+        hiddenBtnNotes         = findViewById(R.id.btnNotes);
+        hiddenBtnOpenNew       = findViewById(R.id.btnOpenNew);
+        basketButton           = hiddenBtnAddToBasket;
+    }
+
+    /**
+     * Wires the new three-dot menu. Every row simply performClick()s the
+     * ORIGINAL hidden trigger button — this is intentional: it means the
+     * existing controller wiring (search.attachHighlightOverlay(...),
+     * PdfBookmarkController's internal listener on this exact button,
+     * PdfTocController's constructor-time click wiring, etc.) never had
+     * to change at all, eliminating any risk of subtly breaking a
+     * controller while reorganizing the visible layout around it.
+     */
+    private void setupOverflowMenu() {
+        ImageButton btnOverflow = findViewById(R.id.btnPdfOverflow);
+        btnOverflow.setOnClickListener(this::showOverflowMenu);
+    }
+
+    private void showOverflowMenu(View anchor) {
+        View content = LayoutInflater.from(this).inflate(R.layout.popup_pdf_overflow_menu, null);
+
+        TextView rowSearch       = content.findViewById(R.id.pdfMenuSearch);
+        TextView rowBookmark     = content.findViewById(R.id.pdfMenuBookmark);
+        TextView rowBookmarkList = content.findViewById(R.id.pdfMenuBookmarkList);
+        TextView rowBasket       = content.findViewById(R.id.pdfMenuBasket);
+        TextView rowToc          = content.findViewById(R.id.pdfMenuToc);
+        TextView rowSelectText   = content.findViewById(R.id.pdfMenuSelectText);
+        TextView rowNotes        = content.findViewById(R.id.pdfMenuNotes);
+        TextView rowOpenNew      = content.findViewById(R.id.pdfMenuOpenNew);
+
+        // Reflect current state before showing, so the label is always
+        // accurate the moment the user opens the menu.
+        boolean bookmarked = reader.isReady() && bookmarks.isBookmarked(reader.getSettledPage());
+        rowBookmark.setText(bookmarked ? "Remove Bookmark" : "Bookmark this page");
+
+        Uri uri = reader.getCurrentUri();
+        boolean inBasket = reader.isReady() && uri != null
+                && new PageBasketManager(this).contains(uri, reader.getSettledPage());
+        rowBasket.setText(inBasket ? "Remove from Basket" : "Add to Basket");
+
+        PopupWindow popup = new PopupWindow(content, ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT, true);
+        popup.setElevation(16f);
+
+        rowSearch.setOnClickListener(v -> { popup.dismiss(); hiddenBtnSearch.performClick(); });
+        rowBookmark.setOnClickListener(v -> { popup.dismiss(); hiddenBtnBookmark.performClick(); });
+        rowBookmarkList.setOnClickListener(v -> { popup.dismiss(); hiddenBtnBookmarkList.performClick(); });
+        rowBasket.setOnClickListener(v -> { popup.dismiss(); hiddenBtnAddToBasket.performClick(); });
+        rowToc.setOnClickListener(v -> { popup.dismiss(); hiddenBtnToc.performClick(); });
+        rowSelectText.setOnClickListener(v -> { popup.dismiss(); hiddenBtnSelectText.performClick(); });
+        rowNotes.setOnClickListener(v -> { popup.dismiss(); hiddenBtnNotes.performClick(); });
+        rowOpenNew.setOnClickListener(v -> { popup.dismiss(); hiddenBtnOpenNew.performClick(); });
+
+        popup.showAsDropDown(anchor, 0, 8, Gravity.END);
     }
 
     private void registerFilePicker() {
@@ -213,6 +303,7 @@ public class PdfActivity extends AppCompatActivity implements PdfReaderControlle
 
             LibraryManager.Entry libEntry = libraryManager.findByUri(currentUri);
             titleText.setText(libEntry != null ? LibraryManager.displayName(libEntry) : title);
+            applyTitleTheme();
 
             bookmarks.loadForUri(reader.getCurrentUri());
             setupSliderRange();
@@ -319,14 +410,14 @@ public class PdfActivity extends AppCompatActivity implements PdfReaderControlle
                 (ImageButton) findViewById(R.id.btnSearchPrev),
                 (ImageButton) findViewById(R.id.btnSearchNext),
                 (ImageButton) findViewById(R.id.btnSearchClose),
-                (ImageButton) findViewById(R.id.btnSearch),
+                hiddenBtnSearch,
                 page -> reader.navigateToPage(curlView, drawingView, pageStrokes, page));
         search.attachHighlightOverlay(highlightOverlay);
     }
 
     private void setupBookmarks() {
         bookmarks = new PdfBookmarkController(this, reader,
-                (ImageButton) findViewById(R.id.btnBookmark),
+                hiddenBtnBookmark,
                 findViewById(R.id.bookmarkToast),
                 (TextView)    findViewById(R.id.bookmarkToast),
                 findViewById(R.id.bookmarkSheetBackdrop),
@@ -335,8 +426,8 @@ public class PdfActivity extends AppCompatActivity implements PdfReaderControlle
                 (RecyclerView) findViewById(R.id.bookmarkRecycler),
                 findViewById(R.id.bookmarkEmptyState),
                 page -> reader.navigateToPage(curlView, drawingView, pageStrokes, page));
-        findViewById(R.id.btnBookmarkList).setOnClickListener(v -> bookmarks.showSheet());
-        TooltipUtil.apply(findViewById(R.id.btnBookmarkList), "All bookmarks");
+        hiddenBtnBookmarkList.setOnClickListener(v -> bookmarks.showSheet());
+        TooltipUtil.apply(hiddenBtnBookmarkList, "All bookmarks");
     }
 
     private void setupToc() {
@@ -344,7 +435,7 @@ public class PdfActivity extends AppCompatActivity implements PdfReaderControlle
                 findViewById(R.id.tocSheetBackdrop),
                 findViewById(R.id.tocSheet),
                 (ImageButton) findViewById(R.id.btnTocClose),
-                (ImageButton) findViewById(R.id.btnToc),
+                hiddenBtnToc,
                 (RecyclerView) findViewById(R.id.tocRecycler),
                 page -> reader.navigateToPage(curlView, drawingView, pageStrokes, page));
     }
@@ -382,14 +473,11 @@ public class PdfActivity extends AppCompatActivity implements PdfReaderControlle
     private void setupSelection() {
         selection = new PdfSelectionController(this, reader, readAloud,
                 zoomContainer, textSelectionView, highlightOverlay,
-                (ImageButton) findViewById(R.id.btnSelectText));
+                hiddenBtnSelectText);
     }
 
     private void setupBasketButton() {
-        basketButton = findViewById(R.id.btnAddToBasket);
-        if (basketButton == null) return;
-
-        basketButton.setOnClickListener(v -> {
+        hiddenBtnAddToBasket.setOnClickListener(v -> {
             Uri uri = reader.getCurrentUri();
             if (uri == null || !reader.isReady()) return;
 
@@ -407,13 +495,11 @@ public class PdfActivity extends AppCompatActivity implements PdfReaderControlle
             updateBasketIcon();
             popBasketIcon();
         });
-        TooltipUtil.apply(basketButton, "Add to basket");
+        TooltipUtil.apply(hiddenBtnAddToBasket, "Add to basket");
     }
 
     private void setupNotesButton() {
-        ImageButton btnNotes = findViewById(R.id.btnNotes);
-        if (btnNotes == null) return;
-        btnNotes.setOnClickListener(v -> {
+        hiddenBtnNotes.setOnClickListener(v -> {
             Uri uri = reader.getCurrentUri();
             if (uri == null) return;
             Intent i = new Intent(this, NotesActivity.class);
@@ -421,7 +507,7 @@ public class PdfActivity extends AppCompatActivity implements PdfReaderControlle
             i.putExtra(NotesActivity.EXTRA_PDF_NAME, titleText.getText() != null ? titleText.getText().toString() : "PDF");
             startActivity(i);
         });
-        TooltipUtil.apply(btnNotes, "Notes");
+        TooltipUtil.apply(hiddenBtnNotes, "Notes");
     }
 
     private void updateBasketIcon() {
