@@ -89,7 +89,7 @@ public class ThemesActivity extends AppCompatActivity {
     }
 
     private void confirmDelete(ThemeManager.AppTheme theme) {
-        AlertDialog dialog = new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK)
+        AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle("Delete theme?")
                 .setMessage("\"" + theme.name + "\" will be permanently deleted.")
                 .setPositiveButton("Delete", (d, w) -> {
