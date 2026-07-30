@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content" android:layout_height="wrap_content"
+    android:orientation="vertical" android:minWidth="220dp"
+    android:background="@drawable/bg_continue_card" android:elevation="10dp">
+
+    <TextView android:id="@+id/pdfMenuSearch" style="@style/PdfMenuRow" android:text="Search"/>
+    <View style="@style/PdfMenuDivider"/>
+
+    <TextView android:id="@+id/pdfMenuBookmark" style="@style/PdfMenuRow" android:text="Bookmark this page"/>
+    <View style="@style/PdfMenuDivider"/>
+
+    <TextView android:id="@+id/pdfMenuBookmarkList" style="@style/PdfMenuRow" android:text="All Bookmarks"/>
+    <View style="@style/PdfMenuDivider"/>
+
+    <TextView android:id="@+id/pdfMenuBasket" style="@style/PdfMenuRow" android:text="Add to Basket"/>
+    <View style="@style/PdfMenuDivider"/>
+
+    <TextView android:id="@+id/pdfMenuToc" style="@style/PdfMenuRow" android:text="Table of Contents"/>
+    <View style="@style/PdfMenuDivider"/>
+
+    <TextView android:id="@+id/pdfMenuSelectText" style="@style/PdfMenuRow" android:text="Select Text"/>
+    <View style="@style/PdfMenuDivider"/>
+
+    <TextView android:id="@+id/pdfMenuNotes" style="@style/PdfMenuRow" android:text="Notes"/>
+    <View style="@style/PdfMenuDivider"/>
+
+    <TextView android:id="@+id/pdfMenuOpenNew" style="@style/PdfMenuRow" android:text="Open Another PDF"/>
+
+</LinearLayout>
