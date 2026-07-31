@@ -16,7 +16,7 @@ import android.widget.TextView;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
-import androidx.appcompat.app.AlertDialog;
+import android.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -88,19 +88,20 @@ public class ThemesActivity extends AppCompatActivity {
         popup.showAsDropDown(anchor, 0, 8, Gravity.END);
     }
 
-    private void confirmDelete(ThemeManager.AppTheme theme) {
-        AlertDialog dialog = new AlertDialog.Builder(this)
-                .setTitle("Delete theme?")
-                .setMessage("\"" + theme.name + "\" will be permanently deleted.")
-                .setPositiveButton("Delete", (d, w) -> {
-                    themeManager.deleteCustomTheme(theme.id);
-                    reload();
-                })
-                .setNegativeButton("Cancel", (d, w) -> d.dismiss())
-                .create();
-        DialogUtil.applyDestructiveConfirm(dialog);
-        dialog.show();
-    }
+private void confirmDelete(ThemeManager.AppTheme theme) {
+    AlertDialog dialog = new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK)
+            .setTitle("Delete theme?")
+            .setMessage("\"" + theme.name + "\" will be permanently deleted.")
+            .setPositiveButton("Delete", (d, w) -> {
+                themeManager.deleteCustomTheme(theme.id);
+                reload();
+            })
+            .setNegativeButton("Cancel", (d, w) -> d.dismiss())
+            .create();
+
+    DialogUtil.applyDestructiveConfirm(dialog);
+    dialog.show();
+}
 
     private class ThemeAdapter extends RecyclerView.Adapter<ThemeAdapter.VH> {
 
