@@ -15,14 +15,16 @@ import android.widget.TextView;
  * one tag attribute per view in its XML and calling
  * ThemeApplier.apply(rootView, theme) once (typically in onResume()).
  *
- * IMPORTANT — RecyclerView caveat: apply(root, theme) only sees views
- * that already exist in the tree at the moment it runs. RecyclerView
- * items are inflated and bound LATER, as the adapter creates/recycles
- * view holders — so a single top-level apply() call can never retint
- * cells that didn't exist yet when it ran. For any RecyclerView whose
- * item layout uses theme: tags, call applyToSingleView(itemView, theme)
- * again inside onBindViewHolder(), for every bind — see
- * HomeFragment.RecentAdapter for the reference implementation.
+ * Supported tags:
+ *   theme:bg             — background color (preserves rounded-corner
+ *                           drawables by mutating them instead of
+ *                           replacing with a flat rectangle, if the
+ *                           existing background is a GradientDrawable)
+ *   theme:card            — same treatment as theme:bg, using cardColor
+ *   theme:textPrimary      — text color + font family
+ *   theme:textSecondary    — text color + font family
+ *   theme:accent           — TextView text color OR ImageView/ImageButton
+ *                            tint, whichever applies
  */
 public class ThemeApplier {
 
@@ -31,12 +33,6 @@ public class ThemeApplier {
     public static void apply(View root, ThemeManager.AppTheme theme) {
         if (root == null || theme == null) return;
         applyRecursive(root, theme);
-    }
-
-    /** Same recursive walk as apply(), but intended to be called
-     *  per-item from a RecyclerView adapter's onBindViewHolder(). */
-    public static void applyToSingleView(View itemRoot, ThemeManager.AppTheme theme) {
-        apply(itemRoot, theme);
     }
 
     private static void applyRecursive(View view, ThemeManager.AppTheme theme) {
@@ -87,6 +83,13 @@ public class ThemeApplier {
         }
     }
 
+    /**
+     * If the view's current background is a GradientDrawable (which is
+     * how every rounded-corner card background in this app is defined),
+     * mutate + recolor it in place — this preserves the rounded corners
+     * exactly, since only the fill color changes, not the shape. Falls
+     * back to a flat setBackgroundColor() for anything else.
+     */
     private static void setBackgroundPreservingShape(View view, int color) {
         Drawable bg = view.getBackground();
         if (bg instanceof GradientDrawable) {

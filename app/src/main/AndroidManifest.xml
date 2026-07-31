@@ -108,6 +108,11 @@
             android:name=".ThemesActivity"
             android:exported="false"
             android:screenOrientation="portrait"/>
+            
+        <activity
+            android:name=".ThemeEditorActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"/>
 
 
         <!-- FileProvider for sharing PDFs -->

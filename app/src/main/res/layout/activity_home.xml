@@ -4,6 +4,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:tag="theme:bg"
     android:background="#080808">
 
     <androidx.core.widget.NestedScrollView
@@ -40,6 +41,7 @@
                         android:id="@+id/greetingText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:tag="theme:textSecondary"
                         android:textSize="13sp"
                         android:textColor="#8A8A8A"
                         android:letterSpacing="0.02"/>
@@ -47,6 +49,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:tag="theme:textPrimary"
                         android:text="PageVibe"
                         android:textSize="34sp"
                         android:textStyle="bold"
@@ -60,6 +63,7 @@
                     android:id="@+id/btnSettings"
                     android:layout_width="32dp"
                     android:layout_height="32dp"
+                    android:tag="theme:accent"
                     android:src="@drawable/ic_settings"
                     android:tint="#666666"
                     android:scaleType="centerInside"
@@ -81,6 +85,7 @@
                 android:layout_marginStart="24dp"
                 android:layout_marginEnd="24dp"
                 android:layout_marginTop="18dp"
+                android:tag="theme:card"
                 android:background="@drawable/bg_continue_card"
                 android:clickable="true"
                 android:focusable="true"
@@ -106,6 +111,7 @@
                         android:id="@+id/insightsPrimaryText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:tag="theme:textPrimary"
                         android:text="Track your reading progress"
                         android:textSize="14sp"
                         android:textStyle="bold"
@@ -115,6 +121,7 @@
                         android:id="@+id/insightsSecondaryText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:tag="theme:textSecondary"
                         android:text="Tap to see your stats"
                         android:textSize="11sp"
                         android:textColor="#7A7A7A"
@@ -144,6 +151,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:tag="theme:textSecondary"
                     android:text="CONTINUE READING"
                     android:textSize="10sp"
                     android:letterSpacing="0.16"
@@ -157,6 +165,7 @@
                     android:orientation="horizontal"
                     android:gravity="center_vertical"
                     android:padding="16dp"
+                    android:tag="theme:card"
                     android:background="@drawable/bg_continue_card"
                     android:clickable="true"
                     android:focusable="true"
@@ -197,6 +206,7 @@
                             android:id="@+id/continueTitle"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
+                            android:tag="theme:textPrimary"
                             android:textSize="14sp"
                             android:textColor="#F0F0F0"
                             android:textStyle="bold"
@@ -208,6 +218,7 @@
                             android:id="@+id/continueSubtitle"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
+                            android:tag="theme:textSecondary"
                             android:textSize="11sp"
                             android:textColor="#7A7A7A"
                             android:layout_marginTop="5dp"/>
@@ -223,6 +234,7 @@
                                 android:id="@+id/progressFill"
                                 android:layout_width="0dp"
                                 android:layout_height="match_parent"
+                                android:tag="theme:accent"
                                 android:background="#FFFFFF"/>
 
                         </FrameLayout>
@@ -231,6 +243,7 @@
                             android:id="@+id/progressLabel"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
+                            android:tag="theme:textSecondary"
                             android:textSize="10sp"
                             android:textColor="#6A6A6A"
                             android:layout_marginTop="5dp"/>
@@ -269,6 +282,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
+                        android:tag="theme:textSecondary"
                         android:text="RECENT"
                         android:textSize="10sp"
                         android:letterSpacing="0.16"
@@ -278,6 +292,7 @@
                         android:id="@+id/btnSeeAllRecent"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:tag="theme:accent"
                         android:text="See all in Library  ›"
                         android:textSize="11sp"
                         android:textColor="#4488FF"
@@ -323,6 +338,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:tag="theme:textPrimary"
                     android:text="Your library is empty"
                     android:textSize="17sp"
                     android:textStyle="bold"
@@ -332,6 +348,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:tag="theme:textSecondary"
                     android:text="Tap here to open a PDF.\nIt'll appear on this screen so you can pick up right where you left off."
                     android:textSize="13sp"
                     android:textColor="#7A7A6A"
@@ -346,6 +363,7 @@
     </androidx.core.widget.NestedScrollView>
 
     <LinearLayout
+        android:id="@+id/bottomBarSurface"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
@@ -354,12 +372,14 @@
         android:paddingEnd="24dp"
         android:paddingBottom="20dp"
         android:paddingTop="20dp"
+        android:tag="theme:card"
         android:background="@drawable/bg_bar_bottom">
 
         <TextView
             android:id="@+id/btnOpenPdf"
             android:layout_width="match_parent"
             android:layout_height="54dp"
+            android:tag="theme:accent"
             android:gravity="center"
             android:text="Open PDF"
             android:textSize="15sp"

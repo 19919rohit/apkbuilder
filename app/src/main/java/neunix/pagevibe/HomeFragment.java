@@ -34,6 +34,24 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+/**
+ * Home tab — a lightweight dashboard. Shows the single most-recent book
+ * as a hero "Continue Reading" card, plus a horizontal strip of the 5
+ * most-recently-opened books. Search, sorting, and full-library
+ * management all live in the Library tab; Home only reads from
+ * LibraryManager, it never writes to it.
+ *
+ * THEMING: applyTheme() is called on every onResume()/onHiddenChanged()
+ * so returning here from Settings > Themes reflects a newly-selected
+ * theme immediately. It walks the whole inflated layout via
+ * ThemeApplier.apply(root, theme) for everything that's already on
+ * screen — but RecyclerView items in recentStrip are bound lazily by
+ * RecentAdapter, so RecentAdapter ALSO re-applies the theme to each item
+ * view individually at bind time (see onBindViewHolder below). Skipping
+ * that second application point is exactly what would make the
+ * horizontal book strip silently stay stuck on old colors even after
+ * everything else on the screen correctly re-themed.
+ */
 public class HomeFragment extends Fragment {
 
     private static final int RECENT_LIMIT = 5;
@@ -61,6 +79,7 @@ public class HomeFragment extends Fragment {
 
     private LibraryManager         libraryManager;
     private ReadingStatsController stats;
+    private ThemeManager           themeManager;
 
     private final List<LibraryManager.Entry> recentEntries = new ArrayList<>();
     private final Map<String, Bitmap> thumbCache = new LinkedHashMap<>();
@@ -103,6 +122,7 @@ public class HomeFragment extends Fragment {
         super.onViewCreated(view, savedInstanceState);
         libraryManager = new LibraryManager(requireContext());
         stats = new ReadingStatsController(requireContext());
+        themeManager = new ThemeManager(requireContext());
         bindViews();
         setupRecycler();
         setupButtons();
@@ -113,6 +133,7 @@ public class HomeFragment extends Fragment {
         super.onResume();
         refreshUI(false);
         bindInsights();
+        applyTheme();
     }
 
     @Override
@@ -121,6 +142,7 @@ public class HomeFragment extends Fragment {
         if (!hidden) {
             refreshUI(false);
             bindInsights();
+            applyTheme();
         }
     }
 
@@ -130,6 +152,21 @@ public class HomeFragment extends Fragment {
         thumbExecutor.shutdown();
         clearThumbCache();
         root = null;
+    }
+
+    /**
+     * Re-tints everything on screen that carries a theme: tag, then
+     * refreshes the RecyclerView adapter so its currently-bound items
+     * (which were NOT part of this tree walk if they were bound before
+     * this call — order doesn't actually matter here since
+     * notifyDataSetChanged() forces a fresh onBindViewHolder pass, which
+     * itself re-applies the theme per item) pick up the new theme too.
+     */
+    private void applyTheme() {
+        if (root == null || themeManager == null) return;
+        ThemeManager.AppTheme theme = themeManager.getActiveTheme();
+        ThemeApplier.apply(root, theme);
+        if (recentAdapter != null) recentAdapter.notifyDataSetChanged();
     }
 
     private void bindViews() {
@@ -454,7 +491,7 @@ public class HomeFragment extends Fragment {
             String name = LibraryManager.displayName(entry);
             h.title.setText(name);
             h.time.setText(relativeTime(entry.lastOpenedAt));
-            h.remove.setVisibility(View.GONE);
+            h.remove.setVisibility(View.GONE); // management lives in Library now
 
             applyThumb(h.cover, h.initial, entry, true);
 
@@ -470,6 +507,16 @@ public class HomeFragment extends Fragment {
                     .setDuration(260)
                     .setStartDelay(pos * 35L)
                     .start();
+
+            // See the class-level javadoc above: this item view was
+            // inflated fresh (or is being rebound) AFTER HomeFragment's
+            // top-level applyTheme() walk, so it must be re-themed here,
+            // every single bind, or it silently stays on stale colors
+            // forever regardless of how many times the outer theme
+            // changes.
+            if (themeManager != null) {
+                ThemeApplier.applyToSingleView(h.itemView, themeManager.getActiveTheme());
+            }
         }
 
         @Override public int getItemCount() { return recentEntries.size(); }
