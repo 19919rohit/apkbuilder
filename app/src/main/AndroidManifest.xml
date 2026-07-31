@@ -103,6 +103,11 @@
             android:name=".NotificationSettingsActivity"
             android:exported="false"
             android:theme="@style/Theme.AppCompat.NoActionBar"/>
+            
+        <activity
+            android:name=".NotesActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"/>
 
 
         <!-- FileProvider for sharing PDFs -->
