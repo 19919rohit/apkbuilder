@@ -6,6 +6,7 @@ import android.widget.CompoundButton;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.material.switchmaterial.SwitchMaterial;
+import android.view.View;
 
 public class NotificationSettingsActivity extends AppCompatActivity {
 
