@@ -234,13 +234,13 @@ public class LibraryFragment extends Fragment {
 
         optRecent.setOnClickListener(v -> {
             sortMode = SortMode.RECENT;
-            sortChip.setText("Sort: Recent  ⌄");
+            sortChip.setText("Sort: Recent");
             rebuildDisplayList();
             popup.dismiss();
         });
         optAlpha.setOnClickListener(v -> {
             sortMode = SortMode.ALPHA;
-            sortChip.setText("Sort: A–Z  ⌄");
+            sortChip.setText("Sort: A–Z");
             rebuildDisplayList();
             popup.dismiss();
         });

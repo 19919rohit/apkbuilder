@@ -3,7 +3,8 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#080808">
+    android:background="#080808"
+    android:tag="theme:bg">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -23,6 +24,7 @@
             android:src="@drawable/ic_back"
             android:tint="#888888"
             android:background="@drawable/bg_file_initial"
+            android:tag="theme:accent"
             android:contentDescription="Go back"
             android:clickable="true"
             android:focusable="true"
@@ -37,6 +39,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:tag="theme:textSecondary"
                 android:text="LEGAL &amp; COMPLIANCE"
                 android:textSize="11sp"
                 android:textColor="#8A8A8A"
@@ -46,6 +49,7 @@
                 android:id="@+id/title"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:tag="theme:textPrimary"
                 android:text="Licenses"
                 android:textSize="34sp"
                 android:textStyle="bold"
@@ -62,6 +66,7 @@
         android:paddingEnd="24dp"
         android:paddingTop="28dp"
         android:paddingBottom="12dp"
+        android:tag="theme:textSecondary"
         android:text="OPEN SOURCE LIBRARIES"
         android:textSize="10sp"
         android:letterSpacing="0.16"

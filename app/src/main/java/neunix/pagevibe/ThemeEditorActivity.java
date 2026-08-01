@@ -28,6 +28,7 @@ public class ThemeEditorActivity extends AppCompatActivity {
     };
 
     private ThemeManager themeManager;
+    private View rootView;
     private String editingThemeId = null;
 
     private int backgroundColor, cardColor, dividerColor, textPrimaryColor,
@@ -46,6 +47,7 @@ public class ThemeEditorActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_theme_editor);
+        rootView = findViewById(android.R.id.content);
         themeManager = new ThemeManager(this);
 
         nameInput          = findViewById(R.id.themeNameInput);
@@ -78,9 +80,16 @@ public class ThemeEditorActivity extends AppCompatActivity {
         buildFontChoices();
         buildSizeChoices();
         updatePreview();
+        applyTheme();
 
         findViewById(R.id.btnSaveTheme).setOnClickListener(v -> save());
     }
+    
+    @Override
+protected void onResume() {
+    super.onResume();
+    applyTheme();
+}
 
     private void loadInitialValues() {
         ThemeManager.AppTheme base;
@@ -152,6 +161,18 @@ public class ThemeEditorActivity extends AppCompatActivity {
 
         popup.showAsDropDown(anchor, 0, 8, Gravity.END);
     }
+    
+    private void applyTheme() {
+    if (rootView == null || themeManager == null)
+        return;
+
+    ThemeApplier.apply(
+            rootView,
+            themeManager.getActiveTheme()
+    );
+
+    updatePreview();
+}
 
     private void buildFontChoices() {
         fontChoiceRow.removeAllViews();
@@ -171,6 +192,8 @@ public class ThemeEditorActivity extends AppCompatActivity {
                     ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
             lp.setMarginEnd(dpToPx(8));
             chip.setLayoutParams(lp);
+            chip.setTag("theme:textPrimary");
+            ThemeApplier.applyToSingleView(chip, themeManager.getActiveTheme());
 
             chip.setOnClickListener(v -> {
                 selectedFont = value;

@@ -16,10 +16,16 @@ public class AboutActivity extends AppCompatActivity {
     private TextView txtVersion;
     private View btnLicenses;
 
+    private View rootView;
+    private ThemeManager themeManager;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_about);
+
+        rootView = findViewById(android.R.id.content);
+        themeManager = new ThemeManager(this);
 
         // Bind views
         btnBack = findViewById(R.id.btnBack);
@@ -48,6 +54,24 @@ public class AboutActivity extends AppCompatActivity {
         // Open licenses screen
         btnLicenses.setOnClickListener(v ->
                 startActivity(new Intent(AboutActivity.this, LicenseActivity.class))
+        );
+
+        applyTheme();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        applyTheme();
+    }
+
+    private void applyTheme() {
+        if (rootView == null || themeManager == null)
+            return;
+
+        ThemeApplier.apply(
+                rootView,
+                themeManager.getActiveTheme()
         );
     }
 }

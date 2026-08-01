@@ -27,6 +27,7 @@ import java.util.List;
 public class ThemesActivity extends AppCompatActivity {
 
     private ThemeManager themeManager;
+    private View rootView;
     private final List<ThemeManager.AppTheme> themes = new ArrayList<>();
     private ThemeAdapter adapter;
 
@@ -37,6 +38,7 @@ public class ThemesActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_themes);
+        rootView = findViewById(android.R.id.content);
         themeManager = new ThemeManager(this);
 
         findViewById(R.id.btnBack).setOnClickListener(v -> finish());
@@ -49,12 +51,14 @@ public class ThemesActivity extends AppCompatActivity {
         recycler.setAdapter(adapter);
 
         reload();
+        applyTheme();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
         reload();
+        applyTheme();
     }
 
     private void reload() {
@@ -62,11 +66,23 @@ public class ThemesActivity extends AppCompatActivity {
         themes.addAll(themeManager.getAllThemes());
         adapter.notifyDataSetChanged();
     }
+    
+    private void applyTheme() {
+    if (rootView == null || themeManager == null)
+        return;
 
-    private void applyTheme(ThemeManager.AppTheme theme) {
-        themeManager.setActiveThemeId(theme.id);
+    ThemeApplier.apply(rootView, themeManager.getActiveTheme());
+
+    if (adapter != null)
         adapter.notifyDataSetChanged();
-    }
+}
+
+private void applyTheme(ThemeManager.AppTheme theme) {
+    themeManager.setActiveThemeId(theme.id);
+
+    // Refresh all tagged views immediately
+    applyTheme();
+}
 
     private void showItemMenu(View anchor, ThemeManager.AppTheme theme) {
         View content = LayoutInflater.from(this).inflate(R.layout.popup_theme_item_menu, null);
@@ -134,6 +150,12 @@ private void confirmDelete(ThemeManager.AppTheme theme) {
 
             h.previewBox.setOnClickListener(v -> applyTheme(theme));
             h.overflow.setOnClickListener(v -> showItemMenu(v, theme));
+            if (themeManager != null) {
+    ThemeApplier.applyToSingleView(
+            h.itemView,
+            themeManager.getActiveTheme()
+    );
+}
         }
 
         @Override public int getItemCount() { return themes.size(); }

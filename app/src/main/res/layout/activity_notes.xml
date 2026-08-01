@@ -2,7 +2,8 @@
 <androidx.coordinatorlayout.widget.CoordinatorLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent" android:layout_height="match_parent"
-    android:background="#080808">
+    android:background="#080808"
+    android:tag="theme:bg">
 
     <LinearLayout
         android:layout_width="match_parent" android:layout_height="match_parent"
@@ -17,6 +18,7 @@
             <ImageButton
                 android:id="@+id/btnBack"
                 android:layout_width="32dp" android:layout_height="32dp"
+                android:tag="theme:accent"
                 android:layout_marginEnd="16dp"
                 android:src="@drawable/ic_back" android:tint="#888888"
                 android:background="@drawable/bg_file_initial"
@@ -30,11 +32,13 @@
 
                 <TextView
                     android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:tag="theme:textSecondary"
                     android:text="NOTES" android:textSize="11sp"
                     android:textColor="#8A8A8A" android:letterSpacing="0.12"/>
 
                 <TextView
                     android:id="@+id/notesPdfName"
+                    android:tag="theme:textPrimary"
                     android:layout_width="wrap_content" android:layout_height="wrap_content"
                     android:textSize="24sp" android:textStyle="bold"
                     android:textColor="#FFFFFF" android:maxLines="1" android:ellipsize="end"
@@ -63,17 +67,20 @@
 
                 <TextView
                     android:layout_width="72dp" android:layout_height="72dp"
+                    android:tag="theme:card"
                     android:gravity="center" android:text="📝" android:textSize="34sp"
                     android:background="@drawable/bg_continue_card"/>
 
                 <TextView
                     android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:tag="theme:textPrimary"
                     android:text="No notes yet" android:textSize="17sp"
                     android:textStyle="bold" android:textColor="#DDDDDD"
                     android:layout_marginTop="22dp"/>
 
                 <TextView
                     android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:tag="theme:textSecondary"
                     android:text="Tap the button below to write your first note for this PDF."
                     android:textSize="13sp" android:textColor="#7A7A6A"
                     android:gravity="center" android:lineSpacingMultiplier="1.6"
@@ -84,6 +91,7 @@
         <TextView
             android:id="@+id/btnAddNote"
             android:layout_width="match_parent" android:layout_height="54dp"
+            android:tag="theme:buttonBg,theme:buttonText"
             android:layout_margin="16dp" android:gravity="center"
             android:text="+ Add Note" android:textSize="15sp" android:textStyle="bold"
             android:textColor="#000000" android:background="@drawable/bg_open_button"

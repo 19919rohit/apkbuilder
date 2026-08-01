@@ -55,6 +55,7 @@ public class BasketFragment extends Fragment {
     private View btnClearAll;
     private View exportingOverlay;
     private View rootView;
+    private ThemeManager themeManager;
 
     private String pendingExportName = null;
 
@@ -95,6 +96,7 @@ public class BasketFragment extends Fragment {
         rootView = view;
         basketManager  = new PageBasketManager(requireContext());
         libraryManager = new LibraryManager(requireContext());
+        themeManager = new ThemeManager(requireContext());
 
         RecyclerView recycler = view.findViewById(R.id.basketRecycler);
         emptyState       = view.findViewById(R.id.basketEmptyState);
@@ -134,18 +136,24 @@ public class BasketFragment extends Fragment {
         btnExport.setOnClickListener(v -> promptForFileName());
 
         refreshFromStorage();
+        applyTheme();
     }
 
     @Override
     public void onResume() {
         super.onResume();
         refreshFromStorage();
+        applyTheme();
     }
 
     @Override
     public void onHiddenChanged(boolean hidden) {
         super.onHiddenChanged(hidden);
-        if (!hidden) refreshFromStorage();
+        if (!hidden){
+        refreshFromStorage();
+        applyTheme();
+        }
+        
     }
 
     @Override
@@ -292,6 +300,16 @@ public class BasketFragment extends Fragment {
         float density = getResources().getDisplayMetrics().density;
         return Math.round(dp * density);
     }
+    
+    private void applyTheme() {
+    if (rootView == null || themeManager == null)
+        return;
+
+    ThemeApplier.apply(rootView, themeManager.getActiveTheme());
+
+    if (adapter != null)
+        adapter.notifyDataSetChanged();
+}
 
     private void loadThumbnailAsync(PageBasketManager.BasketEntry entry, ImageView thumbView, TextView initialView) {
         String cacheKey = entry.sourceUri.toString() + "#" + entry.pageIndex;
@@ -369,6 +387,13 @@ public class BasketFragment extends Fragment {
                 notifyItemRemoved(p);
                 refreshFromStorage();
             });
+            
+            if (themeManager != null) {
+    ThemeApplier.applyToSingleView(
+            h.itemView,
+            themeManager.getActiveTheme()
+    );
+}
         }
 
         @Override

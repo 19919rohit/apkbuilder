@@ -4,7 +4,8 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#080808">
+    android:background="#080808"
+    android:tag="theme:bg">
 
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
@@ -33,6 +34,7 @@
                     android:id="@+id/btnBack"
                     android:layout_width="32dp"
                     android:layout_height="32dp"
+                    android:tag="theme:accent"
                     android:layout_marginEnd="16dp"
                     android:src="@drawable/ic_back"
                     android:tint="#888888"
@@ -51,6 +53,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:tag="theme:textSecondary"
                         android:text="ABOUT THE APP"
                         android:textSize="11sp"
                         android:textColor="#8A8A8A"
@@ -60,6 +63,7 @@
                         android:id="@+id/txtAppName"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:tag="theme:textPrimary"
                         android:text="PageVibe"
                         android:textSize="34sp"
                         android:textStyle="bold"
@@ -80,6 +84,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:tag="theme:textSecondary"
                     android:text="APP INFORMATION"
                     android:textSize="10sp"
                     android:letterSpacing="0.16"
@@ -89,6 +94,7 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:tag="theme:card"
                     android:orientation="vertical"
                     android:padding="16dp"
                     android:background="@drawable/bg_continue_card">
@@ -97,6 +103,7 @@
                         android:id="@+id/txtPackageName"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:tag="theme:textPrimary"
                         android:text="neunix.pagevibe"
                         android:textSize="14sp"
                         android:textColor="#F0F0F0"
@@ -106,6 +113,7 @@
                         android:id="@+id/txtVersion"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:tag="theme:textSecondary"
                         android:text="Version 1.0.0"
                         android:textSize="12sp"
                         android:textColor="#7A7A7A"
@@ -124,6 +132,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:tag="theme:textSecondary"
                     android:text="DESCRIPTION"
                     android:textSize="10sp"
                     android:letterSpacing="0.16"
@@ -133,6 +142,7 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:tag="theme:card"
                     android:orientation="vertical"
                     android:padding="16dp"
                     android:background="@drawable/bg_continue_card">
@@ -140,6 +150,7 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:tag="theme:textSecondary"
                         android:text="PageVibe is built to give you a clean, distraction-free reading experience. It loads your documents instantly and saves your place automatically, making it easy to jump back into your favorite books right where you left off."
                         android:textSize="13sp"
                         android:textColor="#A0A0A0"
@@ -150,6 +161,7 @@
             <TextView
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:tag="theme:textSecondary"
     android:layout_marginTop="24dp"
     android:layout_marginBottom="16dp"
     android:gravity="center"
@@ -169,11 +181,13 @@
         android:paddingEnd="24dp"
         android:paddingBottom="28dp"
         android:paddingTop="20dp"
+        android:tag="theme:card"
         android:background="@drawable/bg_bar_bottom">
 
         <TextView
             android:id="@+id/btnLicenses"
             android:layout_width="match_parent"
+            android:tag="theme:buttonBg,theme:buttonText"
             android:layout_height="54dp"
             android:gravity="center"
             android:text="Open Source Licenses"

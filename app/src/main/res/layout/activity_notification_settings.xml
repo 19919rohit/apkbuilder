@@ -100,7 +100,8 @@
                 <com.google.android.material.switchmaterial.SwitchMaterial
                     android:id="@+id/switchDailyQuote"
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"/>
+                    android:layout_height="wrap_content"
+                    android:tag="theme:switch"/>
             </LinearLayout>
 
             <LinearLayout
@@ -132,6 +133,7 @@
                 <com.google.android.material.switchmaterial.SwitchMaterial
                     android:id="@+id/switchReadingReminder"
                     android:layout_width="wrap_content"
+                    android:tag="theme:switch"
                     android:layout_height="wrap_content"/>
             </LinearLayout>
 
@@ -164,6 +166,7 @@
                 <com.google.android.material.switchmaterial.SwitchMaterial
                     android:id="@+id/switchContinueReading"
                     android:layout_width="wrap_content"
+                    android:tag="theme:switch"
                     android:layout_height="wrap_content"/>
             </LinearLayout>
 
@@ -196,6 +199,7 @@
                 <com.google.android.material.switchmaterial.SwitchMaterial
                     android:id="@+id/switchStreak"
                     android:layout_width="wrap_content"
+                    android:tag="theme:switch"
                     android:layout_height="wrap_content"/>
             </LinearLayout>
 
@@ -228,6 +232,7 @@
                 <com.google.android.material.switchmaterial.SwitchMaterial
                     android:id="@+id/switchAnnouncements"
                     android:layout_width="wrap_content"
+                    android:tag="theme:switch"
                     android:layout_height="wrap_content"/>
             </LinearLayout>
 

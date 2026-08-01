@@ -11,6 +11,7 @@ import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import android.graphics.Typeface;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -24,12 +25,16 @@ import java.util.List;
 public class LicenseActivity extends AppCompatActivity {
 
     private RecyclerView licenseList;
+    private ThemeManager themeManager;
+    private View rootView;
     private final List<LicenseItem> licenses = new ArrayList<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_license);
+        rootView = findViewById(android.R.id.content);
+        themeManager = new ThemeManager(this);
 
         // Bind Back Button
         ImageButton btnBack = findViewById(R.id.btnBack);
@@ -43,7 +48,14 @@ public class LicenseActivity extends AppCompatActivity {
 
         LicenseAdapter adapter = new LicenseAdapter(this, licenses, item -> showLicenseDialog(item));
         licenseList.setAdapter(adapter);
+        applyTheme();
     }
+    
+    @Override
+protected void onResume() {
+    super.onResume();
+    applyTheme();
+}
 
     private void loadLicensesFromAssets() {
         try {
@@ -89,12 +101,28 @@ public class LicenseActivity extends AppCompatActivity {
 
         } catch (Exception ignored) {}
     }
+    
+    private void applyTheme() {
+    if (rootView == null || themeManager == null)
+        return;
+
+    ThemeApplier.apply(rootView, themeManager.getActiveTheme());
+
+    if (licenseList != null && licenseList.getAdapter() != null) {
+        licenseList.getAdapter().notifyDataSetChanged();
+    }
+}
 
     private void showLicenseDialog(LicenseItem item) {
     TextView messageView = new TextView(this);
     messageView.setText(item.content);
-    messageView.setTextColor(Color.parseColor("#A0A0A0")); 
-    messageView.setTextSize(13f);
+    ThemeManager.AppTheme theme = themeManager.getActiveTheme();
+messageView.setTextColor(theme.textSecondaryColor);
+messageView.setTypeface(Typeface.create(theme.fontFamily, Typeface.NORMAL));
+messageView.setTextSize(
+        TypedValue.COMPLEX_UNIT_SP,
+        13f * theme.textScale
+);
     messageView.setLineSpacing(0f, 1.3f);
     messageView.setPadding(56, 32, 56, 32);
 
@@ -113,12 +141,30 @@ public class LicenseActivity extends AppCompatActivity {
     dialog.setOnShowListener(dialogInterface -> {
         android.widget.Button closeButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
         if (closeButton != null) {
-            closeButton.setTextColor(Color.WHITE); // Deep contrast pure white
-            closeButton.setTextSize(14f);           // Optional: matches lists for clean uniformity
+            closeButton.setTextColor(theme.buttonTextColor);
+            closeButton.setTextSize(
+        TypedValue.COMPLEX_UNIT_SP,
+        14f * theme.textScale
+);
+closeButton.setTypeface(Typeface.create(theme.fontFamily, Typeface.BOLD));
         }
     });
 
     dialog.show();
+    TextView title =
+        dialog.findViewById(
+                getResources().getIdentifier(
+                        "alertTitle",
+                        "id",
+                        "android"));
+
+if (title != null) {
+    title.setTextColor(theme.textPrimaryColor);
+    title.setTypeface(Typeface.create(theme.fontFamily, Typeface.BOLD));
+    title.setTextSize(
+            TypedValue.COMPLEX_UNIT_SP,
+            18f * theme.textScale);
+}
 }
 
 
@@ -158,6 +204,7 @@ public class LicenseActivity extends AppCompatActivity {
             
             // Reuses your theme's card component background styling
             card.setBackgroundResource(R.drawable.bg_continue_card);
+            card.setTag("theme:card");
 
             RecyclerView.LayoutParams lp = new RecyclerView.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -173,8 +220,12 @@ public class LicenseActivity extends AppCompatActivity {
             tv.setTextSize(14f);
             tv.setTypeface(null, android.graphics.Typeface.BOLD);
     
-            tv.setTextColor(Color.parseColor("#F0F0F0")); // Clean dark-theme contrast white text
+            tv.setTag("theme:textPrimary");
             card.addView(tv);
+            ThemeApplier.applyToSingleView(
+        card,
+        ((LicenseActivity) context).themeManager.getActiveTheme()
+);
 
             return new VH(card, tv);
         }
@@ -182,6 +233,10 @@ public class LicenseActivity extends AppCompatActivity {
         @Override
         public void onBindViewHolder(@NonNull VH holder, int position) {
             LicenseItem item = items.get(position);
+            ThemeApplier.applyToSingleView(
+        holder.itemView,
+        ((LicenseActivity) context).themeManager.getActiveTheme()
+);
             holder.titleText.setText(item.title);
             holder.itemView.setOnClickListener(v -> listener.onItemClick(item));
         }

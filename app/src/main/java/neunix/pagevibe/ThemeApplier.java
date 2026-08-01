@@ -6,6 +6,8 @@ import android.graphics.drawable.GradientDrawable;
 import android.util.TypedValue;
 import android.view.View;
 import android.view.ViewGroup;
+import android.content.res.ColorStateList;
+import com.google.android.material.switchmaterial.SwitchMaterial;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -87,13 +89,31 @@ public class ThemeApplier {
                 view.setBackgroundColor(theme.dividerColor);
                 break;
             case "theme:textPrimary":
-                if (view instanceof TextView) {
-                    TextView tv = (TextView) view;
-                    tv.setTextColor(theme.textPrimaryColor);
-                    tv.setTypeface(resolveTypeface(theme.fontFamily));
-                    applyTextScale(tv, theme.textScale);
-                }
-                break;
+    if (view instanceof TextView) {
+        TextView tv = (TextView) view;
+
+        tv.setTextColor(theme.textPrimaryColor);
+        tv.setTypeface(resolveTypeface(theme.fontFamily));
+        applyTextScale(tv, theme.textScale);
+
+        if (tv instanceof android.widget.EditText) {
+            android.widget.EditText et = (android.widget.EditText) tv;
+
+            et.setHintTextColor(theme.textSecondaryColor);
+
+            Drawable bg = et.getBackground();
+            if (bg instanceof GradientDrawable) {
+                try {
+                    GradientDrawable gd = (GradientDrawable) bg.mutate();
+                    gd.setColor(theme.cardColor);
+
+                    float density = et.getResources().getDisplayMetrics().density;
+                    gd.setStroke(Math.round(1f * density), theme.outlineColor);
+                } catch (Throwable ignored) {}
+            }
+        }
+    }
+    break;
             case "theme:textSecondary":
                 if (view instanceof TextView) {
                     TextView tv = (TextView) view;
@@ -115,6 +135,35 @@ public class ThemeApplier {
             case "theme:buttonBg":
                 setBackgroundColorPreservingShape(view, theme.accentColor);
                 break;
+                
+            case "theme:switch":
+    if (view instanceof SwitchMaterial) {
+        SwitchMaterial sw = (SwitchMaterial) view;
+
+        ColorStateList thumb = new ColorStateList(
+                new int[][]{
+                        new int[]{android.R.attr.state_checked},
+                        new int[]{-android.R.attr.state_checked}
+                },
+                new int[]{
+                        theme.accentColor,
+                        0xFFBDBDBD
+                });
+
+        ColorStateList track = new ColorStateList(
+                new int[][]{
+                        new int[]{android.R.attr.state_checked},
+                        new int[]{-android.R.attr.state_checked}
+                },
+                new int[]{
+                        (theme.accentColor & 0x00FFFFFF) | 0x66000000,
+                        0xFF666666
+                });
+
+        sw.setThumbTintList(thumb);
+        sw.setTrackTintList(track);
+    }
+    break;
             case "theme:buttonText":
                 if (view instanceof TextView) {
                     TextView tv = (TextView) view;

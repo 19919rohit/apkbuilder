@@ -1,11 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent" android:layout_height="wrap_content"
-    android:orientation="vertical" android:layout_margin="8dp">
+    android:orientation="vertical" android:layout_margin="8dp"
+    android:tag="theme:bg">
 
     <FrameLayout
         android:id="@+id/themePreviewBox"
         android:layout_width="match_parent" android:layout_height="120dp"
+        android:tag="theme:card"
         android:background="@drawable/bg_continue_card"
         android:clickable="true" android:focusable="true"
         android:foreground="?attr/selectableItemBackground">
@@ -31,6 +33,7 @@
         <ImageButton
             android:id="@+id/themeOverflow"
             android:layout_width="28dp" android:layout_height="28dp"
+            android:tag="theme:accent"
             android:layout_gravity="top|start" android:layout_margin="6dp"
             android:src="@drawable/ic_more_vert" android:background="@drawable/bg_button_dark"
             android:padding="4dp" android:tint="#DDDDDD"
@@ -42,6 +45,7 @@
     <TextView
         android:id="@+id/themeCardName"
         android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:tag="theme:textPrimary"
         android:textSize="12sp" android:textStyle="bold" android:textColor="#EEEEEE"
         android:maxLines="1" android:ellipsize="end"
         android:layout_marginTop="8dp"/>
@@ -49,6 +53,7 @@
     <TextView
         android:id="@+id/themeCardKind"
         android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:tag="theme:textSecondary"
         android:textSize="10sp" android:textColor="#707070"
         android:layout_marginTop="2dp"/>
 

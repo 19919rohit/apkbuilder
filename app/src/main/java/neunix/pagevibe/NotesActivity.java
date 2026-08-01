@@ -31,11 +31,15 @@ public class NotesActivity extends AppCompatActivity {
     private final List<PdfNotesManager.NoteEntry> entries = new ArrayList<>();
     private NotesAdapter adapter;
     private View emptyState;
+    private ThemeManager themeManager;
+    private View rootView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_notes);
+        rootView = findViewById(android.R.id.content);
+        themeManager = new ThemeManager(this);
 
         String uriString = getIntent().getStringExtra(EXTRA_PDF_URI);
         String name = getIntent().getStringExtra(EXTRA_PDF_NAME);
@@ -53,7 +57,19 @@ public class NotesActivity extends AppCompatActivity {
         recycler.setAdapter(adapter);
 
         reload();
+        applyTheme();
     }
+    
+    @Override
+protected void onResume() {
+    super.onResume();
+    applyTheme();
+}
+
+private void applyTheme() {
+    ThemeApplier.apply(rootView, themeManager.getActiveTheme());
+    adapter.notifyDataSetChanged();
+}
 
     private void reload() {
         entries.clear();
@@ -116,6 +132,10 @@ public class NotesActivity extends AppCompatActivity {
         @Override
         public void onBindViewHolder(@NonNull VH h, int pos) {
             PdfNotesManager.NoteEntry entry = entries.get(pos);
+            ThemeApplier.applyToSingleView(
+        h.itemView,
+        themeManager.getActiveTheme()
+);
             h.text.setText(entry.text);
             h.time.setText(DateFormat.format("MMM d, yyyy · h:mm a", entry.updatedAt));
             try { h.colorDot.setBackgroundColor(Color.parseColor(entry.colorHex)); } catch (Throwable ignored) {}
