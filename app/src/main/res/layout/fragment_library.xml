@@ -2,7 +2,8 @@
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#080808">
+    android:background="#080808"
+    android:tag="theme:bg">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -28,6 +29,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:tag="theme:textSecondary"
                     android:text="YOUR COLLECTION"
                     android:textSize="11sp"
                     android:textColor="#8A8A8A"
@@ -36,6 +38,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:tag="theme:textPrimary"
                     android:text="Library"
                     android:textSize="34sp"
                     android:textStyle="bold"
@@ -50,6 +53,7 @@
                 android:layout_width="40dp"
                 android:layout_height="40dp"
                 android:src="@drawable/ic_more_vert"
+                android:tag="theme:accent"
                 android:tint="#AAAAAA"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="More options"/>
@@ -64,7 +68,8 @@
             android:layout_marginEnd="24dp"
             android:layout_marginTop="14dp"
             android:background="@drawable/bg_button_dark"
-            android:hint="🔍  Search your library"
+            android:tag="theme:card"
+            android:hint="Search your library"
             android:textColorHint="#666666"
             android:textColor="#FFFFFF"
             android:textSize="14sp"
@@ -88,6 +93,7 @@
                 android:id="@+id/libraryCountLabel"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:tag="theme:textSecondary"
                 android:layout_weight="1"
                 android:text="0 PDFs"
                 android:textSize="11sp"
@@ -97,6 +103,7 @@
                 android:id="@+id/librarySortChip"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:tag="theme:textPrimary"
                 android:text="Sort: Recent"
                 android:textSize="12sp"
                 android:textStyle="bold"
@@ -130,6 +137,7 @@
                 android:id="@+id/libraryNoResults"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:tag="theme:textSecondary"
                 android:layout_gravity="top"
                 android:layout_marginTop="40dp"
                 android:text="No PDFs match your search"
@@ -163,6 +171,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:tag="theme:textPrimary"
                     android:text="Your library is empty"
                     android:textSize="17sp"
                     android:textStyle="bold"
@@ -172,6 +181,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:tag="theme:textSecondary"
                     android:text="Every PDF you open in PageVibe will be saved here — with custom covers and names, if you want them."
                     android:textSize="13sp"
                     android:textColor="#7A7A6A"
@@ -209,6 +219,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:tag="theme:textSecondary"
                 android:layout_marginTop="16dp"
                 android:text="Downloading PDF…"
                 android:textSize="13sp"

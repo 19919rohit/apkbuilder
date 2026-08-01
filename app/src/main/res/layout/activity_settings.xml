@@ -4,7 +4,8 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#080808">
+    android:background="#080808"
+    android:tag="theme:bg">
 
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
@@ -32,6 +33,7 @@
                     android:id="@+id/btnBack"
                     android:layout_width="32dp"
                     android:layout_height="32dp"
+                    android:tag="theme:accent"
                     android:layout_marginEnd="16dp"
                     android:src="@drawable/ic_back"
                     android:tint="#888888"
@@ -44,6 +46,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:tag="theme:textPrimary"
                     android:text="Settings"
                     android:textSize="34sp"
                     android:textStyle="bold"
@@ -56,6 +59,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="GENERAL"
+                android:tag="theme:textSecondary"
                 android:textSize="10sp"
                 android:letterSpacing="0.16"
                 android:textColor="#707070"
@@ -68,32 +72,38 @@
                 android:id="@+id/rowNotifications"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:tag="theme:card"
                 style="@style/SettingsRow">
 
                 <ImageView
                     android:layout_width="36dp" android:layout_height="36dp"
+                    android:tag="theme:accent"
                     android:src="@drawable/ic_notifications" android:tint="#4488FF"
                     android:padding="7dp" android:scaleType="fitCenter"
                     android:background="@drawable/bg_file_initial"/>
 
                 <TextView
                     android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:tag="theme:textPrimary"
                     android:layout_weight="1" android:layout_marginStart="14dp"
                     android:text="Notifications" android:textSize="15sp"
                     android:textStyle="bold" android:textColor="#F0F0F0"/>
 
                 <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                    android:text="›" android:textSize="22sp" android:textColor="#2A2A2A"/>
+                android:tag="theme:textSecondary"
+                    android:text="›" android:textSize="22sp" android:textColor="#707070"/>
             </LinearLayout>
 
             <LinearLayout
                 android:id="@+id/rowBatteryOptimization"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:tag="theme:card"
                 style="@style/SettingsRow">
 
                 <ImageView
                     android:layout_width="36dp" android:layout_height="36dp"
+                    android:tag="theme:accent"
                     android:src="@drawable/ic_settings" android:tint="#4488FF"
                     android:padding="7dp" android:scaleType="fitCenter"
                     android:background="@drawable/bg_file_initial"/>
@@ -104,16 +114,19 @@
                     android:layout_marginStart="14dp">
                     <TextView
                         android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:tag="theme:textPrimary"
                         android:text="Improve notification reliability"
                         android:textSize="15sp" android:textStyle="bold" android:textColor="#F0F0F0"/>
                     <TextView
                         android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:tag="theme:textSecondary"
                         android:text="Exempt PageVibe from battery optimization"
                         android:textSize="11sp" android:textColor="#7A7A7A" android:layout_marginTop="3dp"/>
                 </LinearLayout>
 
                 <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                    android:text="›" android:textSize="22sp" android:textColor="#2A2A2A"/>
+                android:tag="theme:textSecondary"
+                    android:text="›" android:textSize="22sp" android:textColor="#707070"/>
                 
             </LinearLayout>
             
@@ -121,11 +134,13 @@
     android:id="@+id/rowThemes"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:tag="theme:card"
     style="@style/SettingsRow">
 
     <ImageView
         android:layout_width="36dp"
         android:layout_height="36dp"
+        android:tag="theme:accent"
         android:src="@drawable/ic_palette"
         android:tint="#4488FF"
         android:padding="7dp"
@@ -134,6 +149,7 @@
     <TextView
         android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:tag="theme:textPrimary"
         android:layout_weight="1"
         android:layout_marginStart="14dp"
         android:text="Themes"
@@ -145,14 +161,16 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="›"
+        android:tag="theme:textSecondary"
         android:textSize="22sp"
-        android:textColor="#2A2A2A"/>
+        android:textColor="#707070"/>
 
 </LinearLayout>
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:tag="theme:textSecondary"
                 android:text="SUPPORT"
                 android:textSize="10sp"
                 android:letterSpacing="0.16"
@@ -166,49 +184,58 @@
                 android:id="@+id/rowShareApp"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:tag="theme:card"
                 style="@style/SettingsRow">
 
                 <ImageView
                     android:layout_width="36dp" android:layout_height="36dp"
+                    android:tag="theme:accent"
                     android:src="@drawable/ic_share" android:tint="#4488FF"
                     android:padding="7dp" android:scaleType="fitCenter"
                     android:background="@drawable/bg_file_initial"/>
 
                 <TextView
                     android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:tag="theme:textPrimary"
                     android:layout_weight="1" android:layout_marginStart="14dp"
                     android:text="Share PageVibe" android:textSize="15sp"
                     android:textStyle="bold" android:textColor="#F0F0F0"/>
 
                 <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                    android:text="›" android:textSize="22sp" android:textColor="#2A2A2A"/>
+                android:tag="theme:textSecondary"
+                    android:text="›" android:textSize="22sp" android:textColor="#707070"/>
             </LinearLayout>
 
             <LinearLayout
                 android:id="@+id/rowFeedback"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:tag="theme:card"
                 style="@style/SettingsRow">
 
                 <ImageView
                     android:layout_width="36dp" android:layout_height="36dp"
+                    android:tag="theme:accent"
                     android:src="@drawable/ic_notes" android:tint="#4488FF"
                     android:padding="7dp" android:scaleType="fitCenter"
                     android:background="@drawable/bg_file_initial"/>
 
                 <TextView
                     android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:tag="theme:textPrimary"
                     android:layout_weight="1" android:layout_marginStart="14dp"
                     android:text="Send Feedback" android:textSize="15sp"
                     android:textStyle="bold" android:textColor="#F0F0F0"/>
 
                 <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                    android:text="›" android:textSize="22sp" android:textColor="#2A2A2A"/>
+                android:tag="theme:textSecondary"
+                    android:text="›" android:textSize="22sp" android:textColor="#707070"/>
             </LinearLayout>
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:tag="theme:textSecondary"
                 android:text="ABOUT"
                 android:textSize="10sp"
                 android:letterSpacing="0.16"
@@ -222,44 +249,52 @@
                 android:id="@+id/rowAbout"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:tag="theme:card"
                 style="@style/SettingsRow">
 
                 <ImageView
                     android:layout_width="36dp" android:layout_height="36dp"
+                    android:tag="theme:accent"
                     android:src="@drawable/ic_about" android:tint="#4488FF"
                     android:padding="7dp" android:scaleType="fitCenter"
                     android:background="@drawable/bg_file_initial"/>
 
                 <TextView
                     android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:tag="theme:textPrimary"
                     android:layout_weight="1" android:layout_marginStart="14dp"
                     android:text="About PageVibe" android:textSize="15sp"
                     android:textStyle="bold" android:textColor="#F0F0F0"/>
 
                 <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                    android:text="›" android:textSize="22sp" android:textColor="#2A2A2A"/>
+                android:tag="theme:textSecondary"
+                    android:text="›" android:textSize="22sp" android:textColor="#707070"/>
             </LinearLayout>
 
             <LinearLayout
                 android:id="@+id/rowLicenses"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:tag="theme:card"
                 style="@style/SettingsRow">
 
                 <ImageView
                     android:layout_width="36dp" android:layout_height="36dp"
+                    android:tag="theme:accent"
                     android:src="@drawable/ic_toc" android:tint="#4488FF"
                     android:padding="7dp" android:scaleType="fitCenter"
                     android:background="@drawable/bg_file_initial"/>
 
                 <TextView
                     android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:tag="theme:textPrimary"
                     android:layout_weight="1" android:layout_marginStart="14dp"
                     android:text="Open Source Licenses" android:textSize="15sp"
                     android:textStyle="bold" android:textColor="#F0F0F0"/>
 
                 <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                    android:text="›" android:textSize="22sp" android:textColor="#2A2A2A"/>
+                android:tag="theme:textSecondary"
+                    android:text="›" android:textSize="22sp" android:textColor="#707070"/>
             </LinearLayout>
 
         </LinearLayout>

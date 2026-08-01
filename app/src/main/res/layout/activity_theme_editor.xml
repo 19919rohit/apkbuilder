@@ -17,7 +17,7 @@
                 android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:orientation="horizontal" android:gravity="center_vertical"
                 android:paddingStart="24dp" android:paddingEnd="24dp"
-                android:paddingTop="56dp" android:paddingBottom="18dp">
+                android:paddingTop="48dp" android:paddingBottom="12dp">
 
                 <ImageButton
                     android:id="@+id/btnBack"
@@ -32,14 +32,14 @@
                 <TextView
                     android:id="@+id/editorTitle"
                     android:layout_width="wrap_content" android:layout_height="wrap_content"
-                    android:text="Create Theme" android:textSize="26sp"
+                    android:text="Create Theme" android:textSize="24sp"
                     android:textStyle="bold" android:textColor="#FFFFFF"/>
             </LinearLayout>
 
             <!-- PREVIEW -->
             <LinearLayout
                 android:id="@+id/previewCard"
-                android:layout_width="match_parent" android:layout_height="120dp"
+                android:layout_width="match_parent" android:layout_height="100dp"
                 android:layout_marginStart="24dp" android:layout_marginEnd="24dp"
                 android:orientation="vertical" android:gravity="center"
                 android:background="@drawable/bg_continue_card">
@@ -47,45 +47,60 @@
                 <TextView
                     android:id="@+id/previewSampleText"
                     android:layout_width="wrap_content" android:layout_height="wrap_content"
-                    android:text="Aa" android:textSize="34sp" android:textStyle="bold"/>
+                    android:text="Aa" android:textSize="30sp" android:textStyle="bold"/>
 
                 <TextView
                     android:id="@+id/previewSubText"
                     android:layout_width="wrap_content" android:layout_height="wrap_content"
-                    android:text="Live preview" android:textSize="12sp"
-                    android:layout_marginTop="4dp"/>
+                    android:text="Live preview" android:textSize="11sp"
+                    android:layout_marginTop="3dp"/>
             </LinearLayout>
 
             <EditText
                 android:id="@+id/themeNameInput"
-                android:layout_width="match_parent" android:layout_height="52dp"
+                android:layout_width="match_parent" android:layout_height="48dp"
                 android:layout_marginStart="24dp" android:layout_marginEnd="24dp"
-                android:layout_marginTop="18dp"
+                android:layout_marginTop="12dp"
                 android:hint="Theme name" android:textColorHint="#666666"
-                android:textColor="#FFFFFF" android:textSize="15sp"
+                android:textColor="#FFFFFF" android:textSize="14sp"
                 android:background="@drawable/bg_button_dark"
                 android:paddingStart="16dp" android:paddingEnd="16dp"
                 android:singleLine="true"/>
 
-            <!-- COLOR ROWS -->
-            <LinearLayout android:id="@+id/rowBackground" style="@style/ColorPickRow">
+            <!-- COLOR ROWS — 7 editable slots -->
+            <LinearLayout android:id="@+id/rowBackground" style="@style/ColorPickRowTight">
                 <TextView style="@style/ColorPickRowLabel" android:text="Background"/>
                 <View android:id="@+id/dotBackground" style="@style/ColorPickDot" android:background="#080808"/>
             </LinearLayout>
 
-            <LinearLayout android:id="@+id/rowCard" style="@style/ColorPickRow">
+            <LinearLayout android:id="@+id/rowCard" style="@style/ColorPickRowTight">
                 <TextView style="@style/ColorPickRowLabel" android:text="Card / Surface"/>
                 <View android:id="@+id/dotCard" style="@style/ColorPickDot" android:background="#151515"/>
             </LinearLayout>
 
-            <LinearLayout android:id="@+id/rowTextPrimary" style="@style/ColorPickRow">
+            <LinearLayout android:id="@+id/rowDivider" style="@style/ColorPickRowTight">
+                <TextView style="@style/ColorPickRowLabel" android:text="Divider"/>
+                <View android:id="@+id/dotDivider" style="@style/ColorPickDot" android:background="#2A2A2A"/>
+            </LinearLayout>
+
+            <LinearLayout android:id="@+id/rowTextPrimary" style="@style/ColorPickRowTight">
                 <TextView style="@style/ColorPickRowLabel" android:text="Text Color"/>
                 <View android:id="@+id/dotTextPrimary" style="@style/ColorPickDot" android:background="#FFFFFF"/>
             </LinearLayout>
 
-            <LinearLayout android:id="@+id/rowAccent" style="@style/ColorPickRow">
+            <LinearLayout android:id="@+id/rowAccent" style="@style/ColorPickRowTight">
                 <TextView style="@style/ColorPickRowLabel" android:text="Accent Color"/>
                 <View android:id="@+id/dotAccent" style="@style/ColorPickDot" android:background="#4488FF"/>
+            </LinearLayout>
+
+            <LinearLayout android:id="@+id/rowButtonText" style="@style/ColorPickRowTight">
+                <TextView style="@style/ColorPickRowLabel" android:text="Button Text"/>
+                <View android:id="@+id/dotButtonText" style="@style/ColorPickDot" android:background="#FFFFFF"/>
+            </LinearLayout>
+
+            <LinearLayout android:id="@+id/rowOutline" style="@style/ColorPickRowTight">
+                <TextView style="@style/ColorPickRowLabel" android:text="Outline"/>
+                <View android:id="@+id/dotOutline" style="@style/ColorPickDot" android:background="#4488FF"/>
             </LinearLayout>
 
             <!-- FONT -->
@@ -94,20 +109,28 @@
                 android:text="FONT" android:textSize="10sp" android:letterSpacing="0.16"
                 android:textColor="#707070"
                 android:paddingStart="24dp" android:paddingEnd="24dp"
-                android:layout_marginTop="20dp" android:layout_marginBottom="10dp"/>
+                android:layout_marginTop="14dp" android:layout_marginBottom="6dp"/>
 
-            <LinearLayout
-                android:id="@+id/fontChoiceRow"
+            <HorizontalScrollView
                 android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:orientation="horizontal" android:paddingStart="16dp" android:paddingEnd="16dp"/>
+                android:scrollbars="none">
+                <LinearLayout
+                    android:id="@+id/fontChoiceRow"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:paddingStart="24dp" android:paddingEnd="24dp"/>
+            </HorizontalScrollView>
 
-            <!-- TEXT SIZE -->
+            <!-- TEXT SIZE — was 20dp top margin, cut to 6dp; this pairing
+                 with the font row above is exactly the gap that was
+                 previously reported as making both controls feel
+                 disconnected/invisible without scrolling. -->
             <TextView
                 android:layout_width="wrap_content" android:layout_height="wrap_content"
                 android:text="TEXT SIZE" android:textSize="10sp" android:letterSpacing="0.16"
                 android:textColor="#707070"
                 android:paddingStart="24dp" android:paddingEnd="24dp"
-                android:layout_marginTop="20dp" android:layout_marginBottom="10dp"/>
+                android:layout_marginTop="6dp" android:layout_marginBottom="6dp"/>
 
             <LinearLayout
                 android:layout_width="match_parent" android:layout_height="wrap_content"
@@ -121,8 +144,8 @@
 
             <TextView
                 android:id="@+id/btnSaveTheme"
-                android:layout_width="match_parent" android:layout_height="54dp"
-                android:layout_margin="24dp" android:gravity="center"
+                android:layout_width="match_parent" android:layout_height="52dp"
+                android:layout_margin="20dp" android:gravity="center"
                 android:text="Save Theme" android:textSize="15sp" android:textStyle="bold"
                 android:textColor="#000000" android:background="@drawable/bg_open_button"
                 android:clickable="true" android:focusable="true"/>

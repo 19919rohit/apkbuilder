@@ -2,7 +2,8 @@
 <androidx.coordinatorlayout.widget.CoordinatorLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent" android:layout_height="match_parent"
-    android:background="#080808">
+    android:background="#080808"
+    android:tag="theme:bg">
 
     <LinearLayout
         android:layout_width="match_parent" android:layout_height="match_parent"
@@ -17,6 +18,7 @@
             <ImageButton
                 android:id="@+id/btnBack"
                 android:layout_width="32dp" android:layout_height="32dp"
+                android:tag="theme:accent"
                 android:layout_marginEnd="16dp"
                 android:src="@drawable/ic_back" android:tint="#888888"
                 android:background="@drawable/bg_file_initial"
@@ -26,6 +28,7 @@
 
             <TextView
                 android:layout_width="0dp" android:layout_height="wrap_content"
+                android:tag="theme:textPrimary"
                 android:layout_weight="1"
                 android:text="Themes" android:textSize="26sp"
                 android:textStyle="bold" android:textColor="#FFFFFF"/>
@@ -41,6 +44,7 @@
         <TextView
             android:id="@+id/btnCreateTheme"
             android:layout_width="match_parent" android:layout_height="54dp"
+            android:tag="theme:accent"
             android:layout_margin="16dp" android:gravity="center"
             android:text="+ Create New Theme" android:textSize="15sp" android:textStyle="bold"
             android:textColor="#000000" android:background="@drawable/bg_open_button"

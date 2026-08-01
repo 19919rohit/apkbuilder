@@ -4,7 +4,8 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#080808">
+    android:background="#080808"
+    android:tag="theme:bg">
 
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
@@ -30,6 +31,7 @@
 
                 <ImageButton
                     android:id="@+id/btnBack"
+                    android:tag="theme:accent"
                     android:layout_width="32dp"
                     android:layout_height="32dp"
                     android:layout_marginEnd="16dp"
@@ -50,6 +52,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:tag="theme:textSecondary"
                         android:text="STAY ON TRACK"
                         android:textSize="11sp"
                         android:textColor="#8A8A8A"
@@ -58,6 +61,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:tag="theme:textPrimary"
                         android:text="Notifications"
                         android:textSize="34sp"
                         android:textStyle="bold"
@@ -70,6 +74,7 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:tag="theme:card"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
                 android:padding="18dp"
@@ -84,8 +89,10 @@
                     android:layout_weight="1"
                     android:orientation="vertical">
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:tag="theme:textPrimary"
                         android:text="Daily Quote" android:textSize="14sp" android:textStyle="bold" android:textColor="#F0F0F0"/>
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:tag="theme:textSecondary"
                         android:text="One short motivational line, every morning at 7 AM"
                         android:textSize="11sp" android:textColor="#7A7A7A" android:layout_marginTop="3dp"/>
                 </LinearLayout>
@@ -99,6 +106,7 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:tag="theme:card"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
                 android:padding="18dp"
@@ -113,8 +121,10 @@
                     android:layout_weight="1"
                     android:orientation="vertical">
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:tag="theme:textPrimary"
                         android:text="Reading Reminders" android:textSize="14sp" android:textStyle="bold" android:textColor="#F0F0F0"/>
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:tag="theme:textSecondary"
                         android:text="A gentle nudge around your usual reading time"
                         android:textSize="11sp" android:textColor="#7A7A7A" android:layout_marginTop="3dp"/>
                 </LinearLayout>
@@ -128,6 +138,7 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:tag="theme:card"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
                 android:padding="18dp"
@@ -142,8 +153,10 @@
                     android:layout_weight="1"
                     android:orientation="vertical">
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:tag="theme:textPrimary"
                         android:text="Continue Reading" android:textSize="14sp" android:textStyle="bold" android:textColor="#F0F0F0"/>
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:tag="theme:textSecondary"
                         android:text="A reminder about the book you're currently in the middle of"
                         android:textSize="11sp" android:textColor="#7A7A7A" android:layout_marginTop="3dp"/>
                 </LinearLayout>
@@ -157,6 +170,7 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:tag="theme:card"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
                 android:padding="18dp"
@@ -171,8 +185,10 @@
                     android:layout_weight="1"
                     android:orientation="vertical">
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:tag="theme:textPrimary"
                         android:text="Reading Streak" android:textSize="14sp" android:textStyle="bold" android:textColor="#F0F0F0"/>
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:tag="theme:textSecondary"
                         android:text="A nudge on days your streak is about to break"
                         android:textSize="11sp" android:textColor="#7A7A7A" android:layout_marginTop="3dp"/>
                 </LinearLayout>
@@ -186,6 +202,7 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:tag="theme:card"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
                 android:padding="18dp"
@@ -200,8 +217,10 @@
                     android:layout_weight="1"
                     android:orientation="vertical">
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:tag="theme:textPrimary"
                         android:text="Announcements" android:textSize="14sp" android:textStyle="bold" android:textColor="#F0F0F0"/>
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:tag="theme:textSecondary"
                         android:text="Rare, important PageVibe news — a few times a year at most"
                         android:textSize="11sp" android:textColor="#7A7A7A" android:layout_marginTop="3dp"/>
                 </LinearLayout>

@@ -12,10 +12,13 @@ import androidx.appcompat.app.AppCompatActivity;
 
 public class SettingsActivity extends AppCompatActivity {
 
+    private ThemeManager themeManager;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_settings);
+        themeManager = new ThemeManager(this);
 
         findViewById(R.id.btnBack).setOnClickListener(v -> finish());
 
@@ -36,6 +39,18 @@ public class SettingsActivity extends AppCompatActivity {
 
         findViewById(R.id.rowLicenses).setOnClickListener(v ->
                 startActivity(new Intent(this, LicenseActivity.class)));
+
+        applyTheme();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        applyTheme();
+    }
+
+    private void applyTheme() {
+        ThemeApplier.apply(findViewById(android.R.id.content), themeManager.getActiveTheme());
     }
 
     private void requestBatteryExemption() {
@@ -74,7 +89,7 @@ public class SettingsActivity extends AppCompatActivity {
     private void sendFeedback() {
         try {
             Intent intent = new Intent(Intent.ACTION_SENDTO);
-            intent.setData(Uri.parse("mailto:"));
+            intent.setData(Uri.parse("mailto:neunixstudios@gmail.com"));
             intent.putExtra(Intent.EXTRA_SUBJECT, "PageVibe Feedback");
             startActivity(Intent.createChooser(intent, "Send feedback"));
         } catch (Throwable ignored) {

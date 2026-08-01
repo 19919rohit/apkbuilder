@@ -2,6 +2,7 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent" android:layout_height="wrap_content"
     android:orientation="vertical" android:layout_margin="8dp" android:padding="8dp"
+    android:tag="theme:card"
     android:background="@drawable/bg_continue_card">
 
     <FrameLayout
@@ -35,12 +36,14 @@
 
     <TextView android:id="@+id/libraryCardTitle"
         android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:tag="theme:textPrimary"
         android:textSize="12sp" android:textStyle="bold" android:textColor="#EEEEEE"
         android:maxLines="2" android:ellipsize="end" android:lineSpacingMultiplier="1.2"
         android:layout_marginTop="8dp" android:layout_marginStart="2dp" android:layout_marginEnd="2dp"/>
 
     <TextView android:id="@+id/libraryCardSubtitle"
         android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:tag="theme:textSecondary"
         android:textSize="10sp" android:textColor="#707070"
         android:layout_marginTop="3dp" android:layout_marginStart="2dp"/>
 

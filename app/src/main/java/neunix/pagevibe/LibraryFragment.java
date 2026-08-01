@@ -51,10 +51,12 @@ public class LibraryFragment extends Fragment {
     private LibraryManager      libraryManager;
     private PdfHighlightManager highlightManager;
     private PdfNotesManager     notesManager;
+    private ThemeManager        themeManager;
 
     private final List<LibraryManager.Entry> allEntries     = new ArrayList<>();
     private final List<LibraryManager.Entry> displayEntries = new ArrayList<>();
 
+    private View    root;
     private LibraryAdapter adapter;
     private RecyclerView   recycler;
     private View           emptyState;
@@ -99,7 +101,8 @@ public class LibraryFragment extends Fragment {
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
                               @Nullable Bundle savedInstanceState) {
-        return inflater.inflate(R.layout.fragment_library, container, false);
+        root = inflater.inflate(R.layout.fragment_library, container, false);
+        return root;
     }
 
     @Override
@@ -108,6 +111,7 @@ public class LibraryFragment extends Fragment {
         libraryManager   = new LibraryManager(requireContext());
         highlightManager = new PdfHighlightManager(requireContext());
         notesManager     = new PdfNotesManager(requireContext());
+        themeManager     = new ThemeManager(requireContext());
 
         recycler         = view.findViewById(R.id.libraryRecycler);
         emptyState       = view.findViewById(R.id.libraryEmptyState);
@@ -159,14 +163,21 @@ public class LibraryFragment extends Fragment {
         }
     }
 
-    @Override public void onResume() { super.onResume(); reloadFromStorage(); }
+    @Override public void onResume() { super.onResume(); reloadFromStorage(); applyTheme(); }
 
     @Override public void onHiddenChanged(boolean hidden) {
         super.onHiddenChanged(hidden);
-        if (!hidden) reloadFromStorage();
+        if (!hidden) { reloadFromStorage(); applyTheme(); }
     }
 
-    @Override public void onDestroyView() { super.onDestroyView(); thumbnailCache.evictAll(); }
+    @Override public void onDestroyView() { super.onDestroyView(); thumbnailCache.evictAll(); root = null; }
+
+    private void applyTheme() {
+        if (root == null || themeManager == null) return;
+        ThemeManager.AppTheme theme = themeManager.getActiveTheme();
+        ThemeApplier.apply(root, theme);
+        if (adapter != null) adapter.notifyDataSetChanged();
+    }
 
     // =========================================================
     // DATA
@@ -223,13 +234,13 @@ public class LibraryFragment extends Fragment {
 
         optRecent.setOnClickListener(v -> {
             sortMode = SortMode.RECENT;
-            sortChip.setText("Sort: Recent");
+            sortChip.setText("Sort: Recent  ⌄");
             rebuildDisplayList();
             popup.dismiss();
         });
         optAlpha.setOnClickListener(v -> {
             sortMode = SortMode.ALPHA;
-            sortChip.setText("Sort: A–Z");
+            sortChip.setText("Sort: A–Z  ⌄");
             rebuildDisplayList();
             popup.dismiss();
         });
@@ -341,9 +352,7 @@ public class LibraryFragment extends Fragment {
     }
 
     // =========================================================
-    // PER-ITEM THREE-DOT MENU — replaces the earlier long-press dialog
-    // with a dropdown popup, matching the sort chip's interaction
-    // pattern so it's discoverable at a glance.
+    // PER-ITEM THREE-DOT MENU
     // =========================================================
 
     private void showItemMenu(View anchor, LibraryManager.Entry entry) {
@@ -394,10 +403,6 @@ public class LibraryFragment extends Fragment {
     private void shareEntry(LibraryManager.Entry entry) {
         try {
             Uri shareUri = entry.uri;
-            // Content/MediaStore URIs are already shareable directly; a
-            // raw file:// URI (should be rare in this app, but defensive)
-            // needs FileProvider wrapping since Android blocks exposing
-            // file:// paths to other apps.
             if ("file".equals(shareUri.getScheme())) {
                 shareUri = FileProvider.getUriForFile(requireContext(),
                         requireContext().getPackageName() + ".fileprovider",
@@ -565,6 +570,10 @@ public class LibraryFragment extends Fragment {
                 if (p == RecyclerView.NO_POSITION) return;
                 showItemMenu(v, displayEntries.get(p));
             });
+
+            if (themeManager != null) {
+                ThemeApplier.applyToSingleView(h.itemView, themeManager.getActiveTheme());
+            }
         }
 
         @Override

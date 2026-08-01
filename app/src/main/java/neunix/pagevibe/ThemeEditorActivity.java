@@ -1,6 +1,5 @@
 package neunix.pagevibe;
 
-import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.os.Bundle;
@@ -21,9 +20,6 @@ public class ThemeEditorActivity extends AppCompatActivity {
 
     public static final String EXTRA_THEME_ID = "extra_theme_id"; // null/absent = creating new
 
-    // A curated 20-color palette — deliberately broad enough to cover
-    // both light and dark theme building without needing an external
-    // color-picker library (zero extra APK weight).
     private static final int[] PALETTE = {
             0xFF000000, 0xFF080808, 0xFF151515, 0xFF2A2A2A, 0xFF666666,
             0xFFAAAAAA, 0xFFFFFFFF, 0xFFF2F2F2, 0xFFFFEE00, 0xFFFF9944,
@@ -34,14 +30,14 @@ public class ThemeEditorActivity extends AppCompatActivity {
     private ThemeManager themeManager;
     private String editingThemeId = null;
 
-    private int backgroundColor, cardColor, textPrimaryColor, accentColor;
+    private int backgroundColor, cardColor, dividerColor, textPrimaryColor,
+            accentColor, buttonTextColor, outlineColor;
     private String selectedFont = "sans-serif";
     private float selectedScale = ThemeManager.TEXT_SCALE_MEDIUM;
 
     private EditText nameInput;
-    private View dotBackground, dotCard, dotTextPrimary, dotAccent;
+    private View dotBackground, dotCard, dotDivider, dotTextPrimary, dotAccent, dotButtonText, dotOutline;
     private TextView previewSampleText, previewSubText;
-    //private LinearLayout previewCardRef;
 
     private LinearLayout fontChoiceRow;
     private TextView sizeSmall, sizeMedium, sizeLarge;
@@ -55,14 +51,17 @@ public class ThemeEditorActivity extends AppCompatActivity {
         nameInput          = findViewById(R.id.themeNameInput);
         dotBackground       = findViewById(R.id.dotBackground);
         dotCard             = findViewById(R.id.dotCard);
-        dotTextPrimary      = findViewById(R.id.dotTextPrimary);
-        dotAccent           = findViewById(R.id.dotAccent);
-        previewSampleText   = findViewById(R.id.previewSampleText);
-        previewSubText      = findViewById(R.id.previewSubText);
-        fontChoiceRow       = findViewById(R.id.fontChoiceRow);
-        sizeSmall           = findViewById(R.id.sizeSmall);
-        sizeMedium          = findViewById(R.id.sizeMedium);
-        sizeLarge           = findViewById(R.id.sizeLarge);
+        dotDivider           = findViewById(R.id.dotDivider);
+        dotTextPrimary        = findViewById(R.id.dotTextPrimary);
+        dotAccent               = findViewById(R.id.dotAccent);
+        dotButtonText             = findViewById(R.id.dotButtonText);
+        dotOutline                 = findViewById(R.id.dotOutline);
+        previewSampleText            = findViewById(R.id.previewSampleText);
+        previewSubText                = findViewById(R.id.previewSubText);
+        fontChoiceRow                  = findViewById(R.id.fontChoiceRow);
+        sizeSmall                       = findViewById(R.id.sizeSmall);
+        sizeMedium                       = findViewById(R.id.sizeMedium);
+        sizeLarge                         = findViewById(R.id.sizeLarge);
 
         editingThemeId = getIntent().getStringExtra(EXTRA_THEME_ID);
         loadInitialValues();
@@ -70,8 +69,11 @@ public class ThemeEditorActivity extends AppCompatActivity {
         findViewById(R.id.btnBack).setOnClickListener(v -> finish());
         findViewById(R.id.rowBackground).setOnClickListener(v -> pickColor(dotBackground, c -> { backgroundColor = c; updatePreview(); }));
         findViewById(R.id.rowCard).setOnClickListener(v -> pickColor(dotCard, c -> { cardColor = c; updatePreview(); }));
+        findViewById(R.id.rowDivider).setOnClickListener(v -> pickColor(dotDivider, c -> { dividerColor = c; updatePreview(); }));
         findViewById(R.id.rowTextPrimary).setOnClickListener(v -> pickColor(dotTextPrimary, c -> { textPrimaryColor = c; updatePreview(); }));
         findViewById(R.id.rowAccent).setOnClickListener(v -> pickColor(dotAccent, c -> { accentColor = c; updatePreview(); }));
+        findViewById(R.id.rowButtonText).setOnClickListener(v -> pickColor(dotButtonText, c -> { buttonTextColor = c; updatePreview(); }));
+        findViewById(R.id.rowOutline).setOnClickListener(v -> pickColor(dotOutline, c -> { outlineColor = c; updatePreview(); }));
 
         buildFontChoices();
         buildSizeChoices();
@@ -89,17 +91,23 @@ public class ThemeEditorActivity extends AppCompatActivity {
         } else {
             base = themeManager.getActiveTheme(); // sensible starting point
         }
-        backgroundColor  = base.backgroundColor;
-        cardColor        = base.cardColor;
-        textPrimaryColor = base.textPrimaryColor;
-        accentColor      = base.accentColor;
-        selectedFont     = base.fontFamily;
-        selectedScale    = base.textScale;
+        backgroundColor   = base.backgroundColor;
+        cardColor         = base.cardColor;
+        dividerColor       = base.dividerColor;
+        textPrimaryColor    = base.textPrimaryColor;
+        accentColor           = base.accentColor;
+        buttonTextColor        = base.buttonTextColor;
+        outlineColor             = base.outlineColor;
+        selectedFont               = base.fontFamily;
+        selectedScale                = base.textScale;
 
         dotBackground.setBackgroundColor(backgroundColor);
         dotCard.setBackgroundColor(cardColor);
+        dotDivider.setBackgroundColor(dividerColor);
         dotTextPrimary.setBackgroundColor(textPrimaryColor);
         dotAccent.setBackgroundColor(accentColor);
+        dotButtonText.setBackgroundColor(buttonTextColor);
+        dotOutline.setBackgroundColor(outlineColor);
     }
 
     private interface ColorPicked { void onPicked(int color); }
@@ -114,7 +122,7 @@ public class ThemeEditorActivity extends AppCompatActivity {
                 ViewGroup.LayoutParams.WRAP_CONTENT, true);
         popup.setElevation(16f);
 
-        int swatchSize = dpToPx(32);
+        int swatchSize = dpToPx(30);
         int margin = dpToPx(4);
         for (int color : PALETTE) {
             View swatch = new View(this);
@@ -197,36 +205,31 @@ public class ThemeEditorActivity extends AppCompatActivity {
     }
 
     private void updatePreview() {
-    View previewCard = findViewById(R.id.previewCard);
-
-    android.graphics.drawable.Drawable bg = previewCard.getBackground();
-
-    if (bg instanceof android.graphics.drawable.GradientDrawable) {
-        try {
-            android.graphics.drawable.GradientDrawable drawable =
-                    (android.graphics.drawable.GradientDrawable) bg.mutate();
-            drawable.setColor(cardColor);
-        } catch (Throwable ignored) {
+        View previewCard = findViewById(R.id.previewCard);
+        View bg = previewCard.getBackground();
+        if (bg instanceof android.graphics.drawable.GradientDrawable) {
+            try { ((android.graphics.drawable.GradientDrawable) bg.mutate()).setColor(cardColor); }
+            catch (Throwable ignored) { previewCard.setBackgroundColor(cardColor); }
+        } else {
             previewCard.setBackgroundColor(cardColor);
         }
-    } else {
-        previewCard.setBackgroundColor(cardColor);
+        previewSampleText.setTextColor(textPrimaryColor);
+        // 30sp is this preview's own base — scaled live exactly the same
+        // way ThemeApplier scales real app text, so what you see here is
+        // an honest preview of the actual effect, not a decorative mock.
+        previewSampleText.setTextSize(30f * selectedScale);
+        try { previewSampleText.setTypeface(Typeface.create(selectedFont, Typeface.BOLD)); } catch (Throwable ignored) {}
+        previewSubText.setTextColor(accentColor);
+        previewSubText.setTextSize(11f * selectedScale);
+
+        dotBackground.setBackgroundColor(backgroundColor);
+        dotCard.setBackgroundColor(cardColor);
+        dotDivider.setBackgroundColor(dividerColor);
+        dotTextPrimary.setBackgroundColor(textPrimaryColor);
+        dotAccent.setBackgroundColor(accentColor);
+        dotButtonText.setBackgroundColor(buttonTextColor);
+        dotOutline.setBackgroundColor(outlineColor);
     }
-
-    previewSampleText.setTextColor(textPrimaryColor);
-    previewSampleText.setTextSize(34f * selectedScale);
-
-    try {
-        previewSampleText.setTypeface(Typeface.create(selectedFont, Typeface.BOLD));
-    } catch (Throwable ignored) {}
-
-    previewSubText.setTextColor(accentColor);
-
-    dotBackground.setBackgroundColor(backgroundColor);
-    dotCard.setBackgroundColor(cardColor);
-    dotTextPrimary.setBackgroundColor(textPrimaryColor);
-    dotAccent.setBackgroundColor(accentColor);
-}
 
     private void save() {
         String name = nameInput.getText().toString().trim();
@@ -237,8 +240,9 @@ public class ThemeEditorActivity extends AppCompatActivity {
 
         ThemeManager.AppTheme theme = new ThemeManager.AppTheme(
                 editingThemeId, name, false,
-                backgroundColor, cardColor, textPrimaryColor,
-                blendForSecondary(textPrimaryColor), accentColor,
+                backgroundColor, cardColor, dividerColor,
+                textPrimaryColor, blendForSecondary(textPrimaryColor),
+                accentColor, buttonTextColor, outlineColor,
                 selectedFont, selectedScale);
 
         themeManager.saveCustomTheme(theme);
@@ -247,9 +251,9 @@ public class ThemeEditorActivity extends AppCompatActivity {
         finish();
     }
 
-    /** Derives a slightly muted secondary text color from the chosen
-     *  primary text color, rather than asking for a 5th separate pick —
-     *  keeps the editor to 4 color decisions instead of 5. */
+    /** Secondary text color is still auto-derived from the primary text
+     *  pick — kept implicit (not its own row) to hold the picker count
+     *  at a manageable 7 explicit decisions instead of 8. */
     private int blendForSecondary(int primary) {
         int r = Color.red(primary), g = Color.green(primary), b = Color.blue(primary);
         float factor = 0.6f;

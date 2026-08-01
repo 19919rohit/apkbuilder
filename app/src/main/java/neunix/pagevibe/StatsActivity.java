@@ -17,19 +17,14 @@ import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import org.json.JSONArray;
-import org.json.JSONObject;
-
 import java.util.ArrayList;
 import java.util.List;
 
 public class StatsActivity extends AppCompatActivity {
 
-    private static final String PREFS_NAME = "pagevibe_prefs";
-    private static final String KEY_RECENT = "recent_files";
-
     private ReadingStatsController stats;
     private LibraryManager         libraryManager;
+    private ThemeManager           themeManager;
 
     private final List<ValueAnimator> activeAnimators = new ArrayList<>();
 
@@ -40,6 +35,7 @@ public class StatsActivity extends AppCompatActivity {
 
         stats          = new ReadingStatsController(this);
         libraryManager = new LibraryManager(this);
+        themeManager   = new ThemeManager(this);
 
         findViewById(R.id.btnBack).setOnClickListener(v -> finish());
 
@@ -48,6 +44,17 @@ public class StatsActivity extends AppCompatActivity {
         bindWeekChart();
         bindMostRead();
         bindDailyQuote();
+        applyTheme();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        applyTheme();
+    }
+
+    private void applyTheme() {
+        ThemeApplier.apply(findViewById(android.R.id.content), themeManager.getActiveTheme());
     }
 
     @Override
@@ -137,13 +144,6 @@ public class StatsActivity extends AppCompatActivity {
             int barColor  = isBest ? amberColor : (entry.seconds > 0 ? blueColor : greyColor);
             int glowColor = isBest ? amberGlow  : blueGlow;
 
-            // FIXED: glow/shimmer sizing used to be FIXED pixel values
-            // regardless of this specific bar's height — on a short bar
-            // (a day with only a few minutes read) that made the glow
-            // visually dwarf the bar it was supposed to be highlighting.
-            // Both are now scaled proportionally to THIS bar's own
-            // height, clamped to a sensible min/max so they never
-            // vanish entirely on a tiny bar or balloon on a tall one.
             int glowExtraPx    = clampPx((int) (barHeight * 0.18f), dpToPx(4), dpToPx(12));
             int shimmerHeight  = clampPx((int) (barHeight * 0.16f), dpToPx(4), dpToPx(10));
 

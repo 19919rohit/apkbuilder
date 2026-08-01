@@ -4,7 +4,8 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#080808">
+    android:background="#080808"
+    android:tag="theme:bg">
 
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
@@ -32,6 +33,7 @@
 
                 <ImageButton
                     android:id="@+id/btnBack"
+                    android:tag="theme:accent"
                     android:layout_width="32dp"
                     android:layout_height="32dp"
                     android:layout_marginEnd="16dp"
@@ -52,6 +54,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:tag="theme:textSecondary"
                         android:text="YOUR PROGRESS"
                         android:textSize="11sp"
                         android:textColor="#8A8A8A"
@@ -60,6 +63,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:tag="theme:textPrimary"
                         android:text="Reading Stats"
                         android:textSize="34sp"
                         android:textStyle="bold"
@@ -81,6 +85,7 @@
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
+                    android:tag="theme:card"
                     android:layout_weight="1"
                     android:orientation="vertical"
                     android:padding="18dp"
@@ -91,6 +96,7 @@
                         android:id="@+id/statTotalTime"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:tag="theme:textPrimary"
                         android:text="0m"
                         android:textSize="26sp"
                         android:textStyle="bold"
@@ -99,6 +105,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:tag="theme:textSecondary"
                         android:text="Total reading time"
                         android:textSize="11sp"
                         android:textColor="#7A7A7A"
@@ -108,6 +115,7 @@
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
+                    android:tag="theme:card"
                     android:layout_weight="1"
                     android:orientation="vertical"
                     android:padding="18dp"
@@ -118,6 +126,7 @@
                         android:id="@+id/statTotalPages"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:tag="theme:textPrimary"
                         android:text="0"
                         android:textSize="26sp"
                         android:textStyle="bold"
@@ -126,6 +135,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:tag="theme:textSecondary"
                         android:text="Pages turned"
                         android:textSize="11sp"
                         android:textColor="#7A7A7A"
@@ -138,6 +148,7 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:tag="theme:card"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
                 android:padding="18dp"
@@ -163,6 +174,7 @@
                         android:id="@+id/statStreak"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:tag="theme:textPrimary"
                         android:text="0 day streak"
                         android:textSize="16sp"
                         android:textStyle="bold"
@@ -171,6 +183,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:tag="theme:textSecondary"
                         android:text="Keep reading daily to build your streak"
                         android:textSize="11sp"
                         android:textColor="#7A7A7A"
@@ -182,6 +195,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:tag="theme:textSecondary"
                 android:text="RECENT ACTIVITY"
                 android:textSize="10sp"
                 android:letterSpacing="0.16"
@@ -194,6 +208,7 @@
             <LinearLayout
                 android:id="@+id/weekChart"
                 android:layout_width="match_parent"
+                android:tag="theme:card"
                 android:layout_height="140dp"
                 android:orientation="horizontal"
                 android:gravity="bottom"
@@ -208,6 +223,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:tag="theme:textSecondary"
                 android:text="MOST READ"
                 android:textSize="10sp"
                 android:letterSpacing="0.16"
@@ -221,6 +237,7 @@
                 android:id="@+id/mostReadCard"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:tag="theme:card"
                 android:orientation="vertical"
                 android:padding="18dp"
                 android:layout_marginStart="24dp"
@@ -232,6 +249,7 @@
                     android:id="@+id/mostReadTitle"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:tag="theme:textPrimary"
                     android:textSize="15sp"
                     android:textStyle="bold"
                     android:textColor="#F0F0F0"
@@ -242,6 +260,7 @@
                     android:id="@+id/mostReadTime"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:tag="theme:textSecondary"
                     android:textSize="12sp"
                     android:textColor="#7A7A7A"
                     android:layout_marginTop="5dp"/>
@@ -251,6 +270,7 @@
                 android:id="@+id/emptyStatsMessage"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:tag="theme:textSecondary"
                 android:text="No reading recorded yet — open a PDF and start reading to see your stats here."
                 android:textSize="13sp"
                 android:textColor="#6A6A6A"
@@ -265,6 +285,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:tag="theme:textSecondary"
                 android:text="DAILY MOTIVATION"
                 android:textSize="10sp"
                 android:letterSpacing="0.16"
@@ -277,6 +298,7 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:tag="theme:card"
                 android:orientation="vertical"
                 android:padding="20dp"
                 android:layout_marginStart="24dp"
@@ -287,6 +309,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:tag="theme:accent"
                     android:text="❝"
                     android:textSize="22sp"
                     android:textStyle="bold"
@@ -296,6 +319,7 @@
                     android:id="@+id/dailyQuoteText"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:tag="theme:textPrimary"
                     android:layout_marginTop="8dp"
                     android:textSize="14sp"
                     android:textColor="#DDDDDD"
