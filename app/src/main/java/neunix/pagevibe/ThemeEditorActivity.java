@@ -205,31 +205,45 @@ public class ThemeEditorActivity extends AppCompatActivity {
     }
 
     private void updatePreview() {
-        View previewCard = findViewById(R.id.previewCard);
-        View bg = previewCard.getBackground();
-        if (bg instanceof android.graphics.drawable.GradientDrawable) {
-            try { ((android.graphics.drawable.GradientDrawable) bg.mutate()).setColor(cardColor); }
-            catch (Throwable ignored) { previewCard.setBackgroundColor(cardColor); }
-        } else {
+    View previewCard = findViewById(R.id.previewCard);
+
+    android.graphics.drawable.Drawable bg = previewCard.getBackground();
+
+    if (bg instanceof android.graphics.drawable.GradientDrawable) {
+        try {
+            android.graphics.drawable.GradientDrawable drawable =
+                    (android.graphics.drawable.GradientDrawable) bg.mutate();
+            drawable.setColor(cardColor);
+        } catch (Throwable ignored) {
             previewCard.setBackgroundColor(cardColor);
         }
-        previewSampleText.setTextColor(textPrimaryColor);
-        // 30sp is this preview's own base — scaled live exactly the same
-        // way ThemeApplier scales real app text, so what you see here is
-        // an honest preview of the actual effect, not a decorative mock.
-        previewSampleText.setTextSize(30f * selectedScale);
-        try { previewSampleText.setTypeface(Typeface.create(selectedFont, Typeface.BOLD)); } catch (Throwable ignored) {}
-        previewSubText.setTextColor(accentColor);
-        previewSubText.setTextSize(11f * selectedScale);
-
-        dotBackground.setBackgroundColor(backgroundColor);
-        dotCard.setBackgroundColor(cardColor);
-        dotDivider.setBackgroundColor(dividerColor);
-        dotTextPrimary.setBackgroundColor(textPrimaryColor);
-        dotAccent.setBackgroundColor(accentColor);
-        dotButtonText.setBackgroundColor(buttonTextColor);
-        dotOutline.setBackgroundColor(outlineColor);
+    } else {
+        previewCard.setBackgroundColor(cardColor);
     }
+
+    previewSampleText.setTextColor(textPrimaryColor);
+
+    // 30sp is this preview's own base — scaled live exactly the same
+    // way ThemeApplier scales real app text.
+    previewSampleText.setTextSize(30f * selectedScale);
+
+    try {
+        previewSampleText.setTypeface(
+                Typeface.create(selectedFont, Typeface.BOLD)
+        );
+    } catch (Throwable ignored) {}
+
+    previewSubText.setTextColor(accentColor);
+    previewSubText.setTextSize(11f * selectedScale);
+
+    dotBackground.setBackgroundColor(backgroundColor);
+    dotCard.setBackgroundColor(cardColor);
+    dotDivider.setBackgroundColor(dividerColor);
+    dotTextPrimary.setBackgroundColor(textPrimaryColor);
+    dotAccent.setBackgroundColor(accentColor);
+    dotButtonText.setBackgroundColor(buttonTextColor);
+    dotOutline.setBackgroundColor(outlineColor);
+}
 
     private void save() {
         String name = nameInput.getText().toString().trim();
