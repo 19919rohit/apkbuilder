@@ -259,3 +259,4 @@ public class ThemeEditorActivity extends AppCompatActivity {
     private int dpToPx(int dp) {
         return Math.round(dp * getResources().getDisplayMetrics().density);
     }
+}
