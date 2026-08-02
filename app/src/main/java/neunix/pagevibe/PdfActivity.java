@@ -35,6 +35,7 @@ public class PdfActivity extends AppCompatActivity implements PdfReaderControlle
     private static final long HIDE_DELAY_MS = 3_000L;
 
     private GalleryZoomView      zoomContainer;
+    private View rootView;
     private CurlView             curlView;
     private DrawingView          drawingView;
     private HighlightOverlayView highlightOverlay;
@@ -78,6 +79,7 @@ public class PdfActivity extends AppCompatActivity implements PdfReaderControlle
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         enterImmersiveMode();
         setContentView(R.layout.activity_pdf);
+        rootView = findViewById(android.R.id.content);
 
         AnalyticsHelper.logIfTagged(this, getIntent());
 
@@ -110,7 +112,7 @@ public class PdfActivity extends AppCompatActivity implements PdfReaderControlle
         TooltipUtil.apply(findViewById(R.id.btnBack), "Back");
         TooltipUtil.apply(hiddenBtnOpenNew, "Open another PDF");
 
-        applyTitleTheme();
+        applyTheme();
 
         Uri incoming = getIntent().getData();
         if (incoming != null) openPdf(incoming);
@@ -130,7 +132,7 @@ public class PdfActivity extends AppCompatActivity implements PdfReaderControlle
         curlView.onResume();
         scheduleHideControls();
         NotificationHelper.isReaderForeground = true;
-        applyTitleTheme(); // covers the user changing theme in Settings mid-session, then returning here
+        applyTheme();
         if (reader.isReady() && !statsSessionActive) {
             stats.startSession(reader.getCurrentUri());
             ReadingPatternLearner.recordSessionStart(this);
@@ -175,12 +177,22 @@ public class PdfActivity extends AppCompatActivity implements PdfReaderControlle
      * chrome retheming is left for a dedicated follow-up rather than
      * risking a visual regression here.
      */
-    private void applyTitleTheme() {
-        if (titleText == null || themeManager == null) return;
-        ThemeManager.AppTheme theme = themeManager.getActiveTheme();
+    private void applyTheme() {
+    if (rootView == null || themeManager == null) return;
+
+    ThemeManager.AppTheme theme = themeManager.getActiveTheme();
+
+    ThemeApplier.apply(rootView, theme);
+
+    if (titleText != null) {
         titleText.setTextColor(theme.textPrimaryColor);
-        try { titleText.setTypeface(Typeface.create(theme.fontFamily, Typeface.NORMAL)); } catch (Throwable ignored) {}
+        try {
+            titleText.setTypeface(
+                    Typeface.create(theme.fontFamily, Typeface.NORMAL)
+            );
+        } catch (Throwable ignored) {}
     }
+}
 
     private void bindViews() {
         zoomContainer      = findViewById(R.id.zoomContainer);
@@ -224,6 +236,7 @@ public class PdfActivity extends AppCompatActivity implements PdfReaderControlle
 
     private void showOverflowMenu(View anchor) {
         View content = LayoutInflater.from(this).inflate(R.layout.popup_pdf_overflow_menu, null);
+        ThemeApplier.apply(content, themeManager.getActiveTheme());
 
         TextView rowSearch       = content.findViewById(R.id.pdfMenuSearch);
         TextView rowBookmark     = content.findViewById(R.id.pdfMenuBookmark);
@@ -303,7 +316,7 @@ public class PdfActivity extends AppCompatActivity implements PdfReaderControlle
 
             LibraryManager.Entry libEntry = libraryManager.findByUri(currentUri);
             titleText.setText(libEntry != null ? LibraryManager.displayName(libEntry) : title);
-            applyTitleTheme();
+            applyTheme();
 
             bookmarks.loadForUri(reader.getCurrentUri());
             setupSliderRange();
