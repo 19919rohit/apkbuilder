@@ -32,6 +32,7 @@ public class PdfReadAloudController implements TextToSpeech.OnInitListener {
     private final ImageButton btnPlayPause;
     private final ImageButton btnStop;
     private final ImageButton triggerButton;
+    private final ThemeManager themeManager;
 
     private HighlightOverlayView highlightOverlay;
 
@@ -54,6 +55,7 @@ public class PdfReadAloudController implements TextToSpeech.OnInitListener {
                                    ImageButton btnPlayPause, ImageButton btnStop,
                                    ImageButton triggerButton) {
         this.context      = context;
+        this.themeManager = new ThemeManager(context);
         this.reader       = reader;
         this.bar          = bar;
         this.statusText   = statusText;
@@ -380,9 +382,14 @@ public class PdfReadAloudController implements TextToSpeech.OnInitListener {
     }
 
     private void setTriggerColor(boolean active) {
-        if (active) triggerButton.setColorFilter(Color.parseColor("#4488FF"));
-        else triggerButton.clearColorFilter();
+    ThemeManager.AppTheme theme = themeManager.getActiveTheme();
+
+    if (active) {
+        triggerButton.setColorFilter(theme.accentColor);
+    } else {
+        triggerButton.setColorFilter(theme.textSecondaryColor);
     }
+}
 
     public boolean isPlaying() { return ttsPlaying; }
 

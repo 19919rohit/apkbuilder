@@ -465,7 +465,7 @@ public class PdfActivity extends AppCompatActivity implements PdfReaderControlle
     }
 
     private void setupDraw() {
-        draw = new PdfDrawController(this, 
+        draw = new PdfDrawController(
                 drawingView, zoomContainer,
                 findViewById(R.id.drawToolbar),
                 (ImageButton) findViewById(R.id.btnDraw),

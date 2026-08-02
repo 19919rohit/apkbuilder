@@ -40,6 +40,7 @@
     <View style="@style/PdfMenuDivider"
     android:tag="theme:divider"/>
 
-    <TextView android:id="@+id/pdfMenuOpenNew" style="@style/PdfMenuRow" android:text="Open Another PDF"/>
+    <TextView android:id="@+id/pdfMenuOpenNew" style="@style/PdfMenuRow" android:text="Open Another PDF"
+    android:tag="theme:textPrimary"/>
 
 </LinearLayout>
