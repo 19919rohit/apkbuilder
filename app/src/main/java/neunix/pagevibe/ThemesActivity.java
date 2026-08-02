@@ -1,7 +1,6 @@
 package neunix.pagevibe;
 
 import android.content.Intent;
-import android.graphics.Color;
 import android.graphics.Typeface;
 import android.os.Bundle;
 import android.view.Gravity;
@@ -16,7 +15,7 @@ import android.widget.TextView;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
-import android.app.AlertDialog;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -27,7 +26,6 @@ import java.util.List;
 public class ThemesActivity extends AppCompatActivity {
 
     private ThemeManager themeManager;
-    private View rootView;
     private final List<ThemeManager.AppTheme> themes = new ArrayList<>();
     private ThemeAdapter adapter;
 
@@ -38,7 +36,6 @@ public class ThemesActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_themes);
-        rootView = findViewById(android.R.id.content);
         themeManager = new ThemeManager(this);
 
         findViewById(R.id.btnBack).setOnClickListener(v -> finish());
@@ -51,14 +48,13 @@ public class ThemesActivity extends AppCompatActivity {
         recycler.setAdapter(adapter);
 
         reload();
-        applyTheme();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
         reload();
-        applyTheme();
+        ThemeApplier.apply(findViewById(android.R.id.content), themeManager.getActiveTheme());
     }
 
     private void reload() {
@@ -66,26 +62,20 @@ public class ThemesActivity extends AppCompatActivity {
         themes.addAll(themeManager.getAllThemes());
         adapter.notifyDataSetChanged();
     }
-    
-    private void applyTheme() {
-    if (rootView == null || themeManager == null)
-        return;
 
-    ThemeApplier.apply(rootView, themeManager.getActiveTheme());
-
-    if (adapter != null)
+    private void applyTheme(ThemeManager.AppTheme theme) {
+        themeManager.setActiveThemeId(theme.id);
         adapter.notifyDataSetChanged();
-}
-
-private void applyTheme(ThemeManager.AppTheme theme) {
-    themeManager.setActiveThemeId(theme.id);
-
-    // Refresh all tagged views immediately
-    applyTheme();
-}
+        ThemeApplier.apply(findViewById(android.R.id.content), theme);
+    }
 
     private void showItemMenu(View anchor, ThemeManager.AppTheme theme) {
         View content = LayoutInflater.from(this).inflate(R.layout.popup_theme_item_menu, null);
+        // Popup reflects the currently ACTIVE app theme, not the theme
+        // this specific card represents — consistent with every other
+        // theme-aware popup in the app.
+        ThemeApplier.apply(content, themeManager.getActiveTheme());
+
         PopupWindow popup = new PopupWindow(content, ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT, true);
         popup.setElevation(16f);
@@ -104,20 +94,19 @@ private void applyTheme(ThemeManager.AppTheme theme) {
         popup.showAsDropDown(anchor, 0, 8, Gravity.END);
     }
 
-private void confirmDelete(ThemeManager.AppTheme theme) {
-    AlertDialog dialog = new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK)
-            .setTitle("Delete theme?")
-            .setMessage("\"" + theme.name + "\" will be permanently deleted.")
-            .setPositiveButton("Delete", (d, w) -> {
-                themeManager.deleteCustomTheme(theme.id);
-                reload();
-            })
-            .setNegativeButton("Cancel", (d, w) -> d.dismiss())
-            .create();
-
-    DialogUtil.applyDestructiveConfirm(dialog);
-    dialog.show();
-}
+    private void confirmDelete(ThemeManager.AppTheme theme) {
+        AlertDialog dialog = new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK)
+                .setTitle("Delete theme?")
+                .setMessage("\"" + theme.name + "\" will be permanently deleted.")
+                .setPositiveButton("Delete", (d, w) -> {
+                    themeManager.deleteCustomTheme(theme.id);
+                    reload();
+                })
+                .setNegativeButton("Cancel", (d, w) -> d.dismiss())
+                .create();
+        DialogUtil.applyDestructiveConfirm(dialog);
+        dialog.show();
+    }
 
     private class ThemeAdapter extends RecyclerView.Adapter<ThemeAdapter.VH> {
 
@@ -150,18 +139,12 @@ private void confirmDelete(ThemeManager.AppTheme theme) {
 
             h.previewBox.setOnClickListener(v -> applyTheme(theme));
             h.overflow.setOnClickListener(v -> showItemMenu(v, theme));
-            if (themeManager != null) {
-    ThemeApplier.applyToSingleView(
-            h.itemView,
-            themeManager.getActiveTheme()
-    );
-}
         }
 
         @Override public int getItemCount() { return themes.size(); }
 
         class VH extends RecyclerView.ViewHolder {
-            FrameLayoutHolder previewBox;
+            android.widget.FrameLayout previewBox;
             TextView sample, name, kind;
             View accentDot;
             ImageView activeCheck;
@@ -169,7 +152,7 @@ private void confirmDelete(ThemeManager.AppTheme theme) {
 
             VH(View v) {
                 super(v);
-                previewBox  = new FrameLayoutHolder(v.findViewById(R.id.themePreviewBox));
+                previewBox  = v.findViewById(R.id.themePreviewBox);
                 sample      = v.findViewById(R.id.themePreviewSample);
                 accentDot   = v.findViewById(R.id.themeAccentDot);
                 activeCheck = v.findViewById(R.id.themeActiveCheck);
@@ -178,15 +161,5 @@ private void confirmDelete(ThemeManager.AppTheme theme) {
                 kind        = v.findViewById(R.id.themeCardKind);
             }
         }
-    }
-
-    /** Tiny wrapper so onBindViewHolder can call .getBackground()/.setBackgroundColor()
-     *  directly on the FrameLayout without an extra cast at every call site. */
-    private static class FrameLayoutHolder {
-        final android.widget.FrameLayout view;
-        FrameLayoutHolder(View v) { this.view = (android.widget.FrameLayout) v; }
-        android.graphics.drawable.Drawable getBackground() { return view.getBackground(); }
-        void setBackgroundColor(int color) { view.setBackgroundColor(color); }
-        void setOnClickListener(View.OnClickListener l) { view.setOnClickListener(l); }
     }
 }

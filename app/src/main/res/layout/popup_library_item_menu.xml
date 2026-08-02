@@ -2,37 +2,44 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="wrap_content" android:layout_height="wrap_content"
     android:orientation="vertical" android:minWidth="200dp"
+    android:tag="theme:card"
     android:background="@drawable/bg_continue_card" android:elevation="8dp">
 
-    <TextView android:id="@+id/itemMenuChangeCover" android:layout_width="match_parent" android:layout_height="wrap_content"
+    <TextView android:id="@+id/itemMenuChangeCover" android:tag="theme:textPrimary"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
         android:text="Change Cover" android:textSize="14sp" android:textStyle="bold" android:textColor="#EEEEEE"
         android:paddingStart="18dp" android:paddingEnd="18dp" android:paddingTop="14dp" android:paddingBottom="14dp"
         android:clickable="true" android:focusable="true" android:foreground="?attr/selectableItemBackground"/>
 
-    <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#2A2A2A"/>
+    <View android:tag="theme:divider" android:layout_width="match_parent" android:layout_height="1dp" android:background="#2A2A2A"/>
 
-    <TextView android:id="@+id/itemMenuRename" android:layout_width="match_parent" android:layout_height="wrap_content"
+    <TextView android:id="@+id/itemMenuRename" android:tag="theme:textPrimary"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
         android:text="Rename" android:textSize="14sp" android:textStyle="bold" android:textColor="#EEEEEE"
         android:paddingStart="18dp" android:paddingEnd="18dp" android:paddingTop="14dp" android:paddingBottom="14dp"
         android:clickable="true" android:focusable="true" android:foreground="?attr/selectableItemBackground"/>
 
-    <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#2A2A2A"/>
+    <View android:tag="theme:divider" android:layout_width="match_parent" android:layout_height="1dp" android:background="#2A2A2A"/>
 
-    <TextView android:id="@+id/itemMenuShare" android:layout_width="match_parent" android:layout_height="wrap_content"
+    <TextView android:id="@+id/itemMenuShare" android:tag="theme:textPrimary"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
         android:text="Share" android:textSize="14sp" android:textStyle="bold" android:textColor="#EEEEEE"
         android:paddingStart="18dp" android:paddingEnd="18dp" android:paddingTop="14dp" android:paddingBottom="14dp"
         android:clickable="true" android:focusable="true" android:foreground="?attr/selectableItemBackground"/>
 
-    <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#2A2A2A"/>
+    <View android:tag="theme:divider" android:layout_width="match_parent" android:layout_height="1dp" android:background="#2A2A2A"/>
 
-    <TextView android:id="@+id/itemMenuNotes" android:layout_width="match_parent" android:layout_height="wrap_content"
+    <TextView android:id="@+id/itemMenuNotes" android:tag="theme:textPrimary"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
         android:text="Notes" android:textSize="14sp" android:textStyle="bold" android:textColor="#EEEEEE"
         android:paddingStart="18dp" android:paddingEnd="18dp" android:paddingTop="14dp" android:paddingBottom="14dp"
         android:clickable="true" android:focusable="true" android:foreground="?attr/selectableItemBackground"/>
 
-    <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#2A2A2A"/>
+    <View android:tag="theme:divider" android:layout_width="match_parent" android:layout_height="1dp" android:background="#2A2A2A"/>
 
-    <TextView android:id="@+id/itemMenuDelete" android:layout_width="match_parent" android:layout_height="wrap_content"
+    <!-- Intentionally NOT tagged — see popup_library_overflow.xml note. -->
+    <TextView android:id="@+id/itemMenuDelete"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
         android:text="Delete from Library" android:textSize="14sp" android:textStyle="bold" android:textColor="#FF5252"
         android:paddingStart="18dp" android:paddingEnd="18dp" android:paddingTop="14dp" android:paddingBottom="14dp"
         android:clickable="true" android:focusable="true" android:foreground="?attr/selectableItemBackground"/>

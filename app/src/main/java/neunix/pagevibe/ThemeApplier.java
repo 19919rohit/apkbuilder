@@ -6,8 +6,6 @@ import android.graphics.drawable.GradientDrawable;
 import android.util.TypedValue;
 import android.view.View;
 import android.view.ViewGroup;
-import android.content.res.ColorStateList;
-import com.google.android.material.switchmaterial.SwitchMaterial;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -16,34 +14,16 @@ import java.util.WeakHashMap;
 /**
  * Recursively walks a view tree and applies a theme to any view whose
  * android:tag contains one or more comma-separated "theme:*" tokens.
+ * See prior delivery for the full tag reference (bg/card/divider/
+ * textPrimary/textSecondary/accent/buttonBg/buttonText/outline).
  *
- * TEXT SIZE FIX: previously nothing here ever called setTextSize(), so
- * a theme's textScale had no visible effect anywhere in the app. Every
- * themed TextView now has its ORIGINAL xml-defined size captured exactly
- * once, in BASE_SIZES_SP (a WeakHashMap keyed by the view instance
- * itself, so it never leaks and never needs manual cleanup — entries
- * disappear automatically once a view is garbage collected, e.g. when a
- * Fragment's view is destroyed). Every subsequent apply() recomputes
- * size as baseSp * theme.textScale from that cached original — so
- * switching themes back and forth, or applying the same theme twenty
- * times, can never compound or drift the size.
- *
- * Supported tags (comma-separate multiple on one view, e.g.
- * "theme:buttonBg,theme:buttonText"):
- *   theme:bg            — background color
- *   theme:card           — background color (surface/card tone)
- *   theme:divider         — background color (thin separator Views)
- *   theme:textPrimary      — text color + font + size scale
- *   theme:textSecondary    — text color + font + size scale
- *   theme:accent            — TextView text color (+ size scale) OR
- *                             ImageView/ImageButton tint
- *   theme:buttonBg           — fills an accent-colored action button's
- *                              background (preserves rounded shape)
- *   theme:buttonText          — text color/size for text sitting on a
- *                              theme:buttonBg surface (contrast-correct
- *                              per theme, not hardcoded black/white)
- *   theme:outline              — sets a 1dp stroke color on a
- *                              GradientDrawable background, if present
+ * setBackgroundColorPreservingShape() and setOutlinePreservingShape() are
+ * now PUBLIC static — the only change in this file — so
+ * ThemeEditorActivity's live preview can reuse the exact same "mutate the
+ * GradientDrawable in place" logic the real app uses, instead of
+ * duplicating it. That guarantees the editor's preview and the actual
+ * themed app can never visually disagree about how the coloring math
+ * works.
  */
 public class ThemeApplier {
 
@@ -89,31 +69,13 @@ public class ThemeApplier {
                 view.setBackgroundColor(theme.dividerColor);
                 break;
             case "theme:textPrimary":
-    if (view instanceof TextView) {
-        TextView tv = (TextView) view;
-
-        tv.setTextColor(theme.textPrimaryColor);
-        tv.setTypeface(resolveTypeface(theme.fontFamily));
-        applyTextScale(tv, theme.textScale);
-
-        if (tv instanceof android.widget.EditText) {
-            android.widget.EditText et = (android.widget.EditText) tv;
-
-            et.setHintTextColor(theme.textSecondaryColor);
-
-            Drawable bg = et.getBackground();
-            if (bg instanceof GradientDrawable) {
-                try {
-                    GradientDrawable gd = (GradientDrawable) bg.mutate();
-                    gd.setColor(theme.cardColor);
-
-                    float density = et.getResources().getDisplayMetrics().density;
-                    gd.setStroke(Math.round(1f * density), theme.outlineColor);
-                } catch (Throwable ignored) {}
-            }
-        }
-    }
-    break;
+                if (view instanceof TextView) {
+                    TextView tv = (TextView) view;
+                    tv.setTextColor(theme.textPrimaryColor);
+                    tv.setTypeface(resolveTypeface(theme.fontFamily));
+                    applyTextScale(tv, theme.textScale);
+                }
+                break;
             case "theme:textSecondary":
                 if (view instanceof TextView) {
                     TextView tv = (TextView) view;
@@ -135,35 +97,6 @@ public class ThemeApplier {
             case "theme:buttonBg":
                 setBackgroundColorPreservingShape(view, theme.accentColor);
                 break;
-                
-            case "theme:switch":
-    if (view instanceof SwitchMaterial) {
-        SwitchMaterial sw = (SwitchMaterial) view;
-
-        ColorStateList thumb = new ColorStateList(
-                new int[][]{
-                        new int[]{android.R.attr.state_checked},
-                        new int[]{-android.R.attr.state_checked}
-                },
-                new int[]{
-                        theme.accentColor,
-                        0xFFBDBDBD
-                });
-
-        ColorStateList track = new ColorStateList(
-                new int[][]{
-                        new int[]{android.R.attr.state_checked},
-                        new int[]{-android.R.attr.state_checked}
-                },
-                new int[]{
-                        (theme.accentColor & 0x00FFFFFF) | 0x66000000,
-                        0xFF666666
-                });
-
-        sw.setThumbTintList(thumb);
-        sw.setTrackTintList(track);
-    }
-    break;
             case "theme:buttonText":
                 if (view instanceof TextView) {
                     TextView tv = (TextView) view;
@@ -196,7 +129,7 @@ public class ThemeApplier {
         return sp;
     }
 
-    private static void setBackgroundColorPreservingShape(View view, int color) {
+    public static void setBackgroundColorPreservingShape(View view, int color) {
         Drawable bg = view.getBackground();
         if (bg instanceof GradientDrawable) {
             try {
@@ -209,12 +142,12 @@ public class ThemeApplier {
         view.setBackgroundColor(color);
     }
 
-    private static void setOutlinePreservingShape(View view, int strokeColor) {
+    public static void setOutlinePreservingShape(View view, int strokeColor) {
         Drawable bg = view.getBackground();
         if (bg instanceof GradientDrawable) {
             try {
                 float density = view.getResources().getDisplayMetrics().density;
-                int strokeWidthPx = Math.round(1f * density);
+                int strokeWidthPx = Math.round(1.5f * density);
                 ((GradientDrawable) bg.mutate()).setStroke(strokeWidthPx, strokeColor);
             } catch (Throwable ignored) {
                 // No safe fallback for a non-GradientDrawable background —

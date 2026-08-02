@@ -11,11 +11,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * Single source of truth for every theme — six built-in themes plus any
- * number of user-created custom themes. Custom themes persist as one
- * JSON array in SharedPreferences.
- */
 public class ThemeManager {
 
     private static final String PREFS_NAME       = "pagevibe_prefs";
@@ -29,18 +24,24 @@ public class ThemeManager {
     public static final String BUILTIN_MIDNIGHT    = "builtin_midnight";
     public static final String BUILTIN_FOREST      = "builtin_forest";
 
-    // 10 real Android generic type-family names — every one of these
-    // resolves via Typeface.create(name, style) using families that ship
-    // inside the Android system image. Zero additional APK size.
+    // 12 real Android generic type-family names, chosen to span visually
+    // DISTINCT categories rather than five shades of the same sans-serif:
+    // weight variants, a condensed pair, a serif, a genuine typewriter
+    // (serif-monospace), code monospace, casual handwriting, cursive
+    // script, and small caps. Every one resolves via
+    // Typeface.create(name, style) against families that ship inside the
+    // Android system image — zero additional APK size.
     public static final String[] FONT_VALUES = {
             "sans-serif", "sans-serif-light", "sans-serif-medium", "sans-serif-black",
-            "sans-serif-condensed", "sans-serif-condensed-medium",
-            "serif", "monospace", "casual", "cursive"
+            "sans-serif-condensed", "sans-serif-condensed-light",
+            "serif", "serif-monospace", "monospace",
+            "casual", "cursive", "sans-serif-smallcaps"
     };
     public static final String[] FONT_DISPLAY_NAMES = {
             "Default", "Light", "Medium", "Black",
-            "Condensed", "Condensed Medium",
-            "Serif", "Monospace", "Casual", "Cursive"
+            "Condensed", "Condensed Light",
+            "Serif", "Typewriter", "Monospace",
+            "Casual", "Cursive", "Small Caps"
     };
 
     public static final float TEXT_SCALE_SMALL  = 0.9f;
@@ -244,9 +245,11 @@ public class ThemeManager {
     }
 
     // =========================================================
-    // PERSISTENCE — backward-compatible with any theme saved by the
-    // previous (5-field) version of this class: missing keys fall back
-    // to computed defaults instead of failing to parse.
+    // PERSISTENCE — backward-compatible: any theme saved by an earlier
+    // version of this class already stored a real "textSecondary" value
+    // (computed at the time), so nothing needs migrating. Missing keys
+    // (only possible from a hand-edited/corrupted entry) fall back to a
+    // sane computed default rather than failing to parse.
     // =========================================================
 
     private AppTheme parseTheme(JSONObject obj) {
@@ -308,11 +311,6 @@ public class ThemeManager {
     private SharedPreferences prefs() {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
     }
-
-    // =========================================================
-    // COLOR HELPERS — used both for backward-compat defaults above and
-    // available to callers building a theme.
-    // =========================================================
 
     private static int blend(int color, float factor) {
         int r = Math.round(android.graphics.Color.red(color) * factor);

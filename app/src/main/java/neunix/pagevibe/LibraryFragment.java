@@ -217,16 +217,23 @@ public class LibraryFragment extends Fragment {
     }
 
     // =========================================================
-    // SORT POPUP
+    // SORT POPUP — theme-aware reference implementation. The XML tags
+    // handle the popup's own background/divider/font; the SELECTED
+    // (accent) vs unselected (textPrimary) text color logic below has to
+    // stay in code because it's stateful, so it now reads colors from
+    // the active theme instead of hardcoded hex.
     // =========================================================
 
     private void showSortPopup(View anchor) {
         View content = LayoutInflater.from(requireContext()).inflate(R.layout.popup_sort_menu, null);
+        ThemeManager.AppTheme theme = themeManager.getActiveTheme();
+        ThemeApplier.apply(content, theme);
+
         TextView optRecent = content.findViewById(R.id.sortOptionRecent);
         TextView optAlpha  = content.findViewById(R.id.sortOptionAlpha);
 
-        styleSortOption(optRecent, sortMode == SortMode.RECENT);
-        styleSortOption(optAlpha,  sortMode == SortMode.ALPHA);
+        styleSortOption(optRecent, sortMode == SortMode.RECENT, theme);
+        styleSortOption(optAlpha,  sortMode == SortMode.ALPHA, theme);
 
         PopupWindow popup = new PopupWindow(content, ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT, true);
@@ -234,13 +241,13 @@ public class LibraryFragment extends Fragment {
 
         optRecent.setOnClickListener(v -> {
             sortMode = SortMode.RECENT;
-            sortChip.setText("Sort: Recent");
+            sortChip.setText("Sort: Recent  ⌄");
             rebuildDisplayList();
             popup.dismiss();
         });
         optAlpha.setOnClickListener(v -> {
             sortMode = SortMode.ALPHA;
-            sortChip.setText("Sort: A–Z");
+            sortChip.setText("Sort: A–Z  ⌄");
             rebuildDisplayList();
             popup.dismiss();
         });
@@ -248,8 +255,8 @@ public class LibraryFragment extends Fragment {
         popup.showAsDropDown(anchor, 0, 8, Gravity.END);
     }
 
-    private void styleSortOption(TextView tv, boolean selected) {
-        tv.setTextColor(selected ? Color.parseColor("#4488FF") : Color.parseColor("#EEEEEE"));
+    private void styleSortOption(TextView tv, boolean selected, ThemeManager.AppTheme theme) {
+        tv.setTextColor(selected ? theme.accentColor : theme.textPrimaryColor);
     }
 
     // =========================================================
@@ -258,6 +265,8 @@ public class LibraryFragment extends Fragment {
 
     private void showOverflowPopup(View anchor) {
         View content = LayoutInflater.from(requireContext()).inflate(R.layout.popup_library_overflow, null);
+        ThemeApplier.apply(content, themeManager.getActiveTheme());
+
         TextView importUrl = content.findViewById(R.id.btnImportFromUrl);
         TextView deleteAll = content.findViewById(R.id.btnDeleteAllPdfs);
 
@@ -357,6 +366,7 @@ public class LibraryFragment extends Fragment {
 
     private void showItemMenu(View anchor, LibraryManager.Entry entry) {
         View content = LayoutInflater.from(requireContext()).inflate(R.layout.popup_library_item_menu, null);
+        ThemeApplier.apply(content, themeManager.getActiveTheme());
 
         PopupWindow popup = new PopupWindow(content, ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT, true);

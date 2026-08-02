@@ -9,6 +9,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.GridLayout;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.PopupWindow;
 import android.widget.TextView;
@@ -28,17 +29,25 @@ public class ThemeEditorActivity extends AppCompatActivity {
     };
 
     private ThemeManager themeManager;
-    private View rootView;
     private String editingThemeId = null;
 
     private int backgroundColor, cardColor, dividerColor, textPrimaryColor,
-            accentColor, buttonTextColor, outlineColor;
+            textSecondaryColor, accentColor, buttonTextColor, outlineColor;
     private String selectedFont = "sans-serif";
     private float selectedScale = ThemeManager.TEXT_SCALE_MEDIUM;
 
     private EditText nameInput;
-    private View dotBackground, dotCard, dotDivider, dotTextPrimary, dotAccent, dotButtonText, dotOutline;
-    private TextView previewSampleText, previewSubText;
+    private View dotBackground, dotCard, dotDivider, dotTextPrimary, dotTextSecondary,
+            dotAccent, dotButtonText, dotOutline;
+
+    // Preview mockup views
+    private View previewScaffold;
+    private ImageView previewIcon;
+    private TextView previewHeading, previewSubtitle;
+    private View previewDivider;
+    private View previewCardSurface;
+    private TextView previewCardTitle, previewCardBody, previewCardMeta;
+    private TextView previewFilledButton, previewOutlineButton;
 
     private LinearLayout fontChoiceRow;
     private TextView sizeSmall, sizeMedium, sizeLarge;
@@ -47,23 +56,34 @@ public class ThemeEditorActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_theme_editor);
-        rootView = findViewById(android.R.id.content);
         themeManager = new ThemeManager(this);
 
         nameInput          = findViewById(R.id.themeNameInput);
-        dotBackground       = findViewById(R.id.dotBackground);
-        dotCard             = findViewById(R.id.dotCard);
-        dotDivider           = findViewById(R.id.dotDivider);
-        dotTextPrimary        = findViewById(R.id.dotTextPrimary);
-        dotAccent               = findViewById(R.id.dotAccent);
-        dotButtonText             = findViewById(R.id.dotButtonText);
-        dotOutline                 = findViewById(R.id.dotOutline);
-        previewSampleText            = findViewById(R.id.previewSampleText);
-        previewSubText                = findViewById(R.id.previewSubText);
-        fontChoiceRow                  = findViewById(R.id.fontChoiceRow);
-        sizeSmall                       = findViewById(R.id.sizeSmall);
-        sizeMedium                       = findViewById(R.id.sizeMedium);
-        sizeLarge                         = findViewById(R.id.sizeLarge);
+        dotBackground        = findViewById(R.id.dotBackground);
+        dotCard                = findViewById(R.id.dotCard);
+        dotDivider                = findViewById(R.id.dotDivider);
+        dotTextPrimary               = findViewById(R.id.dotTextPrimary);
+        dotTextSecondary                = findViewById(R.id.dotTextSecondary);
+        dotAccent                          = findViewById(R.id.dotAccent);
+        dotButtonText                         = findViewById(R.id.dotButtonText);
+        dotOutline                               = findViewById(R.id.dotOutline);
+
+        previewScaffold    = findViewById(R.id.previewScaffold);
+        previewIcon           = findViewById(R.id.previewIcon);
+        previewHeading           = findViewById(R.id.previewHeading);
+        previewSubtitle             = findViewById(R.id.previewSubtitle);
+        previewDivider                 = findViewById(R.id.previewDivider);
+        previewCardSurface                = findViewById(R.id.previewCardSurface);
+        previewCardTitle                     = findViewById(R.id.previewCardTitle);
+        previewCardBody                         = findViewById(R.id.previewCardBody);
+        previewCardMeta                            = findViewById(R.id.previewCardMeta);
+        previewFilledButton                           = findViewById(R.id.previewFilledButton);
+        previewOutlineButton                             = findViewById(R.id.previewOutlineButton);
+
+        fontChoiceRow = findViewById(R.id.fontChoiceRow);
+        sizeSmall     = findViewById(R.id.sizeSmall);
+        sizeMedium    = findViewById(R.id.sizeMedium);
+        sizeLarge     = findViewById(R.id.sizeLarge);
 
         editingThemeId = getIntent().getStringExtra(EXTRA_THEME_ID);
         loadInitialValues();
@@ -73,6 +93,7 @@ public class ThemeEditorActivity extends AppCompatActivity {
         findViewById(R.id.rowCard).setOnClickListener(v -> pickColor(dotCard, c -> { cardColor = c; updatePreview(); }));
         findViewById(R.id.rowDivider).setOnClickListener(v -> pickColor(dotDivider, c -> { dividerColor = c; updatePreview(); }));
         findViewById(R.id.rowTextPrimary).setOnClickListener(v -> pickColor(dotTextPrimary, c -> { textPrimaryColor = c; updatePreview(); }));
+        findViewById(R.id.rowTextSecondary).setOnClickListener(v -> pickColor(dotTextSecondary, c -> { textSecondaryColor = c; updatePreview(); }));
         findViewById(R.id.rowAccent).setOnClickListener(v -> pickColor(dotAccent, c -> { accentColor = c; updatePreview(); }));
         findViewById(R.id.rowButtonText).setOnClickListener(v -> pickColor(dotButtonText, c -> { buttonTextColor = c; updatePreview(); }));
         findViewById(R.id.rowOutline).setOnClickListener(v -> pickColor(dotOutline, c -> { outlineColor = c; updatePreview(); }));
@@ -80,16 +101,9 @@ public class ThemeEditorActivity extends AppCompatActivity {
         buildFontChoices();
         buildSizeChoices();
         updatePreview();
-        applyTheme();
 
         findViewById(R.id.btnSaveTheme).setOnClickListener(v -> save());
     }
-    
-    @Override
-protected void onResume() {
-    super.onResume();
-    applyTheme();
-}
 
     private void loadInitialValues() {
         ThemeManager.AppTheme base;
@@ -100,20 +114,22 @@ protected void onResume() {
         } else {
             base = themeManager.getActiveTheme(); // sensible starting point
         }
-        backgroundColor   = base.backgroundColor;
-        cardColor         = base.cardColor;
-        dividerColor       = base.dividerColor;
-        textPrimaryColor    = base.textPrimaryColor;
-        accentColor           = base.accentColor;
-        buttonTextColor        = base.buttonTextColor;
-        outlineColor             = base.outlineColor;
-        selectedFont               = base.fontFamily;
-        selectedScale                = base.textScale;
+        backgroundColor    = base.backgroundColor;
+        cardColor          = base.cardColor;
+        dividerColor         = base.dividerColor;
+        textPrimaryColor       = base.textPrimaryColor;
+        textSecondaryColor        = base.textSecondaryColor; // real value now, not a guess
+        accentColor                  = base.accentColor;
+        buttonTextColor                 = base.buttonTextColor;
+        outlineColor                       = base.outlineColor;
+        selectedFont                          = base.fontFamily;
+        selectedScale                            = base.textScale;
 
         dotBackground.setBackgroundColor(backgroundColor);
         dotCard.setBackgroundColor(cardColor);
         dotDivider.setBackgroundColor(dividerColor);
         dotTextPrimary.setBackgroundColor(textPrimaryColor);
+        dotTextSecondary.setBackgroundColor(textSecondaryColor);
         dotAccent.setBackgroundColor(accentColor);
         dotButtonText.setBackgroundColor(buttonTextColor);
         dotOutline.setBackgroundColor(outlineColor);
@@ -123,6 +139,11 @@ protected void onResume() {
 
     private void pickColor(View anchor, ColorPicked callback) {
         View content = LayoutInflater.from(this).inflate(R.layout.popup_color_swatches, null);
+        // This popup's own chrome reflects the CURRENTLY ACTIVE app theme
+        // (not the draft being built) — it's the editor's own UI, not
+        // part of the live preview mockup.
+        ThemeApplier.apply(content, themeManager.getActiveTheme());
+
         GridLayout grid = content.findViewById(R.id.colorSwatchGrid);
         EditText hexInput = content.findViewById(R.id.customHexInput);
         View useHex = content.findViewById(R.id.btnUseHex);
@@ -161,18 +182,6 @@ protected void onResume() {
 
         popup.showAsDropDown(anchor, 0, 8, Gravity.END);
     }
-    
-    private void applyTheme() {
-    if (rootView == null || themeManager == null)
-        return;
-
-    ThemeApplier.apply(
-            rootView,
-            themeManager.getActiveTheme()
-    );
-
-    updatePreview();
-}
 
     private void buildFontChoices() {
         fontChoiceRow.removeAllViews();
@@ -192,8 +201,6 @@ protected void onResume() {
                     ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
             lp.setMarginEnd(dpToPx(8));
             chip.setLayoutParams(lp);
-            chip.setTag("theme:textPrimary");
-            ThemeApplier.applyToSingleView(chip, themeManager.getActiveTheme());
 
             chip.setOnClickListener(v -> {
                 selectedFont = value;
@@ -227,46 +234,62 @@ protected void onResume() {
         sizeLarge.setTextColor(selectedScale == ThemeManager.TEXT_SCALE_LARGE ? Color.parseColor("#4488FF") : Color.parseColor("#AAAAAA"));
     }
 
+    /**
+     * Drives the full mockup screen — reuses ThemeApplier's own public
+     * mutate-in-place helpers so the preview can never drift from how
+     * the real app actually renders these same properties.
+     */
     private void updatePreview() {
-    View previewCard = findViewById(R.id.previewCard);
+        Typeface tf = resolveTypeface(selectedFont);
+        Typeface tfBold = resolveTypeface(selectedFont, Typeface.BOLD);
 
-    android.graphics.drawable.Drawable bg = previewCard.getBackground();
+        ThemeApplier.setBackgroundColorPreservingShape(previewScaffold, backgroundColor);
+        previewIcon.setColorFilter(accentColor);
 
-    if (bg instanceof android.graphics.drawable.GradientDrawable) {
-        try {
-            android.graphics.drawable.GradientDrawable drawable =
-                    (android.graphics.drawable.GradientDrawable) bg.mutate();
-            drawable.setColor(cardColor);
-        } catch (Throwable ignored) {
-            previewCard.setBackgroundColor(cardColor);
-        }
-    } else {
-        previewCard.setBackgroundColor(cardColor);
+        previewHeading.setTextColor(textPrimaryColor);
+        previewHeading.setTypeface(tfBold);
+        previewHeading.setTextSize(16f * selectedScale);
+
+        previewSubtitle.setTextColor(textSecondaryColor);
+        previewSubtitle.setTypeface(tf);
+        previewSubtitle.setTextSize(12f * selectedScale);
+
+        previewDivider.setBackgroundColor(dividerColor);
+
+        ThemeApplier.setBackgroundColorPreservingShape(previewCardSurface, cardColor);
+        ThemeApplier.setOutlinePreservingShape(previewCardSurface, outlineColor);
+
+        previewCardTitle.setTextColor(textPrimaryColor);
+        previewCardTitle.setTypeface(tfBold);
+        previewCardTitle.setTextSize(14f * selectedScale);
+
+        previewCardBody.setTextColor(textPrimaryColor);
+        previewCardBody.setTypeface(tf);
+        previewCardBody.setTextSize(13f * selectedScale);
+
+        previewCardMeta.setTextColor(textSecondaryColor);
+        previewCardMeta.setTypeface(tf);
+        previewCardMeta.setTextSize(11f * selectedScale);
+
+        ThemeApplier.setBackgroundColorPreservingShape(previewFilledButton, accentColor);
+        previewFilledButton.setTextColor(buttonTextColor);
+        previewFilledButton.setTypeface(tfBold);
+        previewFilledButton.setTextSize(13f * selectedScale);
+
+        ThemeApplier.setOutlinePreservingShape(previewOutlineButton, outlineColor);
+        previewOutlineButton.setTextColor(accentColor);
+        previewOutlineButton.setTypeface(tfBold);
+        previewOutlineButton.setTextSize(13f * selectedScale);
+
+        dotBackground.setBackgroundColor(backgroundColor);
+        dotCard.setBackgroundColor(cardColor);
+        dotDivider.setBackgroundColor(dividerColor);
+        dotTextPrimary.setBackgroundColor(textPrimaryColor);
+        dotTextSecondary.setBackgroundColor(textSecondaryColor);
+        dotAccent.setBackgroundColor(accentColor);
+        dotButtonText.setBackgroundColor(buttonTextColor);
+        dotOutline.setBackgroundColor(outlineColor);
     }
-
-    previewSampleText.setTextColor(textPrimaryColor);
-
-    // 30sp is this preview's own base — scaled live exactly the same
-    // way ThemeApplier scales real app text.
-    previewSampleText.setTextSize(30f * selectedScale);
-
-    try {
-        previewSampleText.setTypeface(
-                Typeface.create(selectedFont, Typeface.BOLD)
-        );
-    } catch (Throwable ignored) {}
-
-    previewSubText.setTextColor(accentColor);
-    previewSubText.setTextSize(11f * selectedScale);
-
-    dotBackground.setBackgroundColor(backgroundColor);
-    dotCard.setBackgroundColor(cardColor);
-    dotDivider.setBackgroundColor(dividerColor);
-    dotTextPrimary.setBackgroundColor(textPrimaryColor);
-    dotAccent.setBackgroundColor(accentColor);
-    dotButtonText.setBackgroundColor(buttonTextColor);
-    dotOutline.setBackgroundColor(outlineColor);
-}
 
     private void save() {
         String name = nameInput.getText().toString().trim();
@@ -278,7 +301,7 @@ protected void onResume() {
         ThemeManager.AppTheme theme = new ThemeManager.AppTheme(
                 editingThemeId, name, false,
                 backgroundColor, cardColor, dividerColor,
-                textPrimaryColor, blendForSecondary(textPrimaryColor),
+                textPrimaryColor, textSecondaryColor, // both explicit now — no more computed blend
                 accentColor, buttonTextColor, outlineColor,
                 selectedFont, selectedScale);
 
@@ -288,13 +311,13 @@ protected void onResume() {
         finish();
     }
 
-    /** Secondary text color is still auto-derived from the primary text
-     *  pick — kept implicit (not its own row) to hold the picker count
-     *  at a manageable 7 explicit decisions instead of 8. */
-    private int blendForSecondary(int primary) {
-        int r = Color.red(primary), g = Color.green(primary), b = Color.blue(primary);
-        float factor = 0.6f;
-        return Color.rgb(Math.round(r * factor), Math.round(g * factor), Math.round(b * factor));
+    private Typeface resolveTypeface(String fontFamily) {
+        return resolveTypeface(fontFamily, Typeface.NORMAL);
+    }
+
+    private Typeface resolveTypeface(String fontFamily, int style) {
+        try { return Typeface.create(fontFamily, style); }
+        catch (Throwable t) { return Typeface.defaultFromStyle(style); }
     }
 
     private int dpToPx(int dp) {

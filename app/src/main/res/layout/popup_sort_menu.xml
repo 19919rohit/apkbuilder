@@ -4,11 +4,13 @@
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:minWidth="160dp"
+    android:tag="theme:card"
     android:background="@drawable/bg_continue_card"
     android:elevation="8dp">
 
     <TextView
         android:id="@+id/sortOptionRecent"
+        android:tag="theme:textPrimary"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Recent"
@@ -22,13 +24,12 @@
         android:focusable="true"
         android:foreground="?attr/selectableItemBackground"/>
 
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
+    <View android:tag="theme:divider" android:layout_width="match_parent" android:layout_height="1dp"
         android:background="#2A2A2A"/>
 
     <TextView
         android:id="@+id/sortOptionAlpha"
+        android:tag="theme:textPrimary"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="A–Z"
