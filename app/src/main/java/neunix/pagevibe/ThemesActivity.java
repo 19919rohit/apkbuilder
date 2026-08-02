@@ -15,7 +15,7 @@ import android.widget.TextView;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
-import androidx.appcompat.app.AlertDialog;
+import android.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -95,7 +95,7 @@ public class ThemesActivity extends AppCompatActivity {
     }
 
     private void confirmDelete(ThemeManager.AppTheme theme) {
-        AlertDialog dialog = new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK)
+        AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle("Delete theme?")
                 .setMessage("\"" + theme.name + "\" will be permanently deleted.")
                 .setPositiveButton("Delete", (d, w) -> {
