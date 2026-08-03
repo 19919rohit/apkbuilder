@@ -7,6 +7,8 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Build;
+import android.app.DownloadManager;
+import android.content.Context;
 import android.os.Looper;
 import android.text.Editable;
 import android.text.TextWatcher;
