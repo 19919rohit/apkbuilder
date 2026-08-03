@@ -19,17 +19,13 @@ import androidx.fragment.app.FragmentTransaction;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.firebase.messaging.FirebaseMessaging;
 
-/**
- * Thin shell hosting three tabs — Home, Library, Basket — via a
- * persistent BottomNavigationView. Fragments are created once and kept
- * alive for the app session via add() + hide()/show() — never replace().
- */
 public class MainActivity extends AppCompatActivity {
 
     private BottomNavigationView bottomNav;
-    private final HomeFragment    homeFragment    = new HomeFragment();
-    private final LibraryFragment libraryFragment = new LibraryFragment();
-    private final BasketFragment  basketFragment  = new BasketFragment();
+    private final HomeFragment     homeFragment     = new HomeFragment();
+    private final LibraryFragment  libraryFragment  = new LibraryFragment();
+    private final BasketFragment   basketFragment   = new BasketFragment();
+    private final DiscoverFragment discoverFragment = new DiscoverFragment();
 
     private final ActivityResultLauncher<String> notifPermLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestPermission(), granted -> { /* no-op either way */ });
@@ -52,15 +48,13 @@ public class MainActivity extends AppCompatActivity {
 
         bottomNav.setOnItemSelectedListener(item -> {
             int id = item.getItemId();
-            if (id == R.id.nav_home)    { showTab(homeFragment);    return true; }
-            if (id == R.id.nav_library) { showTab(libraryFragment); return true; }
-            if (id == R.id.nav_basket)  { showTab(basketFragment);  return true; }
+            if (id == R.id.nav_home)     { showTab(homeFragment);     return true; }
+            if (id == R.id.nav_library)  { showTab(libraryFragment);  return true; }
+            if (id == R.id.nav_basket)   { showTab(basketFragment);   return true; }
+            if (id == R.id.nav_discover) { showTab(discoverFragment); return true; }
             return false;
         });
 
-        // Back press from Library or Basket returns to Home instead of
-        // exiting the app directly — only exits (default system
-        // behavior) when already on Home.
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
@@ -78,10 +72,6 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         new NotificationPreferences(this).recordAppOpenedNow();
-        // Cheap to re-check every resume — if the earlier subscribe
-        // attempt failed (no network, Play Services updating, etc.),
-        // this keeps trying until it genuinely succeeds instead of
-        // giving up after one silent failure.
         subscribeToFcmTopicsWithRetry();
     }
 
@@ -102,31 +92,15 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    /**
-     * FIXED: previously fire-and-forget, so a failed first attempt (no
-     * network at first launch, Play Services mid-update, etc.) meant that
-     * device was permanently NOT subscribed to "all" with no retry — the
-     * exact kind of silent failure that explains "works on my phone, not
-     * my friend's." Success is now persisted and checked before retrying,
-     * so this becomes a no-op the moment it has genuinely succeeded once.
-     */
     private void subscribeToFcmTopicsWithRetry() {
         NotificationPreferences prefs = new NotificationPreferences(this);
         if (prefs.isFcmTopicSubscribed()) return;
-
         try {
             FirebaseMessaging.getInstance().subscribeToTopic("all")
                     .addOnCompleteListener(task -> {
-                        if (task.isSuccessful()) {
-                            prefs.setFcmTopicSubscribed(true);
-                        }
-                        // On failure, deliberately leave the flag false —
-                        // the next onResume() will simply try again.
+                        if (task.isSuccessful()) prefs.setFcmTopicSubscribed(true);
                     });
-        } catch (Throwable ignored) {
-            // FCM not configured (e.g. google-services.json missing) —
-            // never block app startup on this.
-        }
+        } catch (Throwable ignored) {}
     }
 
     private void handleIncomingViewIntent(Intent incoming) {
@@ -158,12 +132,14 @@ public class MainActivity extends AppCompatActivity {
     private void showTab(Fragment target) {
         FragmentManager fm = getSupportFragmentManager();
         FragmentTransaction tx = fm.beginTransaction();
-        if (!homeFragment.isAdded())    tx.add(R.id.fragmentContainer, homeFragment, "home");
-        if (!libraryFragment.isAdded()) tx.add(R.id.fragmentContainer, libraryFragment, "library");
-        if (!basketFragment.isAdded())  tx.add(R.id.fragmentContainer, basketFragment, "basket");
+        if (!homeFragment.isAdded())     tx.add(R.id.fragmentContainer, homeFragment, "home");
+        if (!libraryFragment.isAdded())  tx.add(R.id.fragmentContainer, libraryFragment, "library");
+        if (!basketFragment.isAdded())   tx.add(R.id.fragmentContainer, basketFragment, "basket");
+        if (!discoverFragment.isAdded()) tx.add(R.id.fragmentContainer, discoverFragment, "discover");
         tx.hide(homeFragment);
         tx.hide(libraryFragment);
         tx.hide(basketFragment);
+        tx.hide(discoverFragment);
         tx.show(target);
         tx.commitAllowingStateLoss();
     }
