@@ -9,6 +9,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.text.Editable;
 import android.text.TextWatcher;
+import androidx.core.content.ContextCompat;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -380,11 +381,20 @@ public class DiscoverFragment extends Fragment implements DiscoverBookAdapter.Li
     // =========================================================
 
     private void registerDownloadReceiver() {
-        if (downloadReceiver != null) return;
-        downloadReceiver = new DiscoverDownloadReceiver(this::onSystemDownloadComplete);
-        requireContext().registerReceiver(
-                downloadReceiver, new IntentFilter(android.app.DownloadManager.ACTION_DOWNLOAD_COMPLETE));
-    }
+    if (downloadReceiver != null) return;
+
+    downloadReceiver = new DiscoverDownloadReceiver(this::onSystemDownloadComplete);
+
+    IntentFilter filter =
+            new IntentFilter(android.app.DownloadManager.ACTION_DOWNLOAD_COMPLETE);
+
+    ContextCompat.registerReceiver(
+            requireContext(),
+            downloadReceiver,
+            filter,
+            ContextCompat.RECEIVER_NOT_EXPORTED
+    );
+}
 
     private void unregisterDownloadReceiver() {
         if (downloadReceiver == null) return;
