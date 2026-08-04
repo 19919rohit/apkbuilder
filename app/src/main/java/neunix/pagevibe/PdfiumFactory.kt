@@ -1,4 +1,4 @@
-package neunix.pagevibe
+package neunix.pagevibe.app
 
 import android.content.Context
 import io.legere.pdfiumandroid.PdfiumCore

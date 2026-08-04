@@ -1,4 +1,4 @@
-package neunix.pagevibe;
+package neunix.pagevibe.app;
 
 import android.animation.ValueAnimator;
 import android.content.Intent;

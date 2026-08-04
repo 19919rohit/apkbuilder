@@ -14,7 +14,7 @@
    limitations under the License.
  */
 
-package neunix.pagevibe;
+package neunix.pagevibe.app;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;

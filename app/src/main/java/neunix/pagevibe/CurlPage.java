@@ -14,7 +14,7 @@
    limitations under the License.
  */
 
-package neunix.pagevibe;
+package neunix.pagevibe.app;
 
 import android.graphics.Bitmap;
 import android.graphics.Canvas;

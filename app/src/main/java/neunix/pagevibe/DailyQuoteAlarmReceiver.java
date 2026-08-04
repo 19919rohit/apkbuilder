@@ -1,4 +1,4 @@
-package neunix.pagevibe;
+package neunix.pagevibe.app;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;

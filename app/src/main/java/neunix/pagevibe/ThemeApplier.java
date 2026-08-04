@@ -1,4 +1,4 @@
-package neunix.pagevibe;
+package neunix.pagevibe.app;
 
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
