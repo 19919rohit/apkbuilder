@@ -207,7 +207,7 @@
                         android:tag="theme:card"
                         android:background="@drawable/bg_continue_card">
 
-                        <neunix.pagevibe.GameView
+                        <neunix.pagevibe.app.GameView
                             android:id="@+id/discoverGameView"
                             android:layout_width="match_parent" android:layout_height="match_parent"/>
 
