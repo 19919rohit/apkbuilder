@@ -35,22 +35,12 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * Home tab — a lightweight dashboard. Shows the single most-recent book
- * as a hero "Continue Reading" card, plus a horizontal strip of the 5
- * most-recently-opened books. Search, sorting, and full-library
- * management all live in the Library tab; Home only reads from
- * LibraryManager, it never writes to it.
- *
- * THEMING: applyTheme() is called on every onResume()/onHiddenChanged()
- * so returning here from Settings > Themes reflects a newly-selected
- * theme immediately. It walks the whole inflated layout via
- * ThemeApplier.apply(root, theme) for everything that's already on
- * screen — but RecyclerView items in recentStrip are bound lazily by
- * RecentAdapter, so RecentAdapter ALSO re-applies the theme to each item
- * view individually at bind time (see onBindViewHolder below). Skipping
- * that second application point is exactly what would make the
- * horizontal book strip silently stay stuck on old colors even after
- * everything else on the screen correctly re-themed.
+ * Home tab — premium dashboard redesign. Replaces the old full-width
+ * "Open PDF" bottom bar (which repeatedly read as a generic file-utility
+ * screen in store review) with a floating action button, three compact
+ * tappable stat chips instead of one plain insights card, and a
+ * full-bleed "hero" Continue Reading card with real cover art and a
+ * scrim overlay instead of a small thumbnail + plain text row.
  */
 public class HomeFragment extends Fragment {
 
@@ -58,24 +48,26 @@ public class HomeFragment extends Fragment {
 
     private View          root;
     private TextView      greetingText;
-    private View          insightsCard;
-    private TextView      insightsPrimaryText;
-    private TextView      insightsSecondaryText;
+    private ImageButton   btnSettings;
+
+    private View          statChipStreak, statChipLibrary, statChipToday;
+    private TextView      statStreakValue, statLibraryValue, statTodayValue;
+
     private View          continueSection;
-    private View          continueCard;
-    private ImageView     continueThumbnail;
-    private TextView      continueInitial;
-    private TextView      continueTitle;
-    private TextView      continueSubtitle;
-    private View          progressFill;
-    private View          progressTrack;
-    private TextView      progressLabel;
+    private View          continueHeroCard;
+    private ImageView     continueHeroCover;
+    private TextView      continueHeroInitial;
+    private TextView      continueHeroTitle;
+    private TextView      continueHeroSubtitle;
+    private TextView      continueHeroPercentBadge;
+    private View          continueHeroProgressTrack;
+    private View          continueHeroProgressFill;
+
     private View          recentSection;
     private TextView      btnSeeAllRecent;
     private RecyclerView  recentStrip;
     private View          emptyState;
-    private View          btnOpenPdf;
-    private ImageButton   btnSettings;
+    private ImageButton   btnOpenPdfFab;
 
     private LibraryManager         libraryManager;
     private ReadingStatsController stats;
@@ -154,14 +146,6 @@ public class HomeFragment extends Fragment {
         root = null;
     }
 
-    /**
-     * Re-tints everything on screen that carries a theme: tag, then
-     * refreshes the RecyclerView adapter so its currently-bound items
-     * (which were NOT part of this tree walk if they were bound before
-     * this call — order doesn't actually matter here since
-     * notifyDataSetChanged() forces a fresh onBindViewHolder pass, which
-     * itself re-applies the theme per item) pick up the new theme too.
-     */
     private void applyTheme() {
         if (root == null || themeManager == null) return;
         ThemeManager.AppTheme theme = themeManager.getActiveTheme();
@@ -170,25 +154,31 @@ public class HomeFragment extends Fragment {
     }
 
     private void bindViews() {
-        greetingText          = root.findViewById(R.id.greetingText);
-        insightsCard          = root.findViewById(R.id.insightsCard);
-        insightsPrimaryText   = root.findViewById(R.id.insightsPrimaryText);
-        insightsSecondaryText = root.findViewById(R.id.insightsSecondaryText);
-        continueSection       = root.findViewById(R.id.continueSection);
-        continueCard          = root.findViewById(R.id.continueCard);
-        continueThumbnail     = root.findViewById(R.id.continueThumbnail);
-        continueInitial       = root.findViewById(R.id.continueInitial);
-        continueTitle         = root.findViewById(R.id.continueTitle);
-        continueSubtitle      = root.findViewById(R.id.continueSubtitle);
-        progressFill    = root.findViewById(R.id.progressFill);
-        progressTrack   = root.findViewById(R.id.progressTrack);
-        progressLabel   = root.findViewById(R.id.progressLabel);
+        greetingText   = root.findViewById(R.id.greetingText);
+        btnSettings    = root.findViewById(R.id.btnSettings);
+
+        statChipStreak  = root.findViewById(R.id.statChipStreak);
+        statChipLibrary = root.findViewById(R.id.statChipLibrary);
+        statChipToday   = root.findViewById(R.id.statChipToday);
+        statStreakValue  = root.findViewById(R.id.statStreakValue);
+        statLibraryValue = root.findViewById(R.id.statLibraryValue);
+        statTodayValue   = root.findViewById(R.id.statTodayValue);
+
+        continueSection           = root.findViewById(R.id.continueSection);
+        continueHeroCard          = root.findViewById(R.id.continueHeroCard);
+        continueHeroCover         = root.findViewById(R.id.continueHeroCover);
+        continueHeroInitial       = root.findViewById(R.id.continueHeroInitial);
+        continueHeroTitle         = root.findViewById(R.id.continueHeroTitle);
+        continueHeroSubtitle      = root.findViewById(R.id.continueHeroSubtitle);
+        continueHeroPercentBadge  = root.findViewById(R.id.continueHeroPercentBadge);
+        continueHeroProgressTrack = root.findViewById(R.id.continueHeroProgressTrack);
+        continueHeroProgressFill  = root.findViewById(R.id.continueHeroProgressFill);
+
         recentSection   = root.findViewById(R.id.recentSection);
         btnSeeAllRecent = root.findViewById(R.id.btnSeeAllRecent);
         recentStrip     = root.findViewById(R.id.recentStrip);
         emptyState      = root.findViewById(R.id.emptyState);
-        btnOpenPdf      = root.findViewById(R.id.btnOpenPdf);
-        btnSettings     = root.findViewById(R.id.btnSettings);
+        btnOpenPdfFab   = root.findViewById(R.id.btnOpenPdfFab);
 
         greetingText.setText(greeting());
     }
@@ -208,19 +198,24 @@ public class HomeFragment extends Fragment {
             TooltipUtil.apply(btnSettings, "Settings");
         }
 
-        insightsCard.setOnClickListener(v -> {
-            bouncePress(insightsCard);
+        View.OnClickListener openStats = v -> {
+            bouncePress(v);
             startActivity(new Intent(requireContext(), StatsActivity.class));
-        });
+        };
+        statChipStreak.setOnClickListener(openStats);
+        statChipLibrary.setOnClickListener(openStats);
+        statChipToday.setOnClickListener(openStats);
 
-        btnOpenPdf.setOnClickListener(v ->
-                v.animate().scaleX(0.96f).scaleY(0.96f).setDuration(80)
+        btnOpenPdfFab.setOnClickListener(v ->
+                v.animate().scaleX(0.88f).scaleY(0.88f).setDuration(90)
                         .withEndAction(() ->
                                 v.animate().scaleX(1f).scaleY(1f)
-                                        .setDuration(80)
+                                        .setDuration(120)
+                                        .setInterpolator(new OvershootInterpolator(3f))
                                         .withEndAction(this::openFilePicker)
                                         .start())
                         .start());
+        TooltipUtil.apply(btnOpenPdfFab, "Open PDF");
 
         emptyState.setOnClickListener(v -> openFilePicker());
 
@@ -240,28 +235,16 @@ public class HomeFragment extends Fragment {
     }
 
     private void bindInsights() {
-        if (stats == null || insightsPrimaryText == null || libraryManager == null) return;
+        if (stats == null || libraryManager == null || statStreakValue == null) return;
 
         int streak = stats.getCurrentStreakDays();
+        statStreakValue.setText(streak > 0 ? "🔥 " + streak : "0");
+
+        statLibraryValue.setText(String.valueOf(libraryManager.size()));
+
         List<ReadingStatsController.DayEntry> days = stats.getRecentDayEntries();
         long todaySeconds = days.isEmpty() ? 0L : days.get(0).seconds;
-
-        if (streak > 0) {
-            insightsPrimaryText.setText("🔥 " + streak + " day streak");
-        } else if (stats.getTotalSeconds() > 0) {
-            insightsPrimaryText.setText("Keep reading to build a streak");
-        } else {
-            insightsPrimaryText.setText("Track your reading progress");
-        }
-
-        if (todaySeconds > 0) {
-            insightsSecondaryText.setText(ReadingStatsController.formatDuration(todaySeconds) + " read today");
-        } else {
-            int libSize = libraryManager.size();
-            insightsSecondaryText.setText(libSize > 0
-                    ? libSize + (libSize == 1 ? " PDF in your library" : " PDFs in your library")
-                    : "Tap to see your stats");
-        }
+        statTodayValue.setText(todaySeconds > 0 ? ReadingStatsController.formatDuration(todaySeconds) : "0m");
     }
 
     private void openFilePicker() {
@@ -297,7 +280,7 @@ public class HomeFragment extends Fragment {
         recentSection.setVisibility(  empty ? View.GONE    : View.VISIBLE);
 
         if (!empty) {
-            bindContinueCard(recentEntries.get(0));
+            bindContinueHero(recentEntries.get(0));
             recentAdapter.notifyDataSetChanged();
             for (LibraryManager.Entry e : recentEntries) loadThumbAsync(e);
         }
@@ -305,10 +288,10 @@ public class HomeFragment extends Fragment {
         if (animate) animateEntrance();
     }
 
-    private void bindContinueCard(LibraryManager.Entry entry) {
+    private void bindContinueHero(LibraryManager.Entry entry) {
         String name = LibraryManager.displayName(entry);
-        continueTitle.setText(name);
-        continueInitial.setText(name.isEmpty() ? "?" : name.substring(0, 1).toUpperCase());
+        continueHeroTitle.setText(name);
+        continueHeroInitial.setText(name.isEmpty() ? "?" : name.substring(0, 1).toUpperCase());
 
         SharedPreferences prefs =
                 requireContext().getSharedPreferences("pagevibe_prefs", Context.MODE_PRIVATE);
@@ -316,38 +299,41 @@ public class HomeFragment extends Fragment {
         int totalPages = prefs.getInt("total_pages_" + entry.uri.hashCode(), 0);
 
         if (totalPages > 1) {
-            continueSubtitle.setText(
+            continueHeroSubtitle.setText(
                     "Page " + (lastPage + 1) + " of " + totalPages
                     + "  ·  " + relativeTime(entry.lastOpenedAt));
 
             float pct = (float) lastPage / (totalPages - 1);
-            progressTrack.post(() -> {
+            int pctInt = Math.round(pct * 100);
+            continueHeroPercentBadge.setVisibility(View.VISIBLE);
+            continueHeroPercentBadge.setText(pctInt + "%");
+
+            continueHeroProgressTrack.post(() -> {
                 if (root == null) return;
-                int maxW = progressTrack.getWidth();
-                ViewGroup.LayoutParams lp = progressFill.getLayoutParams();
-                lp.width = (int)(maxW * pct);
-                progressFill.setLayoutParams(lp);
+                int maxW = continueHeroProgressTrack.getWidth();
+                ViewGroup.LayoutParams lp = continueHeroProgressFill.getLayoutParams();
+                lp.width = (int) (maxW * pct);
+                continueHeroProgressFill.setLayoutParams(lp);
             });
-            progressLabel.setText((int)(pct * 100) + "% complete");
 
         } else if (totalPages == 1) {
-            continueSubtitle.setText("1 page  ·  " + relativeTime(entry.lastOpenedAt));
-            resetProgressBar();
+            continueHeroSubtitle.setText("1 page  ·  " + relativeTime(entry.lastOpenedAt));
+            resetHeroProgress();
         } else {
-            continueSubtitle.setText(relativeTime(entry.lastOpenedAt));
-            resetProgressBar();
+            continueHeroSubtitle.setText(relativeTime(entry.lastOpenedAt));
+            resetHeroProgress();
         }
 
-        continueCard.setOnClickListener(v -> openReader(entry.uri));
+        continueHeroCard.setOnClickListener(v -> openReader(entry.uri));
 
-        applyThumb(continueThumbnail, continueInitial, entry, false);
+        applyHeroCover(entry);
     }
 
-    private void resetProgressBar() {
-        ViewGroup.LayoutParams lp = progressFill.getLayoutParams();
+    private void resetHeroProgress() {
+        continueHeroPercentBadge.setVisibility(View.GONE);
+        ViewGroup.LayoutParams lp = continueHeroProgressFill.getLayoutParams();
         lp.width = 0;
-        progressFill.setLayoutParams(lp);
-        progressLabel.setText("");
+        continueHeroProgressFill.setLayoutParams(lp);
     }
 
     private void loadThumbAsync(LibraryManager.Entry entry) {
@@ -371,14 +357,14 @@ public class HomeFragment extends Fragment {
                     PdfCore core = new PdfCore();
                     try {
                         core.open(appContext, uri);
-                        core.setScreenSize(240, 320);
+                        core.setScreenSize(480, 640);
                         if (core.pageCount() > 0) {
                             int total = core.pageCount();
                             SharedPreferences prefs = appContext.getSharedPreferences("pagevibe_prefs", Context.MODE_PRIVATE);
                             if (prefs.getInt("total_pages_" + uri.hashCode(), 0) == 0) {
                                 prefs.edit().putInt("total_pages_" + uri.hashCode(), total).apply();
                             }
-                            Bitmap rendered = core.renderPage(0, 240, 320);
+                            Bitmap rendered = core.renderPage(0, 480, 640);
                             owned = rendered.copy(Bitmap.Config.ARGB_8888, false);
                         }
                     } finally {
@@ -401,9 +387,29 @@ public class HomeFragment extends Fragment {
 
     private void onThumbLoaded(Uri uri) {
         if (!recentEntries.isEmpty() && recentEntries.get(0).uri.equals(uri)) {
-            bindContinueCard(recentEntries.get(0));
+            applyHeroCover(recentEntries.get(0));
         }
         recentAdapter.notifyDataSetChanged();
+    }
+
+    private void applyHeroCover(LibraryManager.Entry entry) {
+        String key   = entry.uri.toString() + "#" + entry.coverUpdatedAt;
+        Bitmap thumb = thumbCache.get(key);
+
+        continueHeroCover.setImageBitmap(null);
+
+        if (thumb != null && !thumb.isRecycled()) {
+            continueHeroCover.setImageBitmap(thumb);
+            continueHeroCover.setVisibility(View.VISIBLE);
+            continueHeroInitial.setVisibility(View.GONE);
+            continueHeroCover.setAlpha(0f);
+            continueHeroCover.animate().alpha(1f).setDuration(280).start();
+        } else {
+            continueHeroCover.setVisibility(View.GONE);
+            String name = LibraryManager.displayName(entry);
+            continueHeroInitial.setText(name.isEmpty() ? "?" : name.substring(0, 1).toUpperCase());
+            continueHeroInitial.setVisibility(View.VISIBLE);
+        }
     }
 
     private void applyThumb(ImageView img, TextView initial, LibraryManager.Entry entry, boolean fade) {
@@ -431,7 +437,6 @@ public class HomeFragment extends Fragment {
     private void animateEntrance() {
         int[] ids = {
                 R.id.headerSection,
-                R.id.insightsCard,
                 R.id.continueSection,
                 R.id.recentSection,
                 R.id.emptyState
@@ -469,7 +474,7 @@ public class HomeFragment extends Fragment {
     }
 
     private void clearThumbCache() {
-        if (continueThumbnail != null) continueThumbnail.setImageBitmap(null);
+        if (continueHeroCover != null) continueHeroCover.setImageBitmap(null);
         for (Bitmap b : thumbCache.values()) {
             if (b != null && !b.isRecycled()) b.recycle();
         }
@@ -491,7 +496,7 @@ public class HomeFragment extends Fragment {
             String name = LibraryManager.displayName(entry);
             h.title.setText(name);
             h.time.setText(relativeTime(entry.lastOpenedAt));
-            h.remove.setVisibility(View.GONE); // management lives in Library now
+            h.remove.setVisibility(View.GONE);
 
             applyThumb(h.cover, h.initial, entry, true);
 
@@ -508,12 +513,6 @@ public class HomeFragment extends Fragment {
                     .setStartDelay(pos * 35L)
                     .start();
 
-            // See the class-level javadoc above: this item view was
-            // inflated fresh (or is being rebound) AFTER HomeFragment's
-            // top-level applyTheme() walk, so it must be re-themed here,
-            // every single bind, or it silently stays on stale colors
-            // forever regardless of how many times the outer theme
-            // changes.
             if (themeManager != null) {
                 ThemeApplier.applyToSingleView(h.itemView, themeManager.getActiveTheme());
             }

@@ -13,9 +13,23 @@
             android:layout_width="match_parent" android:layout_height="match_parent"
             android:scaleType="centerCrop"/>
 
-        <TextView android:id="@+id/discoverCardFeaturedBadge"
+        <!-- Rating badge now overlays the cover directly, top-start —
+             the Play Store's own book cards read this way; the old
+             design buried the rating inside a text line under the
+             title, which felt more like a spec sheet than a store. -->
+        <TextView
+            android:id="@+id/discoverCardRatingBadge"
             android:layout_width="wrap_content" android:layout_height="wrap_content"
             android:layout_gravity="top|start" android:layout_margin="6dp"
+            android:paddingStart="7dp" android:paddingEnd="7dp"
+            android:paddingTop="3dp" android:paddingBottom="3dp"
+            android:background="@drawable/bg_button_dark"
+            android:text="★ 0.0" android:textSize="10sp" android:textStyle="bold" android:textColor="#FFC400"
+            android:visibility="gone"/>
+
+        <TextView android:id="@+id/discoverCardFeaturedBadge"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:layout_gravity="top|end" android:layout_margin="6dp"
             android:paddingStart="8dp" android:paddingEnd="8dp" android:paddingTop="3dp" android:paddingBottom="3dp"
             android:background="@drawable/bg_button_dark"
             android:text="★ Featured" android:textSize="9sp" android:textStyle="bold" android:textColor="#FFC400"
@@ -35,13 +49,14 @@
         android:maxLines="1" android:ellipsize="end"
         android:layout_marginTop="2dp"/>
 
+    <!-- Meta line now holds only category/pages/size — rating moved to
+         the cover badge above, so this line reads cleaner. -->
     <TextView android:id="@+id/discoverCardMeta" android:tag="theme:textSecondary"
         android:layout_width="match_parent" android:layout_height="wrap_content"
         android:textSize="10sp" android:textColor="#666666"
         android:maxLines="1" android:ellipsize="end"
         android:layout_marginTop="4dp"/>
 
-    <!-- Download button (default state) -->
     <TextView android:id="@+id/discoverCardBtnDownload"
         android:tag="theme:buttonBg,theme:buttonText"
         android:layout_width="match_parent" android:layout_height="36dp"
@@ -50,7 +65,6 @@
         android:textColor="#000000" android:background="@drawable/bg_open_button"
         android:clickable="true" android:focusable="true"/>
 
-    <!-- Progress state (shown while downloading) -->
     <LinearLayout android:id="@+id/discoverCardProgressGroup"
         android:layout_width="match_parent" android:layout_height="wrap_content"
         android:orientation="vertical" android:layout_marginTop="8dp"
@@ -70,7 +84,6 @@
 
     </LinearLayout>
 
-    <!-- Open button (shown once downloaded) -->
     <TextView android:id="@+id/discoverCardBtnOpen"
         android:tag="theme:outline"
         android:layout_width="match_parent" android:layout_height="36dp"

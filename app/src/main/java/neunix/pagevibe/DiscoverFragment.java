@@ -6,9 +6,6 @@ import android.content.IntentFilter;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
-import android.os.Build;
-import android.app.DownloadManager;
-import android.content.Context;
 import android.os.Looper;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -37,9 +34,15 @@ import java.util.Locale;
 
 /**
  * Discover tab. Owns ALL Firestore-facing state; the adapter and UI
- * below it are pure display. Search/sort/Featured-filter all operate on
- * an in-memory copy of the last fetched list — none of them ever touch
- * Firestore, matching the "avoid unnecessary reads" requirement exactly.
+ * below it are pure display. Search/sort/Featured-filter operate on an
+ * in-memory copy of the last fetched list — none of them ever touch
+ * Firestore.
+ *
+ * READ MINIMIZATION: relies entirely on DiscoverBookRepository's own
+ * simplified strategy — one real server read per fresh app process,
+ * reused for the rest of that session, plus pull-to-refresh always
+ * forcing a real read. See DiscoverBookRepository for the full
+ * explanation of why the earlier TTL-based approach was replaced.
  */
 public class DiscoverFragment extends Fragment implements DiscoverBookAdapter.Listener {
 
@@ -56,8 +59,8 @@ public class DiscoverFragment extends Fragment implements DiscoverBookAdapter.Li
     private View emptyState;
     private TextView noResultsText;
     private View errorState;
-    private GameView gameView;
     private TextView errorTitle, errorMessage, retryButton;
+    private GameView gameView;
 
     private DiscoverBookRepository repository;
     private DiscoverDownloadManagerHelper downloadHelper;
@@ -71,11 +74,6 @@ public class DiscoverFragment extends Fragment implements DiscoverBookAdapter.Li
 
     private ValueAnimator skeletonPulse;
 
-    // Progress polling — deliberately scoped to ONLY the small set of
-    // books actually being downloaded (never the whole catalog), so it
-    // stays cheap even with thousands of books in the list. This polls
-    // DownloadManager's local SQLite-backed provider, NOT Firestore — no
-    // read cost at all, regardless of poll frequency.
     private final Handler progressHandler = new Handler(Looper.getMainLooper());
     private final List<String> activeDownloadBookIds = new ArrayList<>();
     private Runnable progressPollRunnable;
@@ -120,9 +118,9 @@ public class DiscoverFragment extends Fragment implements DiscoverBookAdapter.Li
     @Override
     public void onPause() {
         super.onPause();
-        if (gameView != null) gameView.stopLoop();
         unregisterDownloadReceiver();
         stopProgressPolling();
+        if (gameView != null) gameView.stopLoop();
     }
 
     @Override
@@ -134,6 +132,7 @@ public class DiscoverFragment extends Fragment implements DiscoverBookAdapter.Li
             startProgressPollingIfNeeded();
         } else {
             stopProgressPolling();
+            if (gameView != null) gameView.stopLoop();
         }
     }
 
@@ -141,13 +140,16 @@ public class DiscoverFragment extends Fragment implements DiscoverBookAdapter.Li
     public void onDestroyView() {
         super.onDestroyView();
         if (skeletonPulse != null) skeletonPulse.cancel();
+        if (gameView != null) gameView.stopLoop();
         root = null;
     }
 
     private void applyTheme() {
         if (root == null) return;
-        ThemeApplier.apply(root, themeManager.getActiveTheme());
-        if (gameView != null) gameView.applyTheme(themeManager.getActiveTheme());
+        ThemeManager.AppTheme theme = themeManager.getActiveTheme();
+        ThemeApplier.apply(root, theme);
+        styleFeaturedToggle();
+        if (gameView != null) gameView.applyTheme(theme);
     }
 
     private void bindViews() {
@@ -161,17 +163,17 @@ public class DiscoverFragment extends Fragment implements DiscoverBookAdapter.Li
         emptyState                          = root.findViewById(R.id.discoverEmptyState);
         noResultsText                          = root.findViewById(R.id.discoverNoResultsText);
         errorState                                = root.findViewById(R.id.discoverErrorState);
-        gameView = root.findViewById(R.id.discoverGameView);
         errorTitle                                   = root.findViewById(R.id.discoverErrorTitle);
         errorMessage                                    = root.findViewById(R.id.discoverErrorMessage);
         retryButton                                        = root.findViewById(R.id.discoverRetryButton);
+        gameView                                              = root.findViewById(R.id.discoverGameView);
     }
 
     private void setupRecycler() {
         adapter = new DiscoverBookAdapter(requireContext(), downloadHelper, this);
         recycler.setLayoutManager(new GridLayoutManager(requireContext(), 2));
         recycler.setAdapter(adapter);
-        recycler.setHasFixedSize(true); // item sizes never change based on content changes here
+        recycler.setHasFixedSize(true);
     }
 
     private void setupSearch() {
@@ -179,7 +181,7 @@ public class DiscoverFragment extends Fragment implements DiscoverBookAdapter.Li
             @Override public void beforeTextChanged(CharSequence s, int a, int b, int c) {}
             @Override public void onTextChanged(CharSequence s, int a, int b, int c) {
                 searchQuery = s.toString();
-                rebuildAndDisplay(); // in-memory only — no Firestore call
+                rebuildAndDisplay();
             }
             @Override public void afterTextChanged(Editable s) {}
         });
@@ -190,11 +192,12 @@ public class DiscoverFragment extends Fragment implements DiscoverBookAdapter.Li
         featuredToggle.setOnClickListener(v -> {
             featuredOnly = !featuredOnly;
             styleFeaturedToggle();
-            rebuildAndDisplay(); // in-memory only
+            rebuildAndDisplay();
         });
     }
 
     private void styleFeaturedToggle() {
+        if (featuredToggle == null || themeManager == null) return;
         ThemeManager.AppTheme theme = themeManager.getActiveTheme();
         if (featuredOnly) {
             ThemeApplier.setBackgroundColorPreservingShape(featuredToggle, theme.accentColor);
@@ -227,7 +230,7 @@ public class DiscoverFragment extends Fragment implements DiscoverBookAdapter.Li
     }
 
     private void setupSwipeRefresh() {
-        swipeRefresh.setOnRefreshListener(() -> loadBooks(true)); // explicit manual refresh — the one case allowed to force a server read
+        swipeRefresh.setOnRefreshListener(() -> loadBooks(true));
     }
 
     private void setupRetry() {
@@ -235,8 +238,7 @@ public class DiscoverFragment extends Fragment implements DiscoverBookAdapter.Li
     }
 
     // =========================================================
-    // FIRESTORE LOAD — the ONLY place this Fragment talks to
-    // DiscoverBookRepository.
+    // FIRESTORE LOAD
     // =========================================================
 
     private void loadBooks(boolean forceRefresh) {
@@ -252,8 +254,6 @@ public class DiscoverFragment extends Fragment implements DiscoverBookAdapter.Li
                     allBooks.clear();
                     allBooks.addAll(books);
                     rebuildAndDisplay();
-
-                    
                 });
             }
 
@@ -265,8 +265,6 @@ public class DiscoverFragment extends Fragment implements DiscoverBookAdapter.Li
                     if (allBooks.isEmpty()) {
                         showError(message);
                     } else {
-                        // Already had a usable list on screen — a failed
-                        // refresh shouldn't nuke what's already showing.
                         Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show();
                     }
                 });
@@ -334,13 +332,8 @@ public class DiscoverFragment extends Fragment implements DiscoverBookAdapter.Li
     }
 
     // =========================================================
-    // DOWNLOAD / OPEN — DiscoverBookAdapter.Listener
+    // DOWNLOAD / OPEN / DETAIL — DiscoverBookAdapter.Listener
     // =========================================================
-    
-    @Override
-    public void onBookClicked(DiscoverBook book) {
-        startActivity(DiscoverBookDetailActivity.createIntent(requireContext(), book));
-    }
 
     @Override
     public void onDownloadClicked(DiscoverBook book) {
@@ -351,7 +344,7 @@ public class DiscoverFragment extends Fragment implements DiscoverBookAdapter.Li
         }
         if (!NetworkUtils.isOnline(requireContext())) {
             Toast.makeText(requireContext(), "You're offline — connect to the internet to download", Toast.LENGTH_LONG).show();
-            adapter.notifyProgressChanged(book.getBookId()); // reverts the button back from its optimistic "starting" state
+            adapter.notifyProgressChanged(book.getBookId());
             return;
         }
 
@@ -377,31 +370,21 @@ public class DiscoverFragment extends Fragment implements DiscoverBookAdapter.Li
         startActivity(intent);
     }
 
+    @Override
+    public void onBookClicked(DiscoverBook book) {
+        startActivity(DiscoverBookDetailActivity.createIntent(requireContext(), book));
+    }
+
     // =========================================================
-    // DOWNLOAD COMPLETION — system broadcast, scoped to tracked IDs
+    // DOWNLOAD COMPLETION
     // =========================================================
 
     private void registerDownloadReceiver() {
-    if (downloadReceiver != null) return;
-
-    downloadReceiver = new DiscoverDownloadReceiver(this::onSystemDownloadComplete);
-
-    IntentFilter filter =
-            new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE);
-
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        if (downloadReceiver != null) return;
+        downloadReceiver = new DiscoverDownloadReceiver(this::onSystemDownloadComplete);
         requireContext().registerReceiver(
-                downloadReceiver,
-                filter,
-                Context.RECEIVER_NOT_EXPORTED
-        );
-    } else {
-        requireContext().registerReceiver(
-                downloadReceiver,
-                filter
-        );
+                downloadReceiver, new IntentFilter(android.app.DownloadManager.ACTION_DOWNLOAD_COMPLETE));
     }
-}
 
     private void unregisterDownloadReceiver() {
         if (downloadReceiver == null) return;
@@ -410,11 +393,11 @@ public class DiscoverFragment extends Fragment implements DiscoverBookAdapter.Li
     }
 
     private void onSystemDownloadComplete(long downloadId) {
-        // Match against every book this fragment knows about — cheap,
-        // in-memory only, no Firestore involvement.
         for (DiscoverBook book : allBooks) {
             if (downloadHelper.matchesStoredId(book.getBookId(), downloadId)) {
                 activeDownloadBookIds.remove(book.getBookId());
+                Uri fileUri = downloadHelper.getDownloadedUri(book.getBookId());
+                DiscoverLibrarySync.syncIfNeeded(requireContext(), book, fileUri);
                 if (root != null) {
                     requireActivity().runOnUiThread(() -> adapter.notifyProgressChanged(book.getBookId()));
                 }
@@ -423,10 +406,6 @@ public class DiscoverFragment extends Fragment implements DiscoverBookAdapter.Li
         }
     }
 
-    /** Called on resume: re-checks download state for every visible book
-     *  in case a download finished, failed, or was interrupted (network
-     *  loss, app kill, device reboot) while this screen wasn't visible —
-     *  this is what makes recovery feel automatic. */
     private void refreshVisibleDownloadStates() {
         activeDownloadBookIds.clear();
         for (DiscoverBook book : allBooks) {
@@ -437,12 +416,11 @@ public class DiscoverFragment extends Fragment implements DiscoverBookAdapter.Li
                 activeDownloadBookIds.add(book.getBookId());
             }
         }
-        if (adapter != null) adapter.updateBooks(new ArrayList<>(allBooks.isEmpty() ? new ArrayList<>() : currentDisplayedListSnapshot()));
+        if (adapter != null && !allBooks.isEmpty()) {
+            adapter.updateBooks(currentDisplayedListSnapshot());
+        }
     }
 
-    /** Re-derives the currently-displayed (filtered/sorted) list without
-     *  re-touching Firestore — used only to force a state re-bind after
-     *  resume. */
     private List<DiscoverBook> currentDisplayedListSnapshot() {
         List<DiscoverBook> filtered = new ArrayList<>();
         String q = searchQuery.trim().toLowerCase(Locale.getDefault());
@@ -460,12 +438,11 @@ public class DiscoverFragment extends Fragment implements DiscoverBookAdapter.Li
     }
 
     // =========================================================
-    // PROGRESS POLLING — scoped strictly to active downloads, reads only
-    // DownloadManager's local provider (zero Firestore cost).
+    // PROGRESS POLLING
     // =========================================================
 
     private void startProgressPollingIfNeeded() {
-        if (progressPollRunnable != null) return; // already running
+        if (progressPollRunnable != null) return;
         progressPollRunnable = new Runnable() {
             @Override
             public void run() {
@@ -513,6 +490,7 @@ public class DiscoverFragment extends Fragment implements DiscoverBookAdapter.Li
         emptyState.setVisibility(View.GONE);
         noResultsText.setVisibility(View.GONE);
         errorState.setVisibility(View.GONE);
+        if (gameView != null) { gameView.setVisibility(View.GONE); gameView.stopLoop(); }
         skeletonContainer.setVisibility(View.VISIBLE);
         startSkeletonPulse();
     }
@@ -523,8 +501,8 @@ public class DiscoverFragment extends Fragment implements DiscoverBookAdapter.Li
         emptyState.setVisibility(View.GONE);
         noResultsText.setVisibility(View.GONE);
         errorState.setVisibility(View.GONE);
+        if (gameView != null) { gameView.setVisibility(View.GONE); gameView.stopLoop(); }
         recycler.setVisibility(View.VISIBLE);
-        if (gameView != null) gameView.stopLoop();
     }
 
     private void showEmpty() {
@@ -533,9 +511,9 @@ public class DiscoverFragment extends Fragment implements DiscoverBookAdapter.Li
         recycler.setVisibility(View.GONE);
         noResultsText.setVisibility(View.GONE);
         errorState.setVisibility(View.GONE);
+        if (gameView != null) { gameView.setVisibility(View.GONE); gameView.stopLoop(); }
         emptyState.setVisibility(View.VISIBLE);
         countLabel.setText("0 books");
-        if (gameView != null) gameView.stopLoop();
     }
 
     private void showNoResults() {
@@ -543,9 +521,9 @@ public class DiscoverFragment extends Fragment implements DiscoverBookAdapter.Li
         skeletonContainer.setVisibility(View.GONE);
         emptyState.setVisibility(View.GONE);
         errorState.setVisibility(View.GONE);
+        if (gameView != null) { gameView.setVisibility(View.GONE); gameView.stopLoop(); }
         recycler.setVisibility(View.GONE);
         noResultsText.setVisibility(View.VISIBLE);
-        if (gameView != null) gameView.stopLoop();<
     }
 
     private void showError(String message) {

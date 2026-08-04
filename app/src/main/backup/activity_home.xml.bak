@@ -12,7 +12,7 @@
         android:layout_height="match_parent"
         android:fillViewport="true"
         android:overScrollMode="never"
-        android:paddingBottom="32dp"
+        android:paddingBottom="120dp"
         android:clipToPadding="false">
 
         <LinearLayout
@@ -20,7 +20,6 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
-            <!-- ═══════════ HEADER ═══════════ -->
             <LinearLayout
                 android:id="@+id/headerSection"
                 android:layout_width="match_parent"
@@ -76,134 +75,69 @@
 
             </LinearLayout>
 
-            <!-- ═══════════ STAT CHIPS — three tappable chips instead
-                 of one plain card. Denser, more "dashboard." All three
-                 open Reading Stats. ═══════════ -->
             <LinearLayout
+                android:id="@+id/insightsCard"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:padding="16dp"
                 android:layout_marginStart="24dp"
                 android:layout_marginEnd="24dp"
-                android:layout_marginTop="18dp">
+                android:layout_marginTop="18dp"
+                android:tag="theme:card"
+                android:background="@drawable/bg_continue_card"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground">
+
+                <ImageView
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:src="@drawable/ic_stats"
+                    android:tint="#4488FF"
+                    android:padding="9dp"
+                    android:scaleType="fitCenter"
+                    android:background="@drawable/bg_file_initial"/>
 
                 <LinearLayout
-                    android:id="@+id/statChipStreak"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:layout_marginEnd="6dp"
                     android:orientation="vertical"
-                    android:gravity="center"
-                    android:padding="14dp"
-                    android:tag="theme:card"
-                    android:background="@drawable/bg_continue_card"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:foreground="?attr/selectableItemBackground">
+                    android:layout_marginStart="14dp">
 
                     <TextView
-                        android:id="@+id/statStreakValue"
+                        android:id="@+id/insightsPrimaryText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:tag="theme:textPrimary"
-                        android:text="0"
-                        android:textSize="18sp"
+                        android:text="Track your reading progress"
+                        android:textSize="14sp"
                         android:textStyle="bold"
                         android:textColor="#F0F0F0"/>
 
                     <TextView
+                        android:id="@+id/insightsSecondaryText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:tag="theme:textSecondary"
-                        android:text="Day streak"
-                        android:textSize="10sp"
+                        android:text="Tap to see your stats"
+                        android:textSize="11sp"
                         android:textColor="#7A7A7A"
-                        android:layout_marginTop="2dp"/>
+                        android:layout_marginTop="3dp"/>
 
                 </LinearLayout>
 
-                <LinearLayout
-                    android:id="@+id/statChipLibrary"
-                    android:layout_width="0dp"
+                <TextView
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:layout_marginStart="3dp"
-                    android:layout_marginEnd="3dp"
-                    android:orientation="vertical"
-                    android:gravity="center"
-                    android:padding="14dp"
-                    android:tag="theme:card"
-                    android:background="@drawable/bg_continue_card"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:foreground="?attr/selectableItemBackground">
-
-                    <TextView
-                        android:id="@+id/statLibraryValue"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:tag="theme:textPrimary"
-                        android:text="0"
-                        android:textSize="18sp"
-                        android:textStyle="bold"
-                        android:textColor="#F0F0F0"/>
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:tag="theme:textSecondary"
-                        android:text="In library"
-                        android:textSize="10sp"
-                        android:textColor="#7A7A7A"
-                        android:layout_marginTop="2dp"/>
-
-                </LinearLayout>
-
-                <LinearLayout
-                    android:id="@+id/statChipToday"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:layout_marginStart="6dp"
-                    android:orientation="vertical"
-                    android:gravity="center"
-                    android:padding="14dp"
-                    android:tag="theme:card"
-                    android:background="@drawable/bg_continue_card"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:foreground="?attr/selectableItemBackground">
-
-                    <TextView
-                        android:id="@+id/statTodayValue"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:tag="theme:textPrimary"
-                        android:text="0m"
-                        android:textSize="18sp"
-                        android:textStyle="bold"
-                        android:textColor="#F0F0F0"/>
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:tag="theme:textSecondary"
-                        android:text="Today"
-                        android:textSize="10sp"
-                        android:textColor="#7A7A7A"
-                        android:layout_marginTop="2dp"/>
-
-                </LinearLayout>
+                    android:text="›"
+                    android:textSize="22sp"
+                    android:textColor="#2A2A2A"/>
 
             </LinearLayout>
 
-            <!-- ═══════════ CONTINUE READING — full-bleed hero card.
-                 Text/scrim over the cover are deliberately fixed
-                 (not theme:*-tagged) so title/subtitle stay legible
-                 against any cover art regardless of active theme —
-                 the one intentional exception to the app's tagging
-                 convention, called out here explicitly. ═══════════ -->
             <LinearLayout
                 android:id="@+id/continueSection"
                 android:layout_width="match_parent"
@@ -211,7 +145,7 @@
                 android:orientation="vertical"
                 android:paddingStart="24dp"
                 android:paddingEnd="24dp"
-                android:paddingTop="26dp"
+                android:paddingTop="28dp"
                 android:visibility="gone">
 
                 <TextView
@@ -224,107 +158,109 @@
                     android:textColor="#707070"
                     android:layout_marginBottom="12dp"/>
 
-                <FrameLayout
-                    android:id="@+id/continueHeroCard"
+                <LinearLayout
+                    android:id="@+id/continueCard"
                     android:layout_width="match_parent"
-                    android:layout_height="220dp"
-                    android:background="@drawable/bg_recent_card"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:padding="16dp"
+                    android:tag="theme:card"
+                    android:background="@drawable/bg_continue_card"
                     android:clickable="true"
                     android:focusable="true"
                     android:foreground="?attr/selectableItemBackground">
 
-                    <ImageView
-                        android:id="@+id/continueHeroCover"
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:scaleType="centerCrop"
-                        android:visibility="gone"/>
+                    <FrameLayout
+                        android:layout_width="60dp"
+                        android:layout_height="80dp"
+                        android:background="@drawable/bg_recent_card">
 
-                    <TextView
-                        android:id="@+id/continueHeroInitial"
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:gravity="center"
-                        android:textSize="54sp"
-                        android:textStyle="bold"
-                        android:textColor="#2A2A2A"/>
+                        <ImageView
+                            android:id="@+id/continueThumbnail"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:scaleType="centerCrop"
+                            android:visibility="gone"/>
 
-                    <View
-                        android:layout_width="match_parent"
-                        android:layout_height="140dp"
-                        android:layout_gravity="bottom"
-                        android:background="@drawable/bg_scrim_bottom"/>
+                        <TextView
+                            android:id="@+id/continueInitial"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:textSize="24sp"
+                            android:textStyle="bold"
+                            android:textColor="#2A2A2A"/>
 
-                    <TextView
-                        android:id="@+id/continueHeroPercentBadge"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_gravity="top|end"
-                        android:layout_margin="12dp"
-                        android:background="@drawable/bg_button_dark"
-                        android:paddingStart="10dp"
-                        android:paddingEnd="10dp"
-                        android:paddingTop="5dp"
-                        android:paddingBottom="5dp"
-                        android:text="0%"
-                        android:textSize="11sp"
-                        android:textStyle="bold"
-                        android:textColor="#FFFFFF"
-                        android:visibility="gone"/>
+                    </FrameLayout>
 
                     <LinearLayout
-                        android:layout_width="match_parent"
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_gravity="bottom"
+                        android:layout_weight="1"
                         android:orientation="vertical"
-                        android:padding="16dp">
+                        android:layout_marginStart="14dp"
+                        android:layout_marginEnd="8dp">
 
                         <TextView
-                            android:id="@+id/continueHeroTitle"
+                            android:id="@+id/continueTitle"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:textSize="18sp"
+                            android:tag="theme:textPrimary"
+                            android:textSize="14sp"
+                            android:textColor="#F0F0F0"
                             android:textStyle="bold"
-                            android:textColor="#FFFFFF"
                             android:maxLines="2"
                             android:ellipsize="end"
-                            android:lineSpacingMultiplier="1.15"
-                            android:shadowColor="#B0000000"
-                            android:shadowRadius="6"
-                            android:shadowDx="0"
-                            android:shadowDy="1"/>
+                            android:lineSpacingMultiplier="1.25"/>
 
                         <TextView
-                            android:id="@+id/continueHeroSubtitle"
-                            android:layout_width="match_parent"
+                            android:id="@+id/continueSubtitle"
+                            android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:textSize="12sp"
-                            android:textColor="#DDDDDD"
-                            android:layout_marginTop="4dp"/>
+                            android:tag="theme:textSecondary"
+                            android:textSize="11sp"
+                            android:textColor="#7A7A7A"
+                            android:layout_marginTop="5dp"/>
 
                         <FrameLayout
-                            android:id="@+id/continueHeroProgressTrack"
+                            android:id="@+id/progressTrack"
                             android:layout_width="match_parent"
-                            android:layout_height="4dp"
+                            android:layout_height="2dp"
                             android:layout_marginTop="10dp"
-                            android:background="#33FFFFFF">
+                            android:background="#1C1C1C">
 
                             <View
-                                android:id="@+id/continueHeroProgressFill"
+                                android:id="@+id/progressFill"
                                 android:layout_width="0dp"
                                 android:layout_height="match_parent"
                                 android:tag="theme:accent"
-                                android:background="#4488FF"/>
+                                android:background="#FFFFFF"/>
 
                         </FrameLayout>
 
+                        <TextView
+                            android:id="@+id/progressLabel"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:tag="theme:textSecondary"
+                            android:textSize="10sp"
+                            android:textColor="#6A6A6A"
+                            android:layout_marginTop="5dp"/>
+
                     </LinearLayout>
 
-                </FrameLayout>
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="›"
+                        android:textSize="24sp"
+                        android:textColor="#2A2A2A"/>
+
+                </LinearLayout>
 
             </LinearLayout>
 
-            <!-- ═══════════ RECENT STRIP ═══════════ -->
             <LinearLayout
                 android:id="@+id/recentSection"
                 android:layout_width="match_parent"
@@ -377,7 +313,6 @@
 
             </LinearLayout>
 
-            <!-- ═══════════ EMPTY STATE ═══════════ -->
             <LinearLayout
                 android:id="@+id/emptyState"
                 android:layout_width="match_parent"
@@ -414,7 +349,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:tag="theme:textSecondary"
-                    android:text="Tap the button in the corner to open your first PDF."
+                    android:text="Tap here to open a PDF.\nIt'll appear on this screen so you can pick up right where you left off."
                     android:textSize="13sp"
                     android:textColor="#7A7A6A"
                     android:gravity="center"
@@ -427,31 +362,33 @@
 
     </androidx.core.widget.NestedScrollView>
 
-    <!-- ═══════════ FAB — replaces the old full-width bottom bar
-         entirely. This is the whole point of the redesign: a floating
-         circular action instead of a strip permanently occupying the
-         bottom of the screen. ═══════════ -->
-    <FrameLayout
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:id="@+id/bottomBarSurface"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
-        android:layout_margin="24dp">
+        android:layout_gravity="bottom"
+        android:orientation="vertical"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:paddingBottom="20dp"
+        android:paddingTop="20dp"
+        android:tag="theme:card"
+        android:background="@drawable/bg_bar_bottom">
 
-        <ImageButton
-            android:id="@+id/btnOpenPdfFab"
-            android:layout_width="60dp"
-            android:layout_height="60dp"
-            android:tag="theme:buttonBg"
-            android:background="@drawable/bg_fab_circle"
-            android:src="@drawable/ic_add"
-            android:tint="#FFFFFF"
-            android:scaleType="centerInside"
-            android:padding="18dp"
-            android:elevation="8dp"
-            android:contentDescription="Open PDF"
+        <TextView
+            android:id="@+id/btnOpenPdf"
+            android:layout_width="match_parent"
+            android:tag="theme:buttonBg,theme:buttonText"
+            android:layout_height="54dp"
+            android:gravity="center"
+            android:text="Open PDF"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            android:textColor="#000000"
+            android:background="@drawable/bg_open_button"
             android:clickable="true"
             android:focusable="true"/>
 
-    </FrameLayout>
+    </LinearLayout>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
