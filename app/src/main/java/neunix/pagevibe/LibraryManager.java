@@ -10,30 +10,29 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
  * Single source of truth for "every PDF ever opened in PageVibe" — the
- * Library. Unlike the old per-fragment "recent files" JSON (capped at 20,
- * silently dropping older entries), this never trims automatically; an
- * entry only disappears when the user explicitly deletes it. Home's
- * dashboard is just a view over this data (top 5 by lastOpenedAt), not a
- * separate store — so a rename or cover change here is instantly correct
- * everywhere else that reads it.
+ * Library. An entry only disappears when the user explicitly deletes it.
  */
 public class LibraryManager {
 
     private static final String PREFS_NAME     = "pagevibe_prefs";
     private static final String KEY_LIBRARY    = "library_entries_v2";
-    private static final String KEY_OLD_RECENT = "recent_files"; // one-time migration source
+    private static final String KEY_OLD_RECENT = "recent_files";
 
     private static final String COVERS_DIR = "covers";
     private static final int    COVER_MAX_DIMENSION = 900;
+    private static final long   REMOTE_COVER_MAX_BYTES = 8L * 1024 * 1024; // 8MB safety cap
 
     private final Context context;
 
@@ -49,8 +48,8 @@ public class LibraryManager {
     public static class Entry {
         public final Uri    uri;
         public final String originalName;
-        public final String customName;   // nullable
-        public final String coverPath;    // nullable, absolute file path
+        public final String customName;
+        public final String coverPath;
         public final long   addedAt;
         public final long   lastOpenedAt;
         public final long   coverUpdatedAt;
@@ -108,8 +107,6 @@ public class LibraryManager {
     // WRITE
     // =========================================================
 
-    /** Upsert — call on every successfully opened PDF. Updates
-     *  lastOpenedAt on existing entries; creates a new entry otherwise. */
     public Entry addOrTouch(Uri uri, String originalName) {
         if (uri == null) return null;
         JSONArray arr = loadArray();
@@ -158,39 +155,103 @@ public class LibraryManager {
         saveArray(arr);
     }
 
-    /**
-     * Decodes and downsamples the picked image, saves it into the app's
-     * private covers directory (overwriting any previous cover for this
-     * exact PDF), and records the new path + a fresh coverUpdatedAt
-     * timestamp in one atomic update. The timestamp — not the path,
-     * which is deterministic per-PDF and therefore unchanged on a
-     * re-pick — is what lets every screen's thumbnail cache correctly
-     * invalidate itself the next time it reads this entry.
-     *
-     * Safe to call from a background thread.
-     */
+    /** Local-picker cover — existing entry point, unchanged. */
     public String setCoverFromImage(Uri pdfUri, Uri pickedImageUri) {
         if (pdfUri == null || pickedImageUri == null) return null;
         try {
             Bitmap bitmap = decodeSampledBitmap(pickedImageUri, COVER_MAX_DIMENSION);
             if (bitmap == null) return null;
-
-            File dir = new File(context.getFilesDir(), COVERS_DIR);
-            if (!dir.exists()) //noinspection ResultOfMethodCallIgnored
-                dir.mkdirs();
-            File outFile = new File(dir, Math.abs(pdfUri.hashCode()) + ".jpg");
-
-            try (OutputStream out = new FileOutputStream(outFile)) {
-                bitmap.compress(Bitmap.CompressFormat.JPEG, 87, out);
-            }
-            if (!bitmap.isRecycled()) bitmap.recycle();
-
-            String path = outFile.getAbsolutePath();
-            applyCoverPath(pdfUri, path);
-            return path;
+            return saveCoverBitmap(pdfUri, bitmap);
         } catch (Throwable t) {
             return null;
         }
+    }
+
+    /**
+     * NEW: fetches a cover image from a remote HTTP(S) URL — used by
+     * DiscoverLibrarySync when a Discover-catalog book finishes
+     * downloading, so its coverUrl (the artwork the user actually saw
+     * and picked in Discover) becomes the Library cover immediately,
+     * rather than a rendered PDF page-1 thumbnail.
+     *
+     * Single round trip: the whole image is read into memory once (with
+     * an 8MB safety cap against a misbehaving/oversized remote file),
+     * then decoded twice from that same byte array — first for bounds
+     * (to compute a safe inSampleSize), then for the real downsampled
+     * bitmap — so no second network request is needed just to measure
+     * the image.
+     */
+    public String setCoverFromRemoteUrl(Uri pdfUri, String imageUrl) {
+        if (pdfUri == null || imageUrl == null || imageUrl.trim().isEmpty()) return null;
+        try {
+            byte[] bytes = downloadBytes(imageUrl);
+            if (bytes == null || bytes.length == 0) return null;
+
+            BitmapFactory.Options bounds = new BitmapFactory.Options();
+            bounds.inJustDecodeBounds = true;
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.length, bounds);
+            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null;
+
+            int sample = 1;
+            while ((bounds.outWidth / sample) > COVER_MAX_DIMENSION
+                    || (bounds.outHeight / sample) > COVER_MAX_DIMENSION) {
+                sample *= 2;
+            }
+
+            BitmapFactory.Options decodeOpts = new BitmapFactory.Options();
+            decodeOpts.inSampleSize = sample;
+            Bitmap bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.length, decodeOpts);
+            if (bitmap == null) return null;
+
+            return saveCoverBitmap(pdfUri, bitmap);
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    private byte[] downloadBytes(String urlStr) throws Exception {
+        HttpURLConnection connection = null;
+        try {
+            URL url = new URL(urlStr);
+            connection = (HttpURLConnection) url.openConnection();
+            connection.setConnectTimeout(12_000);
+            connection.setReadTimeout(20_000);
+            connection.setInstanceFollowRedirects(true);
+            connection.connect();
+
+            if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) return null;
+
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            try (InputStream in = connection.getInputStream()) {
+                byte[] buffer = new byte[8192];
+                int read;
+                long total = 0L;
+                while ((read = in.read(buffer)) != -1) {
+                    total += read;
+                    if (total > REMOTE_COVER_MAX_BYTES) return null; // bail on an oversized/misbehaving response
+                    out.write(buffer, 0, read);
+                }
+            }
+            return out.toByteArray();
+        } finally {
+            if (connection != null) connection.disconnect();
+        }
+    }
+
+    private String saveCoverBitmap(Uri pdfUri, Bitmap bitmap) throws Exception {
+        File dir = new File(context.getFilesDir(), COVERS_DIR);
+        if (!dir.exists()) //noinspection ResultOfMethodCallIgnored
+            dir.mkdirs();
+        File outFile = new File(dir, Math.abs(pdfUri.hashCode()) + ".jpg");
+
+        try (OutputStream out = new FileOutputStream(outFile)) {
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 87, out);
+        }
+        if (!bitmap.isRecycled()) bitmap.recycle();
+
+        String path = outFile.getAbsolutePath();
+        applyCoverPath(pdfUri, path);
+        return path;
     }
 
     private void applyCoverPath(Uri uri, String path) {
@@ -265,13 +326,12 @@ public class LibraryManager {
     }
 
     // =========================================================
-    // MIGRATION — one-time import from the old "recent_files" list, so
-    // nobody's existing library silently disappears on update.
+    // MIGRATION
     // =========================================================
 
     private void migrateIfNeeded() {
         SharedPreferences prefs = prefs();
-        if (prefs.contains(KEY_LIBRARY)) return; // already migrated (or fresh install with none needed)
+        if (prefs.contains(KEY_LIBRARY)) return;
 
         try {
             JSONArray oldArr = new JSONArray(prefs.getString(KEY_OLD_RECENT, "[]"));

@@ -195,6 +195,23 @@
                         android:textSize="14sp" android:textStyle="bold" android:textColor="#000000"
                         android:background="@drawable/bg_open_button"
                         android:clickable="true" android:focusable="true"/>
+                    <TextView
+                        android:tag="theme:textSecondary"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="Or play while you wait" android:textSize="11sp"
+                        android:textColor="#666666" android:layout_marginTop="28dp"/>
+
+                    <FrameLayout
+                        android:layout_width="match_parent" android:layout_height="220dp"
+                        android:layout_marginTop="10dp"
+                        android:tag="theme:card"
+                        android:background="@drawable/bg_continue_card">
+
+                        <neunix.pagevibe.GameView
+                            android:id="@+id/discoverGameView"
+                            android:layout_width="match_parent" android:layout_height="match_parent"/>
+
+                    </FrameLayout>
 
                 </LinearLayout>
 

@@ -113,6 +113,7 @@
             android:name=".ThemeEditorActivity"
             android:exported="false"
             android:screenOrientation="portrait"/>
+        <activity android:name=".DiscoverBookDetailActivity" android:exported="false" android:theme="@style/Theme.AppCompat.NoActionBar"/>
 
 
         <!-- FileProvider for sharing PDFs -->

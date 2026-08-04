@@ -119,6 +119,7 @@ public class DiscoverBookAdapter extends RecyclerView.Adapter<DiscoverBookAdapte
         // Full bind
         holder.title.setText(book.getTitle());
         holder.author.setText(book.getAuthor());
+        holder.itemView.setOnClickListener(v -> listener.onBookClicked(book));
 
         StringBuilder meta = new StringBuilder();
         if (book.getRating() > 0) meta.append("★ ").append(String.format(Locale.getDefault(), "%.1f", book.getRating()));

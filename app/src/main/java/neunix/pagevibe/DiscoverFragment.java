@@ -56,6 +56,7 @@ public class DiscoverFragment extends Fragment implements DiscoverBookAdapter.Li
     private View emptyState;
     private TextView noResultsText;
     private View errorState;
+    private GameView gameView;
     private TextView errorTitle, errorMessage, retryButton;
 
     private DiscoverBookRepository repository;
@@ -119,6 +120,7 @@ public class DiscoverFragment extends Fragment implements DiscoverBookAdapter.Li
     @Override
     public void onPause() {
         super.onPause();
+        if (gameView != null) gameView.stopLoop();
         unregisterDownloadReceiver();
         stopProgressPolling();
     }
@@ -145,6 +147,7 @@ public class DiscoverFragment extends Fragment implements DiscoverBookAdapter.Li
     private void applyTheme() {
         if (root == null) return;
         ThemeApplier.apply(root, themeManager.getActiveTheme());
+        if (gameView != null) gameView.applyTheme(themeManager.getActiveTheme());
     }
 
     private void bindViews() {
@@ -158,6 +161,7 @@ public class DiscoverFragment extends Fragment implements DiscoverBookAdapter.Li
         emptyState                          = root.findViewById(R.id.discoverEmptyState);
         noResultsText                          = root.findViewById(R.id.discoverNoResultsText);
         errorState                                = root.findViewById(R.id.discoverErrorState);
+        gameView = root.findViewById(R.id.discoverGameView);
         errorTitle                                   = root.findViewById(R.id.discoverErrorTitle);
         errorMessage                                    = root.findViewById(R.id.discoverErrorMessage);
         retryButton                                        = root.findViewById(R.id.discoverRetryButton);
@@ -249,9 +253,7 @@ public class DiscoverFragment extends Fragment implements DiscoverBookAdapter.Li
                     allBooks.addAll(books);
                     rebuildAndDisplay();
 
-                    if (servedFromLocalCache && !NetworkUtils.isOnline(requireContext()) && !allBooks.isEmpty()) {
-                        Toast.makeText(requireContext(), "Showing offline copy", Toast.LENGTH_SHORT).show();
-                    }
+                    
                 });
             }
 
@@ -334,6 +336,11 @@ public class DiscoverFragment extends Fragment implements DiscoverBookAdapter.Li
     // =========================================================
     // DOWNLOAD / OPEN — DiscoverBookAdapter.Listener
     // =========================================================
+    
+    @Override
+    public void onBookClicked(DiscoverBook book) {
+        startActivity(DiscoverBookDetailActivity.createIntent(requireContext(), book));
+    }
 
     @Override
     public void onDownloadClicked(DiscoverBook book) {
@@ -517,6 +524,7 @@ public class DiscoverFragment extends Fragment implements DiscoverBookAdapter.Li
         noResultsText.setVisibility(View.GONE);
         errorState.setVisibility(View.GONE);
         recycler.setVisibility(View.VISIBLE);
+        if (gameView != null) gameView.stopLoop();
     }
 
     private void showEmpty() {
@@ -527,6 +535,7 @@ public class DiscoverFragment extends Fragment implements DiscoverBookAdapter.Li
         errorState.setVisibility(View.GONE);
         emptyState.setVisibility(View.VISIBLE);
         countLabel.setText("0 books");
+        if (gameView != null) gameView.stopLoop();
     }
 
     private void showNoResults() {
@@ -536,6 +545,7 @@ public class DiscoverFragment extends Fragment implements DiscoverBookAdapter.Li
         errorState.setVisibility(View.GONE);
         recycler.setVisibility(View.GONE);
         noResultsText.setVisibility(View.VISIBLE);
+        if (gameView != null) gameView.stopLoop();<
     }
 
     private void showError(String message) {
@@ -546,6 +556,17 @@ public class DiscoverFragment extends Fragment implements DiscoverBookAdapter.Li
         noResultsText.setVisibility(View.GONE);
         errorMessage.setText(message != null ? message : "Something went wrong.");
         errorState.setVisibility(View.VISIBLE);
+
+        boolean offline = !NetworkUtils.isOnline(requireContext());
+        if (gameView != null) {
+            gameView.setVisibility(offline ? View.VISIBLE : View.GONE);
+            if (offline) {
+                gameView.applyTheme(themeManager.getActiveTheme());
+                gameView.startLoop();
+            } else {
+                gameView.stopLoop();
+            }
+        }
     }
 
     private void hideError() {
