@@ -1,8 +1,10 @@
 package neunix.pagevibe.app;
 
 import android.content.Context;
-import android.content.Intent;
+import android.app.DownloadManager;
 import android.content.IntentFilter;
+import android.os.Build;
+import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
@@ -251,16 +253,35 @@ public class DiscoverBookDetailActivity extends AppCompatActivity {
     }
 
     private void registerDownloadReceiver() {
-        if (downloadReceiver != null) return;
-        downloadReceiver = new DiscoverDownloadReceiver(id -> {
-            if (downloadHelper.matchesStoredId(book.getBookId(), id)) refreshActionState();
-        });
-        registerReceiver(downloadReceiver, new IntentFilter(android.app.DownloadManager.ACTION_DOWNLOAD_COMPLETE));
+    if (downloadReceiver != null) return;
+
+    downloadReceiver = new DiscoverDownloadReceiver(downloadId -> {
+        if (downloadHelper.matchesStoredId(book.getBookId(), downloadId)) {
+            refreshActionState();
+        }
+    });
+
+    IntentFilter filter = new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE);
+
+    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+        registerReceiver(
+                downloadReceiver,
+                filter,
+                Context.RECEIVER_NOT_EXPORTED
+        );
+    } else {
+        registerReceiver(downloadReceiver, filter);
     }
+}
 
     private void unregisterDownloadReceiver() {
-        if (downloadReceiver == null) return;
-        try { unregisterReceiver(downloadReceiver); } catch (Throwable ignored) {}
-        downloadReceiver = null;
+    if (downloadReceiver == null) return;
+
+    try {
+        unregisterReceiver(downloadReceiver);
+    } catch (IllegalArgumentException ignored) {
     }
+
+    downloadReceiver = null;
+}
 }
