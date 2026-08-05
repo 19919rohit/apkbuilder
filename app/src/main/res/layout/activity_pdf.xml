@@ -6,39 +6,39 @@
     android:layout_height="match_parent"
     android:background="#0A0A0A">
 
-    <neunix.pagevibe.GalleryZoomView
+    <neunix.pagevibe.app.GalleryZoomView
         android:id="@+id/zoomContainer"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="#FFFFFFFF">
 
-        <neunix.pagevibe.CurlView
+        <neunix.pagevibe.app.CurlView
             android:id="@+id/curlView"
             android:layout_width="match_parent"
             android:layout_height="match_parent"/>
 
-        <neunix.pagevibe.DrawingView
+        <neunix.pagevibe.app.DrawingView
             android:id="@+id/drawingView"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:clickable="false"
             android:focusable="false"/>
 
-        <neunix.pagevibe.HighlightOverlayView
+        <neunix.pagevibe.app.HighlightOverlayView
             android:id="@+id/highlightOverlay"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:clickable="false"
             android:focusable="false"/>
 
-        <neunix.pagevibe.TextSelectionView
+        <neunix.pagevibe.app.TextSelectionView
             android:id="@+id/textSelectionView"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:clickable="false"
             android:focusable="false"/>
 
-    </neunix.pagevibe.GalleryZoomView>
+    </neunix.pagevibe.app.GalleryZoomView>
 
     <FrameLayout
         android:id="@+id/loadingOverlay"

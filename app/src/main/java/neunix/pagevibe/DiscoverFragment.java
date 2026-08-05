@@ -9,7 +9,9 @@ import android.os.Handler;
 import android.os.Looper;
 import android.text.Editable;
 import android.text.TextWatcher;
-import androidx.core.content.ContextCompat;
+import android.content.Context;
+import android.app.DownloadManager;
+import android.os.Build;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -381,19 +383,41 @@ public class DiscoverFragment extends Fragment implements DiscoverBookAdapter.Li
     // =========================================================
 
     private void registerDownloadReceiver() {
-    if (downloadReceiver != null) return;
+    if (downloadReceiver != null || !isAdded()) {
+        return;
+    }
 
     downloadReceiver = new DiscoverDownloadReceiver(this::onSystemDownloadComplete);
 
-    IntentFilter filter =
-            new IntentFilter(android.app.DownloadManager.ACTION_DOWNLOAD_COMPLETE);
-
-    ContextCompat.registerReceiver(
-            requireContext(),
-            downloadReceiver,
-            filter,
-            ContextCompat.RECEIVER_NOT_EXPORTED
+    IntentFilter filter = new IntentFilter(
+            DownloadManager.ACTION_DOWNLOAD_COMPLETE
     );
+
+    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+        requireContext().registerReceiver(
+                downloadReceiver,
+                filter,
+                Context.RECEIVER_NOT_EXPORTED
+        );
+    } else {
+        requireContext().registerReceiver(
+                downloadReceiver,
+                filter
+        );
+    }
+}
+
+private void unregisterDownloadReceiver() {
+    if (downloadReceiver == null || !isAdded()) {
+        return;
+    }
+
+    try {
+        requireContext().unregisterReceiver(downloadReceiver);
+    } catch (IllegalArgumentException ignored) {
+    }
+
+    downloadReceiver = null;
 }
 
     private void unregisterDownloadReceiver() {
