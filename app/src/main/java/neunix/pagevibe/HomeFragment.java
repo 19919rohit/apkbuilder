@@ -1,4 +1,4 @@
-package neunix.pagevibe.app;
+package neunix.pagevibe;
 
 import android.content.Context;
 import android.content.Intent;
@@ -35,12 +35,14 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * Home tab — premium dashboard redesign. Replaces the old full-width
- * "Open PDF" bottom bar (which repeatedly read as a generic file-utility
- * screen in store review) with a floating action button, three compact
- * tappable stat chips instead of one plain insights card, and a
- * full-bleed "hero" Continue Reading card with real cover art and a
- * scrim overlay instead of a small thumbnail + plain text row.
+ * Home tab — original dashboard layout. Only the primary "open a PDF"
+ * action changed: the full-width bottom bar is replaced by a floating
+ * action button (id btnOpenPdfFab).
+ *
+ * bindInsights() deliberately never falls back to showing a library-size
+ * count on the secondary line — that line stays strictly about reading
+ * activity (streak / today's time / a neutral prompt), never library
+ * inventory, per explicit design direction.
  */
 public class HomeFragment extends Fragment {
 
@@ -48,26 +50,24 @@ public class HomeFragment extends Fragment {
 
     private View          root;
     private TextView      greetingText;
-    private ImageButton   btnSettings;
-
-    private View          statChipStreak, statChipLibrary, statChipToday;
-    private TextView      statStreakValue, statLibraryValue, statTodayValue;
-
+    private View          insightsCard;
+    private TextView      insightsPrimaryText;
+    private TextView      insightsSecondaryText;
     private View          continueSection;
-    private View          continueHeroCard;
-    private ImageView     continueHeroCover;
-    private TextView      continueHeroInitial;
-    private TextView      continueHeroTitle;
-    private TextView      continueHeroSubtitle;
-    private TextView      continueHeroPercentBadge;
-    private View          continueHeroProgressTrack;
-    private View          continueHeroProgressFill;
-
+    private View          continueCard;
+    private ImageView     continueThumbnail;
+    private TextView      continueInitial;
+    private TextView      continueTitle;
+    private TextView      continueSubtitle;
+    private View          progressFill;
+    private View          progressTrack;
+    private TextView      progressLabel;
     private View          recentSection;
     private TextView      btnSeeAllRecent;
     private RecyclerView  recentStrip;
     private View          emptyState;
     private ImageButton   btnOpenPdfFab;
+    private ImageButton   btnSettings;
 
     private LibraryManager         libraryManager;
     private ReadingStatsController stats;
@@ -154,31 +154,25 @@ public class HomeFragment extends Fragment {
     }
 
     private void bindViews() {
-        greetingText   = root.findViewById(R.id.greetingText);
-        btnSettings    = root.findViewById(R.id.btnSettings);
-
-        statChipStreak  = root.findViewById(R.id.statChipStreak);
-        statChipLibrary = root.findViewById(R.id.statChipLibrary);
-        statChipToday   = root.findViewById(R.id.statChipToday);
-        statStreakValue  = root.findViewById(R.id.statStreakValue);
-        statLibraryValue = root.findViewById(R.id.statLibraryValue);
-        statTodayValue   = root.findViewById(R.id.statTodayValue);
-
-        continueSection           = root.findViewById(R.id.continueSection);
-        continueHeroCard          = root.findViewById(R.id.continueHeroCard);
-        continueHeroCover         = root.findViewById(R.id.continueHeroCover);
-        continueHeroInitial       = root.findViewById(R.id.continueHeroInitial);
-        continueHeroTitle         = root.findViewById(R.id.continueHeroTitle);
-        continueHeroSubtitle      = root.findViewById(R.id.continueHeroSubtitle);
-        continueHeroPercentBadge  = root.findViewById(R.id.continueHeroPercentBadge);
-        continueHeroProgressTrack = root.findViewById(R.id.continueHeroProgressTrack);
-        continueHeroProgressFill  = root.findViewById(R.id.continueHeroProgressFill);
-
+        greetingText          = root.findViewById(R.id.greetingText);
+        insightsCard          = root.findViewById(R.id.insightsCard);
+        insightsPrimaryText   = root.findViewById(R.id.insightsPrimaryText);
+        insightsSecondaryText = root.findViewById(R.id.insightsSecondaryText);
+        continueSection       = root.findViewById(R.id.continueSection);
+        continueCard          = root.findViewById(R.id.continueCard);
+        continueThumbnail     = root.findViewById(R.id.continueThumbnail);
+        continueInitial       = root.findViewById(R.id.continueInitial);
+        continueTitle         = root.findViewById(R.id.continueTitle);
+        continueSubtitle      = root.findViewById(R.id.continueSubtitle);
+        progressFill    = root.findViewById(R.id.progressFill);
+        progressTrack   = root.findViewById(R.id.progressTrack);
+        progressLabel   = root.findViewById(R.id.progressLabel);
         recentSection   = root.findViewById(R.id.recentSection);
         btnSeeAllRecent = root.findViewById(R.id.btnSeeAllRecent);
         recentStrip     = root.findViewById(R.id.recentStrip);
         emptyState      = root.findViewById(R.id.emptyState);
         btnOpenPdfFab   = root.findViewById(R.id.btnOpenPdfFab);
+        btnSettings     = root.findViewById(R.id.btnSettings);
 
         greetingText.setText(greeting());
     }
@@ -198,13 +192,10 @@ public class HomeFragment extends Fragment {
             TooltipUtil.apply(btnSettings, "Settings");
         }
 
-        View.OnClickListener openStats = v -> {
-            bouncePress(v);
+        insightsCard.setOnClickListener(v -> {
+            bouncePress(insightsCard);
             startActivity(new Intent(requireContext(), StatsActivity.class));
-        };
-        statChipStreak.setOnClickListener(openStats);
-        statChipLibrary.setOnClickListener(openStats);
-        statChipToday.setOnClickListener(openStats);
+        });
 
         btnOpenPdfFab.setOnClickListener(v ->
                 v.animate().scaleX(0.88f).scaleY(0.88f).setDuration(90)
@@ -234,17 +225,32 @@ public class HomeFragment extends Fragment {
                 .setInterpolator(new OvershootInterpolator(2.5f)).start();
     }
 
+    /**
+     * Secondary line stays strictly about reading activity — streak,
+     * today's reading time, or a neutral "tap to see your stats" prompt.
+     * It never falls back to a library-size count; that information
+     * belongs to the Library tab, not this card.
+     */
     private void bindInsights() {
-        if (stats == null || libraryManager == null || statStreakValue == null) return;
+        if (stats == null || insightsPrimaryText == null) return;
 
         int streak = stats.getCurrentStreakDays();
-        statStreakValue.setText(streak > 0 ? "🔥 " + streak : "0");
-
-        statLibraryValue.setText(String.valueOf(libraryManager.size()));
-
         List<ReadingStatsController.DayEntry> days = stats.getRecentDayEntries();
         long todaySeconds = days.isEmpty() ? 0L : days.get(0).seconds;
-        statTodayValue.setText(todaySeconds > 0 ? ReadingStatsController.formatDuration(todaySeconds) : "0m");
+
+        if (streak > 0) {
+            insightsPrimaryText.setText("🔥 " + streak + " day streak");
+        } else if (stats.getTotalSeconds() > 0) {
+            insightsPrimaryText.setText("Keep reading to build a streak");
+        } else {
+            insightsPrimaryText.setText("Track your reading progress");
+        }
+
+        if (todaySeconds > 0) {
+            insightsSecondaryText.setText(ReadingStatsController.formatDuration(todaySeconds) + " read today");
+        } else {
+            insightsSecondaryText.setText("Tap to see your stats");
+        }
     }
 
     private void openFilePicker() {
@@ -280,7 +286,7 @@ public class HomeFragment extends Fragment {
         recentSection.setVisibility(  empty ? View.GONE    : View.VISIBLE);
 
         if (!empty) {
-            bindContinueHero(recentEntries.get(0));
+            bindContinueCard(recentEntries.get(0));
             recentAdapter.notifyDataSetChanged();
             for (LibraryManager.Entry e : recentEntries) loadThumbAsync(e);
         }
@@ -288,10 +294,10 @@ public class HomeFragment extends Fragment {
         if (animate) animateEntrance();
     }
 
-    private void bindContinueHero(LibraryManager.Entry entry) {
+    private void bindContinueCard(LibraryManager.Entry entry) {
         String name = LibraryManager.displayName(entry);
-        continueHeroTitle.setText(name);
-        continueHeroInitial.setText(name.isEmpty() ? "?" : name.substring(0, 1).toUpperCase());
+        continueTitle.setText(name);
+        continueInitial.setText(name.isEmpty() ? "?" : name.substring(0, 1).toUpperCase());
 
         SharedPreferences prefs =
                 requireContext().getSharedPreferences("pagevibe_prefs", Context.MODE_PRIVATE);
@@ -299,41 +305,38 @@ public class HomeFragment extends Fragment {
         int totalPages = prefs.getInt("total_pages_" + entry.uri.hashCode(), 0);
 
         if (totalPages > 1) {
-            continueHeroSubtitle.setText(
+            continueSubtitle.setText(
                     "Page " + (lastPage + 1) + " of " + totalPages
                     + "  ·  " + relativeTime(entry.lastOpenedAt));
 
             float pct = (float) lastPage / (totalPages - 1);
-            int pctInt = Math.round(pct * 100);
-            continueHeroPercentBadge.setVisibility(View.VISIBLE);
-            continueHeroPercentBadge.setText(pctInt + "%");
-
-            continueHeroProgressTrack.post(() -> {
+            progressTrack.post(() -> {
                 if (root == null) return;
-                int maxW = continueHeroProgressTrack.getWidth();
-                ViewGroup.LayoutParams lp = continueHeroProgressFill.getLayoutParams();
-                lp.width = (int) (maxW * pct);
-                continueHeroProgressFill.setLayoutParams(lp);
+                int maxW = progressTrack.getWidth();
+                ViewGroup.LayoutParams lp = progressFill.getLayoutParams();
+                lp.width = (int)(maxW * pct);
+                progressFill.setLayoutParams(lp);
             });
+            progressLabel.setText((int)(pct * 100) + "% complete");
 
         } else if (totalPages == 1) {
-            continueHeroSubtitle.setText("1 page  ·  " + relativeTime(entry.lastOpenedAt));
-            resetHeroProgress();
+            continueSubtitle.setText("1 page  ·  " + relativeTime(entry.lastOpenedAt));
+            resetProgressBar();
         } else {
-            continueHeroSubtitle.setText(relativeTime(entry.lastOpenedAt));
-            resetHeroProgress();
+            continueSubtitle.setText(relativeTime(entry.lastOpenedAt));
+            resetProgressBar();
         }
 
-        continueHeroCard.setOnClickListener(v -> openReader(entry.uri));
+        continueCard.setOnClickListener(v -> openReader(entry.uri));
 
-        applyHeroCover(entry);
+        applyThumb(continueThumbnail, continueInitial, entry, false);
     }
 
-    private void resetHeroProgress() {
-        continueHeroPercentBadge.setVisibility(View.GONE);
-        ViewGroup.LayoutParams lp = continueHeroProgressFill.getLayoutParams();
+    private void resetProgressBar() {
+        ViewGroup.LayoutParams lp = progressFill.getLayoutParams();
         lp.width = 0;
-        continueHeroProgressFill.setLayoutParams(lp);
+        progressFill.setLayoutParams(lp);
+        progressLabel.setText("");
     }
 
     private void loadThumbAsync(LibraryManager.Entry entry) {
@@ -357,14 +360,14 @@ public class HomeFragment extends Fragment {
                     PdfCore core = new PdfCore();
                     try {
                         core.open(appContext, uri);
-                        core.setScreenSize(480, 640);
+                        core.setScreenSize(240, 320);
                         if (core.pageCount() > 0) {
                             int total = core.pageCount();
                             SharedPreferences prefs = appContext.getSharedPreferences("pagevibe_prefs", Context.MODE_PRIVATE);
                             if (prefs.getInt("total_pages_" + uri.hashCode(), 0) == 0) {
                                 prefs.edit().putInt("total_pages_" + uri.hashCode(), total).apply();
                             }
-                            Bitmap rendered = core.renderPage(0, 480, 640);
+                            Bitmap rendered = core.renderPage(0, 240, 320);
                             owned = rendered.copy(Bitmap.Config.ARGB_8888, false);
                         }
                     } finally {
@@ -387,29 +390,9 @@ public class HomeFragment extends Fragment {
 
     private void onThumbLoaded(Uri uri) {
         if (!recentEntries.isEmpty() && recentEntries.get(0).uri.equals(uri)) {
-            applyHeroCover(recentEntries.get(0));
+            bindContinueCard(recentEntries.get(0));
         }
         recentAdapter.notifyDataSetChanged();
-    }
-
-    private void applyHeroCover(LibraryManager.Entry entry) {
-        String key   = entry.uri.toString() + "#" + entry.coverUpdatedAt;
-        Bitmap thumb = thumbCache.get(key);
-
-        continueHeroCover.setImageBitmap(null);
-
-        if (thumb != null && !thumb.isRecycled()) {
-            continueHeroCover.setImageBitmap(thumb);
-            continueHeroCover.setVisibility(View.VISIBLE);
-            continueHeroInitial.setVisibility(View.GONE);
-            continueHeroCover.setAlpha(0f);
-            continueHeroCover.animate().alpha(1f).setDuration(280).start();
-        } else {
-            continueHeroCover.setVisibility(View.GONE);
-            String name = LibraryManager.displayName(entry);
-            continueHeroInitial.setText(name.isEmpty() ? "?" : name.substring(0, 1).toUpperCase());
-            continueHeroInitial.setVisibility(View.VISIBLE);
-        }
     }
 
     private void applyThumb(ImageView img, TextView initial, LibraryManager.Entry entry, boolean fade) {
@@ -437,6 +420,7 @@ public class HomeFragment extends Fragment {
     private void animateEntrance() {
         int[] ids = {
                 R.id.headerSection,
+                R.id.insightsCard,
                 R.id.continueSection,
                 R.id.recentSection,
                 R.id.emptyState
@@ -474,7 +458,7 @@ public class HomeFragment extends Fragment {
     }
 
     private void clearThumbCache() {
-        if (continueHeroCover != null) continueHeroCover.setImageBitmap(null);
+        if (continueThumbnail != null) continueThumbnail.setImageBitmap(null);
         for (Bitmap b : thumbCache.values()) {
             if (b != null && !b.isRecycled()) b.recycle();
         }

@@ -407,19 +407,6 @@ public class DiscoverFragment extends Fragment implements DiscoverBookAdapter.Li
     }
 }
 
-private void unregisterDownloadReceiver() {
-    if (downloadReceiver == null || !isAdded()) {
-        return;
-    }
-
-    try {
-        requireContext().unregisterReceiver(downloadReceiver);
-    } catch (IllegalArgumentException ignored) {
-    }
-
-    downloadReceiver = null;
-}
-
     private void unregisterDownloadReceiver() {
         if (downloadReceiver == null) return;
         try { requireContext().unregisterReceiver(downloadReceiver); } catch (Throwable ignored) {}
