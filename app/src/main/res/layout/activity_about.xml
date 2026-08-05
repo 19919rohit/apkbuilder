@@ -104,7 +104,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:tag="theme:textPrimary"
-                        android:text="neunix.pagevibe"
+                        android:text="neunix.pagevibe.app"
                         android:textSize="14sp"
                         android:textColor="#F0F0F0"
                         android:textStyle="bold" />
