@@ -1,6 +1,0 @@
-<!-- res/drawable/ic_translate.xml -->
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
-    <path android:fillColor="#000000"
-        android:pathData="M12.87,15.07l-2.54,-2.51 0.03,-0.03c1.74,-1.94 2.98,-4.17 3.71,-6.53H17V4.5h-7V2H8v2.5H1v1.99h11.17C11.5,8.92 10.44,10.75 9,12.3 8.07,11.3 7.3,10.2 6.69,9h-2c0.73,1.63 1.73,3.17 2.98,4.56l-5.02,4.94L4,20l5,-5 3.11,3.11 0.76,-3.04zM18.5,10h-2L12,22h2l1.12,-3h4.75L21,22h2l-4.5,-12zM15.88,17l1.62,-4.33L19.12,17h-3.24z"/>
-</vector>
